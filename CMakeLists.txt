@@ -11,7 +11,6 @@ set (HEADERS
 
 set(SOURCES
   src/decode.cpp
-  src/encode.cpp
 )
 
 add_library(bencode ${SOURCES} ${HEADERS})
