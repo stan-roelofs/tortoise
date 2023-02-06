@@ -2,11 +2,11 @@
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 set(SOURCES
-    src/test_decode.cpp
+    src/test_bencode.cpp
 )
 
-add_executable(bencode_test ${SOURCES})
-target_link_libraries(bencode_test bencode gtest_main)
+add_executable(tortoise_test ${SOURCES})
+target_link_libraries(tortoise_test tortoise gtest_main)
 
 include(GoogleTest)
-gtest_discover_tests(bencode_test)
+gtest_discover_tests(tortoise_test)
