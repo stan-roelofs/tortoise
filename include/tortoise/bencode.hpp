@@ -24,7 +24,7 @@ namespace tortoise
         public:
             virtual ~Data() = default;
             virtual string_t Encode() = 0;
-            virtual void Accept(Visitor &v) = 0;
+            virtual void Accept(Visitor &v) const = 0;
         };
 
         using list_t = std::vector<std::shared_ptr<Data>>;
@@ -33,38 +33,38 @@ namespace tortoise
         class Visitor
         {
         public:
-            virtual void Visit(string_t &str) = 0;
-            virtual void Visit(integer_t &num) = 0;
-            virtual void Visit(list_t &lst) = 0;
-            virtual void Visit(dictionary_t &dct) = 0;
+            virtual void Visit(const string_t &str) = 0;
+            virtual void Visit(const integer_t &num) = 0;
+            virtual void Visit(const list_t &lst) = 0;
+            virtual void Visit(const dictionary_t &dct) = 0;
         };
 
         template <class T>
         class GetValueVisitor : public Visitor
         {
         public:
-            void Visit(string_t &str) override
+            void Visit(const string_t &str) override
             {
                 if constexpr (std::is_same_v<T, string_t>)
                     result_ = str;
                 else
                     throw BencodeException("Invalid type");
             }
-            void Visit(integer_t &num) override
+            void Visit(const integer_t &num) override
             {
                 if constexpr (std::is_same_v<T, integer_t>)
                     result_ = num;
                 else
                     throw BencodeException("Invalid type");
             }
-            void Visit(list_t &lst) override
+            void Visit(const list_t &lst) override
             {
                 if constexpr (std::is_same_v<T, list_t>)
                     result_ = lst;
                 else
                     throw BencodeException("Invalid type");
             }
-            void Visit(dictionary_t &dct) override
+            void Visit(const dictionary_t &dct) override
             {
                 if constexpr (std::is_same_v<T, dictionary_t>)
                     result_ = dct;
@@ -79,7 +79,7 @@ namespace tortoise
         };
 
         template <class T>
-        T get(Data &data)
+        T Get(const Data &data)
         {
             GetValueVisitor<T> g;
             data.Accept(g);
@@ -87,28 +87,15 @@ namespace tortoise
         }
 
         template <class T>
-        std::optional<T> get_optional(Data &data)
+        std::optional<T> GetSafe(const Data &data)
         {
             try
             {
-                return get<T>(data);
+                return Get<T>(data);
             }
             catch (BencodeException &)
             {
                 return std::nullopt;
-            }
-        }
-
-        template <class T>
-        T get_or(Data &data, T def)
-        {
-            try
-            {
-                return get<T>(data);
-            }
-            catch (BencodeException &)
-            {
-                return def;
             }
         }
 
@@ -118,7 +105,7 @@ namespace tortoise
          * \return A Data object.
          * \throws BencodeException if the string is not valid.
          */
-        std::unique_ptr<Data> decode(string_t str);
+        std::unique_ptr<Data> Decode(string_t str);
     } // namespace bencode
 } // namespace tortoise
 

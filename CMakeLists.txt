@@ -7,10 +7,13 @@ option(BUILD_TESTS "Build tests" OFF)
 
 set (HEADERS
   include/tortoise/bencode.hpp
+  include/tortoise/exceptions.hpp
+  include/tortoise/metainfo.hpp
 )
 
 set(SOURCES
   src/bencode.cpp
+  src/metainfo.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})

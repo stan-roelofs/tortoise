@@ -1,5 +1,7 @@
 #include <tortoise/bencode.hpp>
 
+#include <stdexcept>
+
 namespace tortoise
 {
     namespace bencode
@@ -9,7 +11,7 @@ namespace tortoise
         public:
             StringData(string_t str) : str_(std::move(str)) {}
             string_t Encode() override { return str_; }
-            void Accept(Visitor &v) override { v.Visit(str_); }
+            void Accept(Visitor &v) const override { v.Visit(str_); }
 
         private:
             string_t str_;
@@ -20,7 +22,7 @@ namespace tortoise
         public:
             IntegerData(integer_t num) : num_(num) {}
             string_t Encode() override { return "i" + std::to_string(num_) + "e"; }
-            void Accept(Visitor &v) override { v.Visit(num_); }
+            void Accept(Visitor &v) const override { v.Visit(num_); }
 
         private:
             integer_t num_;
@@ -38,7 +40,7 @@ namespace tortoise
                 result += "e";
                 return result;
             }
-            void Accept(Visitor &v) override { v.Visit(lst_); }
+            void Accept(Visitor &v) const override { v.Visit(lst_); }
 
         private:
             list_t lst_;
@@ -59,7 +61,7 @@ namespace tortoise
                 result += "e";
                 return result;
             }
-            void Accept(Visitor &v) override { v.Visit(dct_); }
+            void Accept(Visitor &v) const override { v.Visit(dct_); }
 
         private:
             dictionary_t dct_;
@@ -74,7 +76,19 @@ namespace tortoise
                 throw BencodeException("Invalid string: no colon");
 
             std::size_t pos = 0;
-            const auto length = std::stoull(str.substr(0, colon), &pos, 10);
+            std::uint64_t length = 0;
+            try
+            {
+                length = std::stoull(str.substr(0, colon), &pos, 10);
+            }
+            catch (const std::invalid_argument &e)
+            {
+                throw BencodeException(e.what());
+            }
+            catch (const std::out_of_range &e)
+            {
+                throw BencodeException(e.what());
+            }
             if (pos != colon)
                 throw BencodeException("Invalid string: invalid length");
 
@@ -103,9 +117,23 @@ namespace tortoise
                 throw BencodeException("Invalid integer: leading zero");
 
             std::size_t pos = 0;
-            const auto value = std::stoll(std::string(data), &pos, 10);
+            std::int64_t value = 0;
+            try
+            {
+                value = std::stoll(std::string(data), &pos, 10);
+            }
+            catch (const std::invalid_argument &e)
+            {
+                throw BencodeException(e.what());
+            }
+            catch (const std::out_of_range &e)
+            {
+                throw BencodeException(e.what());
+            }
             if (pos != data.length())
                 throw BencodeException("Invalid integer");
+
+			str = str.substr(end + 1);
 
             return value;
         }
@@ -170,7 +198,7 @@ namespace tortoise
             return std::make_unique<StringData>(decode_string(str));
         }
 
-        std::unique_ptr<Data> decode(string_t str)
+        std::unique_ptr<Data> Decode(string_t str)
         {
             return decode_internal(str);
         }

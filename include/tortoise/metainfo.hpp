@@ -10,7 +10,12 @@ namespace tortoise
     class Metainfo
     {
     public:
-        Metainfo(bencode::data &data);
+        /*!
+         * \brief Create metainfo from bencoded data.
+         * \param data Bencoded data.
+         * \return A new metainfo object if the data is valid, otherwise nullptr.
+         */
+        static std::unique_ptr<Metainfo> FromBencode(const bencode::Data &data);
 
         //! \brief The URL of the tracker.
         std::string GetAnnounce() const;
@@ -43,6 +48,13 @@ namespace tortoise
         };
 
         std::variant<SingleFile, MultiFile> GetFileInfo() const;
+
+    private:
+        std::string announce_;
+        std::string name_;
+        std::uint64_t piece_length_;
+        std::vector<std::string> pieces_;
+        std::variant<SingleFile, MultiFile> file_info_;
     };
 }
 
