@@ -43,39 +43,37 @@ namespace tortoise
         class GetValueVisitor : public Visitor
         {
         public:
+			GetValueVisitor() : result_(nullptr) {}
             void Visit(const string_t &str) override
             {
                 if constexpr (std::is_same_v<T, string_t>)
-                    result_ = str;
-                else
-                    throw BencodeException("Invalid type");
+                    result_ = &str;
             }
             void Visit(const integer_t &num) override
             {
                 if constexpr (std::is_same_v<T, integer_t>)
-                    result_ = num;
-                else
-                    throw BencodeException("Invalid type");
+                    result_ = &num;
             }
             void Visit(const list_t &lst) override
             {
                 if constexpr (std::is_same_v<T, list_t>)
-                    result_ = lst;
-                else
-                    throw BencodeException("Invalid type");
+                    result_ = &lst;
             }
             void Visit(const dictionary_t &dct) override
             {
                 if constexpr (std::is_same_v<T, dictionary_t>)
-                    result_ = dct;
-                else
-                    throw BencodeException("Invalid type");
+                    result_ = &dct;
             }
 
-            T result() const { return result_; }
+            const T &result() const
+            {
+                if (!result_)
+                    throw BencodeException("No value found");
+                return *result_;
+            }
 
         private:
-            T result_;
+            const T *result_;
         };
 
         template <class T>

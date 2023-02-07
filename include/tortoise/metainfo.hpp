@@ -41,7 +41,7 @@ namespace tortoise
                 //! \brief The length of the file in bytes.
                 std::uint64_t length;
                 //! \brief A list of UTF-8 encoded strings corresponding to subdirectory name, the last is the actual file name.
-                std::string path;
+                std::vector<std::string> path;
             };
 
             std::vector<File> files;
