@@ -54,48 +54,7 @@
  *  Comments:
  *
  */
-SHA1::SHA1()
-{
-    Reset();
-}
-
-/*
- *  ~SHA1
- *
- *  Description:
- *      This is the destructor for the sha1 class
- *
- *  Parameters:
- *      None.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-SHA1::~SHA1()
-{
-    // The destructor does nothing
-}
-
-/*
- *  Reset
- *
- *  Description:
- *      This function will initialize the sha1 class member variables
- *      in preparation for computing a new message digest.
- *
- *  Parameters:
- *      None.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-void SHA1::Reset()
+SHA1::SHA1(const void *buffer, std::size_t length)
 {
     Length_Low = 0;
     Length_High = 0;
@@ -109,80 +68,17 @@ void SHA1::Reset()
 
     Computed = false;
     Corrupted = false;
-}
 
-/*
- *  Result
- *
- *  Description:
- *      This function will return the 160-bit message digest into the
- *      array provided.
- *
- *  Parameters:
- *      message_digest_array: [out]
- *          This is an array of five unsigned integers which will be filled
- *          with the message digest that has been computed.
- *
- *  Returns:
- *      True if successful, false if it failed.
- *
- *  Comments:
- *
- */
-bool SHA1::Result(unsigned *message_digest_array)
-{
-    int i; // Counter
-
-    if (Corrupted)
-    {
-        return false;
-    }
-
-    if (!Computed)
-    {
-        PadMessage();
-        Computed = true;
-    }
-
-    for (i = 0; i < 5; i++)
-    {
-        message_digest_array[i] = H[i];
-    }
-
-    return true;
-}
-
-/*
- *  Input
- *
- *  Description:
- *      This function accepts an array of octets as the next portion of
- *      the message.
- *
- *  Parameters:
- *      message_array: [in]
- *          An array of characters representing the next portion of the
- *          message.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-void SHA1::Input(const unsigned char *message_array,
-                 unsigned length)
-{
     if (!length)
-    {
         return;
-    }
 
     if (Computed || Corrupted)
     {
         Corrupted = true;
         return;
     }
+
+    const std::uint8_t *message_array = reinterpret_cast<const std::uint8_t *>(buffer);
 
     while (length-- && !Corrupted)
     {
@@ -209,182 +105,46 @@ void SHA1::Input(const unsigned char *message_array,
     }
 }
 
-/*
- *  Input
- *
- *  Description:
- *      This function accepts an array of octets as the next portion of
- *      the message.
- *
- *  Parameters:
- *      message_array: [in]
- *          An array of characters representing the next portion of the
- *          message.
- *      length: [in]
- *          The length of the message_array
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-void SHA1::Input(const char *message_array,
-                 unsigned length)
+const uint8_t *SHA1::GetHash()
 {
-    Input((unsigned char *)message_array, length);
-}
+    if (Corrupted)
+        return nullptr;
 
-/*
- *  Input
- *
- *  Description:
- *      This function accepts a single octets as the next message element.
- *
- *  Parameters:
- *      message_element: [in]
- *          The next octet in the message.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-void SHA1::Input(unsigned char message_element)
-{
-    Input(&message_element, 1);
-}
-
-/*
- *  Input
- *
- *  Description:
- *      This function accepts a single octet as the next message element.
- *
- *  Parameters:
- *      message_element: [in]
- *          The next octet in the message.
- *
- *  Returns:
- *      Nothing.
- *
- *  Comments:
- *
- */
-void SHA1::Input(char message_element)
-{
-    Input((unsigned char *)&message_element, 1);
-}
-
-/*
- *  operator<<
- *
- *  Description:
- *      This operator makes it convenient to provide character strings to
- *      the SHA1 object for processing.
- *
- *  Parameters:
- *      message_array: [in]
- *          The character array to take as input.
- *
- *  Returns:
- *      A reference to the SHA1 object.
- *
- *  Comments:
- *      Each character is assumed to hold 8 bits of information.
- *
- */
-SHA1 &SHA1::operator<<(const char *message_array)
-{
-    const char *p = message_array;
-
-    while (*p)
+    if (!Computed)
     {
-        Input(*p);
-        p++;
+        PadMessage();
+        Computed = true;
+
+        for (int i = 0; i < 5; i++)
+        {
+            Hash[i * 4] = H[i] >> 24;
+            Hash[i * 4 + 1] = H[i] >> 16;
+            Hash[i * 4 + 2] = H[i] >> 8;
+            Hash[i * 4 + 3] = H[i];
+        }
     }
 
-    return *this;
+    return Hash;
 }
 
 /*
- *  operator<<
+ *  ~SHA1
  *
  *  Description:
- *      This operator makes it convenient to provide character strings to
- *      the SHA1 object for processing.
+ *      This is the destructor for the sha1 class
  *
  *  Parameters:
- *      message_array: [in]
- *          The character array to take as input.
+ *      None.
  *
  *  Returns:
- *      A reference to the SHA1 object.
+ *      Nothing.
  *
  *  Comments:
- *      Each character is assumed to hold 8 bits of information.
  *
  */
-SHA1 &SHA1::operator<<(const unsigned char *message_array)
+SHA1::~SHA1()
 {
-    const unsigned char *p = message_array;
-
-    while (*p)
-    {
-        Input(*p);
-        p++;
-    }
-
-    return *this;
-}
-
-/*
- *  operator<<
- *
- *  Description:
- *      This function provides the next octet in the message.
- *
- *  Parameters:
- *      message_element: [in]
- *          The next octet in the message
- *
- *  Returns:
- *      A reference to the SHA1 object.
- *
- *  Comments:
- *      The character is assumed to hold 8 bits of information.
- *
- */
-SHA1 &SHA1::operator<<(const char message_element)
-{
-    Input((unsigned char *)&message_element, 1);
-
-    return *this;
-}
-
-/*
- *  operator<<
- *
- *  Description:
- *      This function provides the next octet in the message.
- *
- *  Parameters:
- *      message_element: [in]
- *          The next octet in the message
- *
- *  Returns:
- *      A reference to the SHA1 object.
- *
- *  Comments:
- *      The character is assumed to hold 8 bits of information.
- *
- */
-SHA1 &SHA1::operator<<(const unsigned char message_element)
-{
-    Input(&message_element, 1);
-
-    return *this;
+    // The destructor does nothing
 }
 
 /*

@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include "sha1.hpp"
+
 namespace tortoise
 {
     std::unique_ptr<Metainfo> Metainfo::FromBencode(const bencode::Data &data)
@@ -23,6 +25,10 @@ namespace tortoise
 
             for (std::size_t i = 0; i < pieces.size(); i += 20)
                 metainfo->pieces_.push_back(pieces.substr(i, 20));
+
+            // These fields are mutually exclusive.
+            if (info.find("files") != info.end() && info.find("length") != info.end())
+                return nullptr;
 
             if (info.find("length") != info.end())
                 metainfo->file_info_ = SingleFile{static_cast<std::uint32_t>(bencode::Get<bencode::integer_t>(*info.at("length")))};
@@ -46,6 +52,14 @@ namespace tortoise
             else
                 return nullptr;
 
+            // Calculate the info hash.
+            const bencode::string_t &info_str = dct.at("info")->Encode();
+            SHA1 sha1(info_str.c_str(), info_str.length());
+            const uint8_t *info_hash = sha1.GetHash();
+            if (!info_hash)
+                return nullptr;
+
+            std::copy(info_hash, info_hash + 20, metainfo->info_hash_.begin());
             return metainfo;
         }
         catch (const BencodeException &)
@@ -58,12 +72,12 @@ namespace tortoise
         }
     }
 
-    std::string Metainfo::GetAnnounce() const
+    const std::string &Metainfo::GetAnnounce() const
     {
         return announce_;
     }
 
-    std::string Metainfo::GetName() const
+    const std::string &Metainfo::GetName() const
     {
         return name_;
     }
@@ -73,7 +87,7 @@ namespace tortoise
         return piece_length_;
     }
 
-    std::vector<std::string> Metainfo::GetPieces() const
+    const std::vector<std::string> &Metainfo::GetPieces() const
     {
         return pieces_;
     }
@@ -81,5 +95,10 @@ namespace tortoise
     std::variant<Metainfo::SingleFile, Metainfo::MultiFile> Metainfo::GetFileInfo() const
     {
         return file_info_;
+    }
+
+    const std::array<std::uint8_t, 20> &Metainfo::GetInfoHash() const
+    {
+        return info_hash_;
     }
 } // namespace tortoise

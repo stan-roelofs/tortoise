@@ -39,36 +39,17 @@
 #ifndef _SHA1_H_
 #define _SHA1_H_
 
+#include <cstddef>
+#include <cstdint>
+
 class SHA1
 {
 
 public:
-    SHA1();
-    virtual ~SHA1();
+    SHA1(const void *buffer, std::size_t size);
+    ~SHA1();
 
-    /*
-     *  Re-initialize the class
-     */
-    void Reset();
-
-    /*
-     *  Returns the message digest
-     */
-    bool Result(unsigned *message_digest_array);
-
-    /*
-     *  Provide input to SHA1
-     */
-    void Input(const unsigned char *message_array,
-               unsigned length);
-    void Input(const char *message_array,
-               unsigned length);
-    void Input(unsigned char message_element);
-    void Input(char message_element);
-    SHA1 &operator<<(const char *message_array);
-    SHA1 &operator<<(const unsigned char *message_array);
-    SHA1 &operator<<(const char message_element);
-    SHA1 &operator<<(const unsigned char message_element);
+    const std::uint8_t *GetHash();
 
 private:
     /*
@@ -86,6 +67,7 @@ private:
      */
     inline unsigned CircularShift(int bits, unsigned word);
 
+    uint8_t Hash[20];
     unsigned H[5]; // Message digest buffers
 
     unsigned Length_Low;  // Message length in bits

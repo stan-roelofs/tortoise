@@ -18,16 +18,19 @@ namespace tortoise
         static std::unique_ptr<Metainfo> FromBencode(const bencode::Data &data);
 
         //! \brief The URL of the tracker.
-        std::string GetAnnounce() const;
+        const std::string &GetAnnounce() const;
 
         //! \brief A UTF-8 encoded string which is the suggested name to save the file (or directory) as.
-        std::string GetName() const;
+        const std::string &GetName() const;
 
         //! \brief The number of bytes in each piece the file is split into.
         std::uint32_t GetPieceLength() const;
 
         //! \brief A list of strings corresponding to the SHA1 hash values of each piece the file is split into.
-        std::vector<std::string> GetPieces() const;
+        const std::vector<std::string> &GetPieces() const;
+
+        //! \brief The SHA1 hash of the bencoded value of the info key.
+        const std::array<std::uint8_t, 20> &GetInfoHash() const;
 
         struct SingleFile
         {
@@ -55,6 +58,7 @@ namespace tortoise
         std::uint32_t piece_length_;
         std::vector<std::string> pieces_;
         std::variant<SingleFile, MultiFile> file_info_;
+        std::array<std::uint8_t, 20> info_hash_;
     };
 }
 
