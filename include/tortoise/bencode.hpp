@@ -43,7 +43,7 @@ namespace tortoise
         class GetValueVisitor : public Visitor
         {
         public:
-			GetValueVisitor() : result_(nullptr) {}
+            GetValueVisitor() : result_(nullptr) {}
             void Visit(const string_t &str) override
             {
                 if constexpr (std::is_same_v<T, string_t>)
@@ -99,11 +99,11 @@ namespace tortoise
 
         /*!
          * \brief Decode a bencoded string into a Data object.
-         * \param str The bencoded string.
+         * \param str The bencoded input data.
          * \return A Data object.
          * \throws BencodeException if the string is not valid.
          */
-        std::unique_ptr<Data> Decode(string_t str);
+        std::unique_ptr<Data> Decode(const char *str);
     } // namespace bencode
 } // namespace tortoise
 

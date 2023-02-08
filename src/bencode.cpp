@@ -133,7 +133,7 @@ namespace tortoise
             if (pos != data.length())
                 throw BencodeException("Invalid integer");
 
-			str = str.substr(end + 1);
+            str = str.substr(end + 1);
 
             return value;
         }
@@ -198,9 +198,10 @@ namespace tortoise
             return std::make_unique<StringData>(decode_string(str));
         }
 
-        std::unique_ptr<Data> Decode(string_t str)
+        std::unique_ptr<Data> Decode(const char *str)
         {
-            return decode_internal(str);
+            std::string input(str);
+            return decode_internal(input);
         }
     } // namespace bencode
 } // namespace tortoise
