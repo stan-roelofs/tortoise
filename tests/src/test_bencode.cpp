@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <tortoise/bencode/bencode.hpp>
+#include <tortoise/bencode.hpp>
 
 using namespace tortoise;
 using namespace bencode;

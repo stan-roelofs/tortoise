@@ -1,4 +1,4 @@
-#include <tortoise/bencode/bencode.hpp>
+#include <tortoise/bencode.hpp>
 
 #include <stdexcept>
 
