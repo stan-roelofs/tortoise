@@ -3,7 +3,7 @@
 
 #include <variant>
 
-#include "bencode.hpp"
+#include <tortoise/bencode/bencode.hpp>
 
 namespace tortoise
 {

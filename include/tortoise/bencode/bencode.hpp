@@ -7,7 +7,7 @@
 #include <optional>
 #include <vector>
 
-#include "exceptions.hpp"
+#include <tortoise/exceptions.hpp>
 
 namespace tortoise
 {
