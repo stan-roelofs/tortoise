@@ -6,66 +6,74 @@ namespace tortoise
 {
     namespace bencode
     {
-        class StringData : public Data
+        StringData::StringData(string_t str) : str_(std::move(str)) {}
+        string_t StringData::Encode() const
         {
-        public:
-            StringData(string_t str) : str_(std::move(str)) {}
-            string_t Encode() override { return str_; }
-            void Accept(Visitor &v) const override { v.Visit(str_); }
-
-        private:
-            string_t str_;
-        };
-
-        class IntegerData : public Data
+            return std::to_string(str_.length()) + ":" + str_;
+        }
+        void StringData::Accept(Visitor &v) const
         {
-        public:
-            IntegerData(integer_t num) : num_(num) {}
-            string_t Encode() override { return "i" + std::to_string(num_) + "e"; }
-            void Accept(Visitor &v) const override { v.Visit(num_); }
-
-        private:
-            integer_t num_;
-        };
-
-        class ListData : public Data
+            v.Visit(*this);
+        }
+        const string_t &StringData::GetString() const
         {
-        public:
-            ListData(list_t lst) : lst_(std::move(lst)) {}
-            string_t Encode() override
+            return str_;
+        }
+
+        IntegerData::IntegerData(integer_t num) : num_(num) {}
+        string_t IntegerData::Encode() const
+        {
+            return "i" + std::to_string(num_) + "e";
+        }
+        void IntegerData::Accept(Visitor &v) const
+        {
+            v.Visit(*this);
+        }
+        const integer_t &IntegerData::GetInteger() const
+        {
+            return num_;
+        }
+
+        ListData::ListData(list_t lst) : lst_(std::move(lst)) {}
+        string_t ListData::Encode() const
+        {
+            string_t result = "l";
+            for (const auto &item : lst_)
             {
-                string_t result = "l";
-                for (auto &item : lst_)
-                    result += item->Encode();
-                result += "e";
-                return result;
+                result += item->Encode();
             }
-            void Accept(Visitor &v) const override { v.Visit(lst_); }
-
-        private:
-            list_t lst_;
-        };
-
-        class DictionaryData : public Data
+            result += "e";
+            return result;
+        }
+        void ListData::Accept(Visitor &v) const
         {
-        public:
-            DictionaryData(dictionary_t dct) : dct_(std::move(dct)) {}
-            string_t Encode() override
-            {
-                string_t result = "d";
-                for (const auto &item : dct_)
-                {
-                    result += std::to_string(item.first.length()) + ":" + item.first;
-                    result += item.second->Encode();
-                }
-                result += "e";
-                return result;
-            }
-            void Accept(Visitor &v) const override { v.Visit(dct_); }
+            v.Visit(*this);
+        }
+        const list_t &ListData::GetList() const
+        {
+            return lst_;
+        }
 
-        private:
-            dictionary_t dct_;
-        };
+        DictionaryData::DictionaryData(dictionary_t dct) : dct_(std::move(dct)) {}
+        string_t DictionaryData::Encode() const
+        {
+            string_t result = "d";
+            for (const auto &item : dct_)
+            {
+                result += std::to_string(item.first.length()) + ":" + item.first;
+                result += item.second->Encode();
+            }
+            result += "e";
+            return result;
+        }
+        void DictionaryData::Accept(Visitor &v) const
+        {
+            v.Visit(*this);
+        }
+        const dictionary_t &DictionaryData::GetDictionary() const
+        {
+            return dct_;
+        }
 
         std::unique_ptr<Data> decode_internal(string_t &str);
 

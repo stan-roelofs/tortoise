@@ -15,7 +15,7 @@ namespace tortoise
     {
         using string_t = std::string;
         using string_view_t = std::string_view;
-        using integer_t = std::uint64_t;
+        using integer_t = std::int64_t;
 
         class Visitor;
 
@@ -23,20 +23,68 @@ namespace tortoise
         {
         public:
             virtual ~Data() = default;
-            virtual string_t Encode() = 0;
+            virtual string_t Encode() const = 0;
             virtual void Accept(Visitor &v) const = 0;
         };
 
         using list_t = std::vector<std::shared_ptr<Data>>;
         using dictionary_t = std::map<string_t, std::shared_ptr<Data>>;
 
+        class StringData : public Data
+        {
+        public:
+            StringData(string_t str);
+            string_t Encode() const override;
+            void Accept(Visitor &v) const override;
+            const string_t &GetString() const;
+
+        private:
+            string_t str_;
+        };
+
+        class IntegerData : public Data
+        {
+        public:
+            IntegerData(integer_t num);
+            string_t Encode() const override;
+            void Accept(Visitor &v) const override;
+            const integer_t &GetInteger() const;
+
+        private:
+            integer_t num_;
+        };
+
+        class ListData : public Data
+        {
+        public:
+            ListData(list_t lst);
+            string_t Encode() const override;
+            void Accept(Visitor &v) const override;
+            const list_t &GetList() const;
+
+        private:
+            list_t lst_;
+        };
+
+        class DictionaryData : public Data
+        {
+        public:
+            DictionaryData(dictionary_t dct);
+            string_t Encode() const override;
+            void Accept(Visitor &v) const override;
+            const dictionary_t &GetDictionary() const;
+
+        private:
+            dictionary_t dct_;
+        };
+
         class Visitor
         {
         public:
-            virtual void Visit(const string_t &str) = 0;
-            virtual void Visit(const integer_t &num) = 0;
-            virtual void Visit(const list_t &lst) = 0;
-            virtual void Visit(const dictionary_t &dct) = 0;
+            virtual void Visit(const StringData &str) = 0;
+            virtual void Visit(const IntegerData &num) = 0;
+            virtual void Visit(const ListData &lst) = 0;
+            virtual void Visit(const DictionaryData &dct) = 0;
         };
 
         template <class T>
@@ -44,25 +92,25 @@ namespace tortoise
         {
         public:
             GetValueVisitor() : result_(nullptr) {}
-            void Visit(const string_t &str) override
+            void Visit(const StringData &str) override
             {
                 if constexpr (std::is_same_v<T, string_t>)
-                    result_ = &str;
+                    result_ = &str.GetString();
             }
-            void Visit(const integer_t &num) override
+            void Visit(const IntegerData &num) override
             {
                 if constexpr (std::is_same_v<T, integer_t>)
-                    result_ = &num;
+                    result_ = &num.GetInteger();
             }
-            void Visit(const list_t &lst) override
+            void Visit(const ListData &lst) override
             {
                 if constexpr (std::is_same_v<T, list_t>)
-                    result_ = &lst;
+                    result_ = &lst.GetList();
             }
-            void Visit(const dictionary_t &dct) override
+            void Visit(const DictionaryData &dct) override
             {
                 if constexpr (std::is_same_v<T, dictionary_t>)
-                    result_ = &dct;
+                    result_ = &dct.GetDictionary();
             }
 
             const T &result() const

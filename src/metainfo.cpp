@@ -15,7 +15,7 @@ namespace tortoise
             const bencode::dictionary_t &info = bencode::Get<bencode::dictionary_t>(*dct.at("info"));
 
             metainfo->name_ = bencode::Get<bencode::string_t>(*info.at("name"));
-            metainfo->piece_length_ = bencode::Get<bencode::integer_t>(*info.at("piece length"));
+            metainfo->piece_length_ = static_cast<uint32_t>(bencode::Get<bencode::integer_t>(*info.at("piece length")));
             const std::string &pieces = bencode::Get<bencode::string_t>(*info.at("pieces"));
 
             if (pieces.length() % 20 != 0)
@@ -25,7 +25,7 @@ namespace tortoise
                 metainfo->pieces_.push_back(pieces.substr(i, 20));
 
             if (info.find("length") != info.end())
-                metainfo->file_info_ = SingleFile{bencode::Get<bencode::integer_t>(*info.at("length"))};
+                metainfo->file_info_ = SingleFile{static_cast<std::uint32_t>(bencode::Get<bencode::integer_t>(*info.at("length")))};
             else if (info.find("files") != info.end())
             {
                 MultiFile multi_file;
@@ -34,7 +34,7 @@ namespace tortoise
                 {
                     const bencode::dictionary_t &file_dct = bencode::Get<bencode::dictionary_t>(*file);
                     MultiFile::File multi_file_file;
-                    multi_file_file.length = bencode::Get<bencode::integer_t>(*file_dct.at("length"));
+                    multi_file_file.length = static_cast<std::uint32_t>(bencode::Get<bencode::integer_t>(*file_dct.at("length")));
 
                     const bencode::list_t &path_pieces = bencode::Get<bencode::list_t>(*file_dct.at("path"));
                     for (const auto &path_piece : path_pieces)
@@ -68,7 +68,7 @@ namespace tortoise
         return name_;
     }
 
-    std::uint64_t Metainfo::GetPieceLength() const
+    std::uint32_t Metainfo::GetPieceLength() const
     {
         return piece_length_;
     }

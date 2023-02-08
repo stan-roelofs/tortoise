@@ -147,6 +147,66 @@ TEST(bencode, decode_dictionary_no_end_throws)
     EXPECT_THROW(Decode(str.c_str()), BencodeException);
 }
 
+TEST(bencode, encode_string)
+{
+    const StringData str("spam");
+    EXPECT_EQ("4:spam", str.Encode());
+}
+
+TEST(bencode, encode_integer)
+{
+    const IntegerData integer(42);
+    EXPECT_EQ("i42e", integer.Encode());
+}
+
+TEST(bencode, encode_integer_zero)
+{
+    const IntegerData integer(0);
+    EXPECT_EQ("i0e", integer.Encode());
+}
+
+TEST(bencode, encode_integer_negative_zero)
+{
+    const IntegerData integer(-0);
+    EXPECT_EQ("i0e", integer.Encode());
+}
+
+TEST(bencode, encode_integer_negative)
+{
+    const IntegerData integer(-42);
+    EXPECT_EQ("i-42e", integer.Encode());
+}
+
+TEST(bencode, encode_list)
+{
+    list_t list;
+    list.push_back(std::make_shared<StringData>("spam"));
+    list.push_back(std::make_shared<StringData>("eggs"));
+    const ListData lst = ListData(move(list));
+    EXPECT_EQ("l4:spam4:eggse", lst.Encode());
+}
+
+TEST(bencode, encode_list_empty)
+{
+    const ListData lst = ListData(list_t());
+    EXPECT_EQ("le", lst.Encode());
+}
+
+TEST(bencode, encode_dictionary_empty)
+{
+    const DictionaryData dictionary = DictionaryData(dictionary_t());
+    EXPECT_EQ("de", dictionary.Encode());
+}
+
+TEST(bencode, encode_dictionary_is_sorted)
+{
+    dictionary_t dictionary;
+    dictionary["spam"] = std::make_shared<StringData>("eggs");
+    dictionary["cow"] = std::make_shared<StringData>("moo");
+    const DictionaryData dictionaryData = DictionaryData(move(dictionary));
+    EXPECT_EQ("d3:cow3:moo4:spam4:eggse", dictionaryData.Encode());
+}
+
 TEST(bencode, get_string)
 {
     EXPECT_EQ("spam", Get<string_t>(*Decode("4:spam")));

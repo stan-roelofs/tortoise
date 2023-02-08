@@ -24,14 +24,14 @@ namespace tortoise
         std::string GetName() const;
 
         //! \brief The number of bytes in each piece the file is split into.
-        std::uint64_t GetPieceLength() const;
+        std::uint32_t GetPieceLength() const;
 
         //! \brief A list of strings corresponding to the SHA1 hash values of each piece the file is split into.
         std::vector<std::string> GetPieces() const;
 
         struct SingleFile
         {
-            std::uint64_t length;
+            std::uint32_t length;
         };
 
         struct MultiFile
@@ -39,7 +39,7 @@ namespace tortoise
             struct File
             {
                 //! \brief The length of the file in bytes.
-                std::uint64_t length;
+                std::uint32_t length;
                 //! \brief A list of UTF-8 encoded strings corresponding to subdirectory name, the last is the actual file name.
                 std::vector<std::string> path;
             };
@@ -52,7 +52,7 @@ namespace tortoise
     private:
         std::string announce_;
         std::string name_;
-        std::uint64_t piece_length_;
+        std::uint32_t piece_length_;
         std::vector<std::string> pieces_;
         std::variant<SingleFile, MultiFile> file_info_;
     };
