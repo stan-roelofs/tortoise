@@ -9,11 +9,13 @@ set (HEADERS
   include/tortoise/bencode.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/metainfo.hpp
+  src/sha1.hpp
 )
 
 set(SOURCES
   src/bencode.cpp
   src/metainfo.cpp
+  src/sha1.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
