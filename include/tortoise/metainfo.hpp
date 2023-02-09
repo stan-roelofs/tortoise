@@ -1,6 +1,7 @@
 #ifndef TORTOISE_METADATA_HPP
 #define TORTOISE_METADATA_HPP
 
+#include <array>
 #include <variant>
 
 #include "bencode.hpp"

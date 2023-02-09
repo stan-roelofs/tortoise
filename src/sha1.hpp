@@ -67,7 +67,7 @@ private:
      */
     inline unsigned CircularShift(int bits, unsigned word);
 
-    uint8_t Hash[20];
+    std::uint8_t Hash[20];
     unsigned H[5]; // Message digest buffers
 
     unsigned Length_Low;  // Message length in bits

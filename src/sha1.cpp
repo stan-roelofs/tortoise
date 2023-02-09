@@ -105,7 +105,7 @@ SHA1::SHA1(const void *buffer, std::size_t length)
     }
 }
 
-const uint8_t *SHA1::GetHash()
+const std::uint8_t *SHA1::GetHash()
 {
     if (Corrupted)
         return nullptr;
@@ -117,10 +117,10 @@ const uint8_t *SHA1::GetHash()
 
         for (int i = 0; i < 5; i++)
         {
-            Hash[i * 4] = H[i] >> 24;
-            Hash[i * 4 + 1] = H[i] >> 16;
-            Hash[i * 4 + 2] = H[i] >> 8;
-            Hash[i * 4 + 3] = H[i];
+            Hash[i * 4] = static_cast<std::uint8_t>(H[i] >> 24);
+            Hash[i * 4 + 1] = static_cast<std::uint8_t>(H[i] >> 16);
+            Hash[i * 4 + 2] = static_cast<std::uint8_t>(H[i] >> 8);
+            Hash[i * 4 + 3] = static_cast<std::uint8_t>(H[i]);
         }
     }
 
