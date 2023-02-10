@@ -1,6 +1,7 @@
 #include <tortoise/bencode.hpp>
 
 #include <stdexcept>
+#include <sstream>
 
 namespace tortoise
 {
@@ -15,7 +16,7 @@ namespace tortoise
         {
             v.Visit(*this);
         }
-        const string_t &StringData::GetString() const
+        const std::string &StringData::GetString() const
         {
             return str_;
         }
@@ -75,141 +76,130 @@ namespace tortoise
             return dct_;
         }
 
-        std::unique_ptr<Data> decode_internal(string_t &str);
+        static std::unique_ptr<Data> decode_internal(std::istream &stream);
 
-        string_t decode_string(string_t &str)
+        static std::uint8_t get_next(std::istream &stream)
         {
-            const auto colon = str.find(':');
-            if (colon == string_t::npos)
-                throw BencodeException("Invalid string: no colon");
+            if (stream.eof())
+                throw BencodeException("Unexpected end of stream");
 
-            std::size_t pos = 0;
-            std::uint64_t length = 0;
-            try
-            {
-                length = std::stoull(str.substr(0, colon), &pos, 10);
-            }
-            catch (const std::invalid_argument &e)
-            {
-                throw BencodeException(e.what());
-            }
-            catch (const std::out_of_range &e)
-            {
-                throw BencodeException(e.what());
-            }
-            if (pos != colon)
-                throw BencodeException("Invalid string: invalid length");
+            return static_cast<std::uint8_t>(stream.get());
+        }
 
-            if (length > str.length() - colon - 1)
-                throw BencodeException("Invalid string: not enough data");
+        static std::uint64_t get_integer(std::istream &stream, std::uint8_t terminator, std::uint8_t prev_char = 0)
+        {
+            std::uint64_t result = 0;
+            std::uint8_t c = 0;
 
-            string_t result = str.substr(colon + 1, length);
-            str = str.substr(colon + 1 + length);
+            if (prev_char >= '0' && prev_char <= '9')
+                result = prev_char - '0';
+
+            while (true)
+            {
+                c = get_next(stream);
+                if (c == terminator)
+                    break;
+                if (c < '0' || c > '9')
+                    throw BencodeException("Found unexpected character while parsing integer: " + std::to_string(c));
+                result = result * 10 + (c - '0');
+            }
+
             return result;
         }
 
-        integer_t decode_integer(string_t &str)
+        static string_t decode_string(std::istream &stream)
         {
-            if (str.size() <= 2)
-                throw BencodeException("Invalid integer: no data");
-
-            if (str.front() != 'i')
-                throw BencodeException("Invalid integer: no initial i");
-
-            const auto end = str.find('e');
-            if (end == string_t::npos)
-                throw BencodeException("Invalid integer: no trailing e");
-
-            const auto data = str.substr(1, end - 1);
-            if ((data[0] == '0' && data.length() > 1) || (data[0] == '-' && data[1] == '0'))
-                throw BencodeException("Invalid integer: leading zero");
-
-            std::size_t pos = 0;
-            std::int64_t value = 0;
-            try
-            {
-                value = std::stoll(std::string(data), &pos, 10);
-            }
-            catch (const std::invalid_argument &e)
-            {
-                throw BencodeException(e.what());
-            }
-            catch (const std::out_of_range &e)
-            {
-                throw BencodeException(e.what());
-            }
-            if (pos != data.length())
-                throw BencodeException("Invalid integer");
-
-            str = str.substr(end + 1);
-
-            return value;
+            const std::uint64_t length = get_integer(stream, ':');
+            std::stringstream ss;
+            for (std::uint64_t i = 0; i < length; ++i)
+                ss << get_next(stream);
+            return ss.str();
         }
 
-        list_t decode_list(string_t &str)
+        integer_t decode_integer(std::istream &stream)
         {
-            if (str.size() < 2)
-                throw BencodeException("Invalid list: no data");
+            uint8_t c = get_next(stream);
+            if (c != 'i')
+                throw BencodeException("Invalid integer: no initial i");
 
-            if (str.front() != 'l')
+            c = get_next(stream);
+            bool negative = false;
+            if (c == '-')
+            {
+                negative = true;
+                c = get_next(stream);
+            }
+            if (c == '0')
+            {
+                if (negative)
+                    throw BencodeException("Invalid integer: leading zero");
+                c = get_next(stream);
+                if (c != 'e')
+                    throw BencodeException("Invalid integer: leading zero");
+                return 0;
+            }
+
+            return get_integer(stream, 'e', c) * static_cast<integer_t>((negative ? -1 : 1));
+        }
+
+        list_t decode_list(std::istream &stream)
+        {
+            std::uint8_t c = get_next(stream);
+            if (c != 'l')
                 throw BencodeException("Invalid list: no initial l");
 
             list_t result;
-            str = str.substr(1);
-            while (!str.empty() && str.front() != 'e')
-                result.push_back(std::move(decode_internal(str)));
+            while (!stream.eof() && stream.peek() != 'e')
+                result.push_back(std::move(decode_internal(stream)));
 
-            if (str.empty())
+            c = get_next(stream);
+            if (c != 'e')
                 throw BencodeException("Invalid list: no trailing e");
 
-            str = str.substr(1);
-
             return result;
         }
 
-        dictionary_t decode_dictionary(string_t &str)
+        dictionary_t decode_dictionary(std::istream &stream)
         {
-            if (str.size() < 2)
-                throw BencodeException("Invalid decode_dictionary: no data");
-
-            if (str.front() != 'd')
-                throw BencodeException("Invalid decode_dictionary: no initial d");
+            std::uint8_t c = get_next(stream);
+            if (c != 'd')
+                throw BencodeException("Invalid dictionary: no initial l");
 
             dictionary_t result;
-            str = str.substr(1);
-            while (!str.empty() && str.front() != 'e')
+            while (!stream.eof() && stream.peek() != 'e')
             {
-                const auto key = decode_string(str);
-                result[key] = std::move(decode_internal(str));
+                const string_t key = decode_string(stream);
+                result[key] = std::move(decode_internal(stream));
             }
 
-            if (str.empty())
-                throw BencodeException("Invalid decode_dictionary: no trailing e");
-
-            str = str.substr(1);
+            c = get_next(stream);
+            if (c != 'e')
+                throw BencodeException("Invalid dictionary: no trailing e");
 
             return result;
         }
 
-        std::unique_ptr<Data> decode_internal(string_t &str)
+        std::unique_ptr<Data> decode_internal(std::istream &stream)
         {
-            switch (str[0])
+            if (stream.eof())
+                throw BencodeException("Unexpected end of stream");
+
+            switch (stream.peek())
             {
             case 'i':
-                return std::make_unique<IntegerData>(decode_integer(str));
+                return std::make_unique<IntegerData>(decode_integer(stream));
             case 'l':
-                return std::make_unique<ListData>(decode_list(str));
+                return std::make_unique<ListData>(decode_list(stream));
             case 'd':
-                return std::make_unique<DictionaryData>(decode_dictionary(str));
+                return std::make_unique<DictionaryData>(decode_dictionary(stream));
             }
 
-            return std::make_unique<StringData>(decode_string(str));
+            return std::make_unique<StringData>(decode_string(stream));
         }
 
-        std::unique_ptr<Data> Decode(const char *str)
+        std::unique_ptr<Data> Decode(std::istream &stream)
         {
-            std::string input(str);
-            return decode_internal(input);
+            return decode_internal(stream);
         }
     } // namespace bencode
 } // namespace tortoise

@@ -6,7 +6,7 @@ using namespace tortoise;
 
 TEST(Metainfo, single_file_without_optional_fields)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_NE(nullptr, metainfo);
 	EXPECT_EQ("http://tracker.example.com/announce", metainfo->GetAnnounce());
@@ -28,56 +28,56 @@ TEST(Metainfo, single_file_without_optional_fields)
 }
 TEST(Metainfo, missing_announce_fails)
 {
-	auto data = bencode::Decode("d4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, missing_info_fails)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announcee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announcee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, missing_length_fails)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announce4:infod4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announce4:infod4:name4:spam12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, missing_name_fails)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e12:piece lengthi16384e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, missing_piece_length_fails)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, missing_pieces_fails)
 {
-	auto data = bencode::Decode("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384eee");
+	auto data = bencode::Decode(std::istringstream("d8:announce35:http://tracker.example.com/announce4:infod6:lengthi12345e4:name4:spam12:piece lengthi16384eee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, info_with_both_length_and_files_fails)
 {
-	auto data = bencode::Decode("d8:announce19:http://tracker1.com13:announce-listll19:http://tracker1.com19:http://tracker2.com19:http://tracker3.comee8:comments46:Just a testing comment for my testing torrent.10:created by14:KTorrent 2.1.413:creation datei1182163222e4:infod6:lengthi5e5:filesld6:lengthi3184e4:pathl9:file1.txteed6:lengthi2878e4:pathl9:file2.txteed6:lengthi3412e4:pathl9:file3.txteed6:lengthi2804e4:pathl9:file4.txteee4:name8:root_dir12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce19:http://tracker1.com13:announce-listll19:http://tracker1.com19:http://tracker2.com19:http://tracker3.comee8:comments46:Just a testing comment for my testing torrent.10:created by14:KTorrent 2.1.413:creation datei1182163222e4:infod6:lengthi5e5:filesld6:lengthi3184e4:pathl9:file1.txteed6:lengthi2878e4:pathl9:file2.txteed6:lengthi3412e4:pathl9:file3.txteed6:lengthi2804e4:pathl9:file4.txteee4:name8:root_dir12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_EQ(nullptr, metainfo);
 }
 
 TEST(Metainfo, multi_file_with_optional_fields)
 {
-	auto data = bencode::Decode("d8:announce19:http://tracker1.com13:announce-listll19:http://tracker1.com19:http://tracker2.com19:http://tracker3.comee7:comment46:Just a testing comment for my testing torrent.10:created by14:KTorrent 2.1.413:creation datei1182163222e8:encoding4:test4:infod5:filesld6:lengthi3184e4:pathl9:file1.txteed6:lengthi2878e4:pathl9:file2.txteed6:lengthi3412e4:pathl9:file3.txteed6:lengthi2804e4:pathl9:file4.txteee4:name8:root_dir12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaaee");
+	auto data = bencode::Decode(std::istringstream("d8:announce19:http://tracker1.com13:announce-listll19:http://tracker1.com19:http://tracker2.com19:http://tracker3.comee7:comment46:Just a testing comment for my testing torrent.10:created by14:KTorrent 2.1.413:creation datei1182163222e8:encoding4:test4:infod5:filesld6:lengthi3184e4:pathl9:file1.txteed6:lengthi2878e4:pathl9:file2.txteed6:lengthi3412e4:pathl9:file3.txteed6:lengthi2804e4:pathl9:file4.txteee4:name8:root_dir12:piece lengthi262144e6:pieces20:aaaaaaaaaaaaaaaaaaaaee"));
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_NE(nullptr, metainfo);
 	EXPECT_EQ("http://tracker1.com", metainfo->GetAnnounce());
@@ -90,7 +90,7 @@ TEST(Metainfo, multi_file_with_optional_fields)
 	EXPECT_EQ(1182163222, metainfo->GetCreationDate());
 	EXPECT_EQ("Just a testing comment for my testing torrent.", metainfo->GetComment());
 	EXPECT_EQ("KTorrent 2.1.4", metainfo->GetCreatedBy());
-	EXPECT_EQ("test", metainfo->GetEncoding());	
+	EXPECT_EQ("test", metainfo->GetEncoding());
 	EXPECT_EQ("root_dir", metainfo->GetName());
 	EXPECT_EQ(262144, metainfo->GetPieceLength());
 	ASSERT_EQ(1, metainfo->GetPieces().size());

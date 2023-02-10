@@ -1,10 +1,11 @@
 #ifndef TORTOISE_BENCODE_HPP
 #define TORTOISE_BENCODE_HPP
 
-#include <string>
+#include <istream>
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <tortoise/exceptions.hpp>
@@ -147,11 +148,11 @@ namespace tortoise
 
         /*!
          * \brief Decode a bencoded string into a Data object.
-         * \param str The bencoded input data.
+         * \param stream The stream to read from.
          * \return A Data object.
          * \throws BencodeException if the string is not valid.
          */
-        std::unique_ptr<Data> Decode(const char *str);
+        std::unique_ptr<Data> Decode(std::istream &stream);
     } // namespace bencode
 } // namespace tortoise
 
