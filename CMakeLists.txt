@@ -8,18 +8,25 @@ option(BUILD_TESTS "Build tests" OFF)
 
 set (HEADERS
   include/tortoise/bencode.hpp
+  include/tortoise/connection.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/metainfo.hpp
+  src/socket.hpp
   src/sha1.hpp
 )
 
 set(SOURCES
   src/bencode.cpp
+  src/connection.cpp
   src/metainfo.cpp
   src/sha1.cpp
+  src/socket.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
+if (WIN32)
+  target_link_libraries(tortoise ws2_32)
+endif()
 
 if(MSVC)
   target_compile_options(tortoise PRIVATE /W4 /WX)

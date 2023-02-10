@@ -22,6 +22,18 @@ namespace tortoise
     public:
         BencodeException(const std::string &msg) : Exception(msg) {}
     };
+
+    class ConnectionException : public Exception
+    {
+    public:
+        ConnectionException(const std::string &msg) : Exception(msg) {}
+    };
+
+    class SocketException : public Exception
+    {
+    public:
+        SocketException(const std::string &msg) : Exception(msg) {}
+    };
 } // namespace tortoise
 
 #endif
