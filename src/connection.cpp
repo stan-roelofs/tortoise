@@ -2,32 +2,69 @@
 
 namespace tortoise
 {
-    class Connection
+    std::unique_ptr<Connection> Connection::CreateOutgoing(const std::string &host, const std::string &port)
     {
-        std::unique_ptr<Connection> Connection::CreateOutgoing(const std::string &host, const std::string &port)
+        std::unique_ptr<Socket> socket = std::make_unique<Socket>();
+        if (!socket->Connect(host, port))
+            return nullptr;
+
+        return std::unique_ptr<Connection>(new Connection(std::move(socket)));
+    }
+
+    std::unique_ptr<Connection> Connection::CreateIncoming(const std::string &port)
+    {
+        std::unique_ptr<Socket> socket = std::make_unique<Socket>();
+        if (!socket->Listen(port))
+            return nullptr;
+
+        return std::unique_ptr<Connection>(new Connection(std::move(socket)));
+    }
+
+    Connection::Connection(std::unique_ptr<Socket> socket) : socket_(std::move(socket))
+    {
+    }
+
+    Connection::~Connection()
+    {
+    }
+
+    int Connection::Send(const void *data, int size)
+    {
+        return socket_->Send(data, size);
+    }
+
+    bool Connection::SendAll(const void *data, int size)
+    {
+        int total = 0;
+        while (total < size)
         {
-            std::unique_ptr<Socket> socket = std::make_unique<Socket>();
-            if (!socket->Connect(host, port))
-                return nullptr;
+            int sent = Send((const char *)data + total, size - total);
+            if (sent == -1)
+                return false;
 
-            return std::make_unique<Connection>(std::move(socket));
+            total += sent;
         }
+        return true;
+    }
 
-        std::unique_ptr<Connection> Connection::CreateIncoming(const std::string &port)
+    int Connection::Receive(void *data, int size)
+    {
+        return socket_->Receive(data, size);
+    }
+
+    bool Connection::ReceiveAll(std::vector<std::uint8_t> &buffer)
+    {
+        while (true)
         {
-            std::unique_ptr<Socket> socket = std::make_unique<Socket>();
-            if (!socket->Listen(port))
-                return nullptr;
+            std::uint8_t chunk[1024];
+            int received = Receive(chunk, 1024);
+            if (received < 0)
+                return false;
 
-            return std::make_unique<Connection>(std::move(socket));
-        }
+            if (received == 0)
+                return true;
 
-        Connection::Connection(std::unique_ptr<Socket> socket) : socket_(std::move(socket))
-        {
+            buffer.insert(buffer.end(), chunk, chunk + received);
         }
-
-        Connection::~Connection()
-        {
-        }
-    };
+    }
 } // namespace tortoise

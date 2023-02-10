@@ -34,6 +34,12 @@ namespace tortoise
     public:
         SocketException(const std::string &msg) : Exception(msg) {}
     };
+
+    class HTTPRequestException : public Exception
+    {
+    public:
+        HTTPRequestException(const std::string &msg) : Exception(msg) {}
+    };
 } // namespace tortoise
 
 #endif

@@ -34,3 +34,4 @@
 .vscode/
 build/
 todo
+include/tortoise/version.hpp

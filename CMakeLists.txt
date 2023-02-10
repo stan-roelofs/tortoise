@@ -11,16 +11,21 @@ set (HEADERS
   include/tortoise/connection.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/metainfo.hpp
-  src/socket.hpp
+  include/tortoise/socket.hpp
+  include/tortoise/tracker.hpp
+
+  src/httprequest.hpp
   src/sha1.hpp
 )
 
 set(SOURCES
   src/bencode.cpp
   src/connection.cpp
+  src/httprequest.cpp
   src/metainfo.cpp
   src/sha1.cpp
   src/socket.cpp
+  src/tracker.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})

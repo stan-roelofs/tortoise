@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "socket.hpp"
 
@@ -32,14 +33,27 @@ namespace tortoise
          *  \param size The size of the data to send.
          *  \return The number of bytes that was actually sent. This may be less than the size of the data. -1 is returned on error.
          */
-        int Send(const std::uint8_t *data, int size);
+        int Send(const void *data, int size);
 
         /*! \brief Receives data from the connected host.
          *  \param data The buffer to store the received data in.
          *  \param size The size of the buffer.
          *  \return The number of bytes that was actually received. This may be less than the size of the buffer. -1 is returned on error.
          */
-        int Receive(std::uint8_t *data, int size);
+        int Receive(void *data, int size);
+
+        /*! \brief Sends data to the connected host, blocks until all data has been sent.
+         *  \param data The data to send.
+         *  \param size The size of the data to send.
+         *  \return True if all data was sent. False if an error occurred.
+         */
+        bool SendAll(const void *data, int size);
+
+        /*! \brief Receives all data from the connected host.
+         *  \param buffer The buffer to store the received data in.
+         *  \return True if all data was received successfully. False if an error occurred.
+         */
+        bool ReceiveAll(std::vector<std::uint8_t> &buffer);
 
     private:
         Connection(std::unique_ptr<Socket> socket);

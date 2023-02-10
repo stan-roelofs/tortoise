@@ -1,6 +1,5 @@
-#include "socket.hpp"
-
 #include <tortoise/exceptions.hpp>
+#include <tortoise/socket.hpp>
 
 namespace tortoise
 {
@@ -40,7 +39,7 @@ namespace tortoise
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
-        hints.ai_protocol = AI_PASSIVE;
+        hints.ai_protocol = 0;
 
         int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
         if (iResult != 0)
@@ -51,8 +50,6 @@ namespace tortoise
             socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
             if (socket_ == INVALID_SOCKET_VALUE)
                 continue;
-
-            // TODO should we use non-blocking sockets?
 
             iResult = connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen);
             if (iResult == 0)
@@ -67,6 +64,31 @@ namespace tortoise
             return false;
 
         return true;
+    }
+
+    bool Socket::Listen(const std::string &port)
+    {
+        // TODO
+        (void)port;
+        return false;
+    }
+
+    int Socket::Send(const void *data, int size)
+    {
+        int iResult = send(socket_, (const char *)data, size, 0);
+        if (iResult == SOCKET_ERROR)
+            return -1;
+
+        return iResult;
+    }
+
+    int Socket::Receive(void *buffer, int size)
+    {
+        int iResult = recv(socket_, static_cast<char *>(buffer), size, 0);
+        if (iResult == SOCKET_ERROR)
+            return -1;
+
+        return iResult;
     }
 
 } // namespace tortoise
