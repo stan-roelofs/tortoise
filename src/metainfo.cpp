@@ -14,6 +14,30 @@ namespace tortoise
             const bencode::dictionary_t &dct = bencode::Get<bencode::dictionary_t>(data);
             metainfo->announce_ = bencode::Get<bencode::string_t>(*dct.at("announce"));
 
+            if (dct.find("announce-list") != dct.end())
+            {
+                const bencode::list_t &announce_list = bencode::Get<bencode::list_t>(*dct.at("announce-list"));
+                for (const auto &announce_list_item : announce_list)
+                {
+                    const bencode::list_t &tier = bencode::Get<bencode::list_t>(*announce_list_item);
+                    metainfo->announce_list_.emplace_back();
+                    for (const auto &tier_item : tier)
+                        metainfo->announce_list_.back().push_back(bencode::Get<bencode::string_t>(*tier_item));
+                }
+            }
+
+            if (dct.find("creation date") != dct.end())
+                metainfo->creation_date_ = static_cast<uint64_t>(bencode::Get<bencode::integer_t>(*dct.at("creation date")));
+
+            if (dct.find("comment") != dct.end())
+                metainfo->comment_ = bencode::Get<bencode::string_t>(*dct.at("comment"));
+
+            if (dct.find("created by") != dct.end())
+                metainfo->created_by_ = bencode::Get<bencode::string_t>(*dct.at("created by"));
+
+            if (dct.find("encoding") != dct.end())
+                metainfo->encoding_ = bencode::Get<bencode::string_t>(*dct.at("encoding"));
+
             const bencode::dictionary_t &info = bencode::Get<bencode::dictionary_t>(*dct.at("info"));
 
             metainfo->name_ = bencode::Get<bencode::string_t>(*info.at("name"));
@@ -80,6 +104,31 @@ namespace tortoise
     const std::string &Metainfo::GetName() const
     {
         return name_;
+    }
+
+    const std::vector<std::vector<std::string>> &Metainfo::GetAnnounceList() const
+    {
+        return announce_list_;
+    }
+
+    uint64_t Metainfo::GetCreationDate() const
+    {
+        return creation_date_;
+    }
+
+    const std::string &Metainfo::GetComment() const
+    {
+        return comment_;
+    }
+
+    const std::string &Metainfo::GetCreatedBy() const
+    {
+        return created_by_;
+    }
+
+    const std::string &Metainfo::GetEncoding() const
+    {
+        return encoding_;
     }
 
     std::uint32_t Metainfo::GetPieceLength() const

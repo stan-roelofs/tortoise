@@ -21,6 +21,21 @@ namespace tortoise
         //! \brief The URL of the tracker.
         const std::string &GetAnnounce() const;
 
+        //! \brief (optional) A list of lists of tracker URLs, for backups if a tracker fails or if different tiers of trackers are used.
+        const std::vector<std::vector<std::string>> &GetAnnounceList() const;
+
+        //! \brief (optional) The creation time of the torrent, in standard UNIX epoch format.
+        uint64_t GetCreationDate() const;
+
+        //! \brief (optional) Free-form textual comments of the author.
+        const std::string &GetComment() const;
+
+        //! \brief (optional) Name and version of the program used to create the .torrent.
+        const std::string &GetCreatedBy() const;
+
+        //! \brief (optional) The string encoding format used to generate the pieces part of the info dictionary.
+        const std::string &GetEncoding() const;
+
         //! \brief A UTF-8 encoded string which is the suggested name to save the file (or directory) as.
         const std::string &GetName() const;
 
@@ -55,6 +70,11 @@ namespace tortoise
 
     private:
         std::string announce_;
+        std::vector<std::vector<std::string>> announce_list_;
+        uint64_t creation_date_;
+        std::string comment_;
+        std::string created_by_;
+        std::string encoding_;
         std::string name_;
         std::uint32_t piece_length_;
         std::vector<std::string> pieces_;
