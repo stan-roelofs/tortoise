@@ -3,7 +3,6 @@
 
 #include <string>
 
-#include "connection.hpp"
 #include "metainfo.hpp"
 
 namespace tortoise
@@ -13,10 +12,20 @@ namespace tortoise
     public:
         Tracker(const Metainfo &info);
 
-        //! \brief Sends an announce request to the tracker and blocks until a response is received.
-        bool SendAnnounce();
+        /*! \brief Sends an announce to the tracker and blocks until a response is received.
+        *   \throws TrackerException If communication with the tracker failed. 
+        */
+        void Announce();
+
+        struct PeerInfo
+        {
+			std::string ip;
+			std::uint16_t port;
+        };
 
     private:
+        bool HandleResponse(const std::string& response);
+        
         Metainfo info_;
     };
 } // namespace tortoise

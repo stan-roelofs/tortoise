@@ -60,5 +60,5 @@ int main(int argc, const char *argv[])
 
   auto metainfo = Metainfo::FromBencode(*data);
   Tracker tracker(*metainfo);
-  tracker.SendAnnounce();
+  tracker.Announce();
 }

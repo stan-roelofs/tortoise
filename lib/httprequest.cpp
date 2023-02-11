@@ -5,8 +5,9 @@
 #include <sstream>
 #include <string>
 
-#include <tortoise/connection.hpp>
 #include <tortoise/exceptions.hpp>
+
+#include "socket_helper.hpp"
 
 namespace
 {
@@ -39,80 +40,79 @@ namespace
 
 namespace tortoise
 {
-    std::unique_ptr<HTTPRequest> HTTPRequest::Create(const std::string &url, const std::map<std::string, std::string> &params)
+    HTTPRequest::HTTPRequest(const std::string &url, const std::map<std::string, std::string> &params)
     {
         std::size_t pos = url.find("://");
         if (pos == std::string::npos)
-            return nullptr;
+			throw HTTPRequestException("Invalid URL, missing protocol");
 
         std::string protocol = url.substr(0, pos);
-        std::string host;
-        if (protocol == "https" || protocol == "http") // TODO support https properly
-            host = url.substr(pos + 3);
-        else
-            return {};
+		if (protocol != "http")
+			throw HTTPRequestException("Invalid URL, unsupported protocol: " + protocol);
 
-        const size_t path_start = host.find("/");
+		host_ = url.substr(pos + 3);
+
+        const size_t path_start = host_.find("/");
         std::string path = "/";
         if (path_start != std::string::npos)
         {
-            path = host.substr(path_start);
-            host = host.substr(0, path_start);
+            path = host_.substr(path_start);
+            host_ = host_.substr(0, path_start);
         }
 
-        const size_t port_start = host.find(":");
-        std::string port = "80";
+        const size_t port_start = host_.find(":");
+        port_ = "80";
         if (port_start != std::string::npos)
         {
-            port = host.substr(port_start + 1);
-            host = host.substr(0, port_start);
+            port_ = host_.substr(port_start + 1);
+            host_ = host_.substr(0, port_start);
         }
 
         std::stringstream args;
         for (const auto &param : params)
         {
-            if (args.tellp() == 0)
+            if (args.tellp() != 0)
                 args << "&";
             args << param.first << "=" << url_encode(param.second);
         }
 
         std::stringstream request;
         request << "GET " << path << "?" << args.str() << " HTTP/1.1\r\n";
-        request << "Host: " << host << "\r\n";
+        request << "Host: " << host_ << "\r\n";
         request << "\r\n";
-        
-        std::unique_ptr<Connection> connection = Connection::CreateOutgoing(host, port);
-        if (!connection)
-            return nullptr;
-
-        return std::unique_ptr<HTTPRequest>(new HTTPRequest(std::move(connection), request.str()));
-    }
-
-    HTTPRequest::HTTPRequest(std::unique_ptr<Connection> connection, const std::string &request) : connection_(std::move(connection)), request_(request)
-    {
+		request_ = request.str();
     }
 
     HTTPRequest::~HTTPRequest()
     {
     }
 
-    bool HTTPRequest::Get(std::string &response)
-    {
-        if (request_.empty())
-            return false;
-
+    std::string HTTPRequest::Get() const
+    {       
         if (request_.size() > (std::numeric_limits<int>::max)())
             throw HTTPRequestException("Request too large");
 
-        if (!connection_->SendAll(request_.c_str(), static_cast<int>(request_.size())))
-            return false;
+        Socket socket;
+		if (!socket.Connect(host_, port_))
+			throw HTTPRequestException("Failed to connect to host");
+
+        if (!socket_helper::SendAll(socket, request_.c_str(), static_cast<int>(request_.size())))
+			throw HTTPRequestException("Failed to send request");
 
         std::vector<std::uint8_t> buffer;
-        if (!connection_->ReceiveAll(buffer))
-            return false;
-
-        response = std::string(buffer.begin(), buffer.end());
-
-        return true;
+		if (!socket_helper::ReceiveAll(socket, buffer))
+			throw HTTPRequestException("Failed to receive response");
+        
+        return GetBodyFromResponse(std::string(buffer.begin(), buffer.end()));
     }
+
+    std::string HTTPRequest::GetBodyFromResponse(const std::string& response)
+	{
+		const std::string status_line = response.substr(0, response.find("\r\n"));
+		std::string status_code = status_line.substr(status_line.find(" ") + 1);
+		if (status_code.at(0) != '2')
+			throw HTTPRequestException("Request failed with status code: " + status_code);
+                
+		return response.substr(response.find("\r\n\r\n") + 4);
+	}
 } // namespace tortoise

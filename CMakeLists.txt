@@ -9,7 +9,6 @@ option(BUILD_TESTS "Build tests" ON)
 
 set (HEADERS
   include/tortoise/bencode.hpp
-  include/tortoise/connection.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/metainfo.hpp
   include/tortoise/socket.hpp
@@ -17,15 +16,16 @@ set (HEADERS
 
   lib/httprequest.hpp
   lib/sha1.hpp
+  lib/socket_helper.hpp
 )
 
 set(SOURCES
   lib/bencode.cpp
-  lib/connection.cpp
   lib/httprequest.cpp
   lib/metainfo.cpp
   lib/sha1.cpp
   lib/socket.cpp
+  lib/socket_helper.cpp
   lib/tracker.cpp
 )
 

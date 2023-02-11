@@ -38,7 +38,13 @@ namespace tortoise
     class HTTPRequestException : public Exception
     {
     public:
-        HTTPRequestException(const std::string &msg) : Exception(msg) {}
+        HTTPRequestException(const std::string& msg) : Exception(msg) {}
+    };
+
+    class TrackerException : public Exception
+    {
+    public:
+        TrackerException(const std::string &msg) : Exception(msg) {}
     };
 } // namespace tortoise
 
