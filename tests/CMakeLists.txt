@@ -4,6 +4,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(SOURCES
     src/test_bencode.cpp
     src/test_metainfo.cpp
+    src/test_url.cpp
 )
 
 add_executable(tortoise_test ${SOURCES})

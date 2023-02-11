@@ -1,0 +1,38 @@
+#ifndef TORTOISE_URL_HPP
+#define TORTOISE_URL_HPP
+
+#include <string>
+
+#include "exceptions.hpp"
+
+namespace tortoise
+{
+    class URL
+    {
+    public:
+        /*! \param url The URL to parse.
+         *  \throws URLException If the URL is invalid.
+         */
+        URL(const std::string &url);
+
+        //! \returns The protocol of the URL, e.g. "http", "https" or "udp".
+        const std::string &GetProtocol() const;
+
+        //! \returns The host of the URL, e.g. "tracker.example.com".
+        const std::string &GetHost() const;
+
+        //! \returns The port of the URL, e.g. "80".
+        const std::string &GetPort() const;
+
+        //! \returns The path of the URL, e.g. "/announce".
+        const std::string &GetPath() const;
+
+    private:
+        std::string protocol_;
+        std::string host_;
+        std::string port_;
+        std::string path_;
+    };
+}
+
+#endif

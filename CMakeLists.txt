@@ -18,6 +18,8 @@ set (HEADERS
   include/tortoise/metainfo.hpp
   include/tortoise/socket.hpp
   include/tortoise/tracker.hpp
+  include/tortoise/url.hpp
+  include/tortoise/version.hpp
 
   lib/httprequest.hpp
   lib/sha1.hpp
@@ -32,6 +34,7 @@ set(SOURCES
   lib/socket.cpp
   lib/socket_helper.cpp
   lib/tracker.cpp
+  lib/url.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
@@ -47,12 +50,12 @@ endif()
 
 target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-if(BUILD_TESTS)
+if(TORTOISE_BUILD_TESTS)
   enable_testing()
   add_subdirectory(external/googletest)
   add_subdirectory(tests)
 endif()
 
-if (BUILD_APP)
+if (TORTOISE_BUILD_APP)
   add_subdirectory(src)
 endif()
