@@ -1,3 +1,3 @@
 # tortoise
 
-A BitTorrent library. 
+A BitTorrent client. 

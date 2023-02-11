@@ -4,7 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 project(tortoise VERSION 0.1.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
-option(BUILD_TESTS "Build tests" OFF)
+option(BUILD_APP "Build application" ON)
+option(BUILD_TESTS "Build tests" ON)
 
 set (HEADERS
   include/tortoise/bencode.hpp
@@ -14,18 +15,18 @@ set (HEADERS
   include/tortoise/socket.hpp
   include/tortoise/tracker.hpp
 
-  src/httprequest.hpp
-  src/sha1.hpp
+  lib/httprequest.hpp
+  lib/sha1.hpp
 )
 
 set(SOURCES
-  src/bencode.cpp
-  src/connection.cpp
-  src/httprequest.cpp
-  src/metainfo.cpp
-  src/sha1.cpp
-  src/socket.cpp
-  src/tracker.cpp
+  lib/bencode.cpp
+  lib/connection.cpp
+  lib/httprequest.cpp
+  lib/metainfo.cpp
+  lib/sha1.cpp
+  lib/socket.cpp
+  lib/tracker.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
@@ -45,4 +46,8 @@ if(BUILD_TESTS)
   enable_testing()
   add_subdirectory(external/googletest)
   add_subdirectory(tests)
+endif()
+
+if (BUILD_APP)
+  add_subdirectory(src)
 endif()
