@@ -40,33 +40,15 @@ namespace
 
 namespace tortoise
 {
-    HTTPRequest::HTTPRequest(const std::string &url, const std::map<std::string, std::string> &params)
+    HTTPRequest::HTTPRequest(const URL &url, const std::map<std::string, std::string> &params)
     {
-        std::size_t pos = url.find("://");
-        if (pos == std::string::npos)
-			throw HTTPRequestException("Invalid URL, missing protocol");
+        if (url.GetProtocol() != "http")
+            throw HTTPRequestException("Invalid URL, unsupported protocol: " + url.GetProtocol());
 
-        std::string protocol = url.substr(0, pos);
-		if (protocol != "http")
-			throw HTTPRequestException("Invalid URL, unsupported protocol: " + protocol);
-
-		host_ = url.substr(pos + 3);
-
-        const size_t path_start = host_.find("/");
-        std::string path = "/";
-        if (path_start != std::string::npos)
-        {
-            path = host_.substr(path_start);
-            host_ = host_.substr(0, path_start);
-        }
-
-        const size_t port_start = host_.find(":");
-        port_ = "80";
-        if (port_start != std::string::npos)
-        {
-            port_ = host_.substr(port_start + 1);
-            host_ = host_.substr(0, port_start);
-        }
+        std::string path = url.GetPath();
+        // The absolute path cannot be empty; if none is present in the original URI, it MUST be given as "/"
+        if (path.empty())
+            path = "/";
 
         std::stringstream args;
         for (const auto &param : params)
@@ -78,41 +60,37 @@ namespace tortoise
 
         std::stringstream request;
         request << "GET " << path << "?" << args.str() << " HTTP/1.1\r\n";
-        request << "Host: " << host_ << "\r\n";
+        request << "Host: " << url.GetHost() << "\r\n";
         request << "\r\n";
-		request_ = request.str();
+        request_ = request.str();
     }
 
     HTTPRequest::~HTTPRequest()
     {
     }
 
-    std::string HTTPRequest::Get() const
-    {       
+    std::string HTTPRequest::Get(Socket &socket) const
+    {
         if (request_.size() > (std::numeric_limits<int>::max)())
             throw HTTPRequestException("Request too large");
 
-        Socket socket;
-		if (!socket.Connect(host_, port_))
-			throw HTTPRequestException("Failed to connect to host");
-
         if (!socket_helper::SendAll(socket, request_.c_str(), static_cast<int>(request_.size())))
-			throw HTTPRequestException("Failed to send request");
+            throw HTTPRequestException("Failed to send request");
 
         std::vector<std::uint8_t> buffer;
-		if (!socket_helper::ReceiveAll(socket, buffer))
-			throw HTTPRequestException("Failed to receive response");
-        
+        if (!socket_helper::ReceiveAll(socket, buffer))
+            throw HTTPRequestException("Failed to receive response");
+
         return GetBodyFromResponse(std::string(buffer.begin(), buffer.end()));
     }
 
-    std::string HTTPRequest::GetBodyFromResponse(const std::string& response)
-	{
-		const std::string status_line = response.substr(0, response.find("\r\n"));
-		std::string status_code = status_line.substr(status_line.find(" ") + 1);
-		if (status_code.at(0) != '2')
-			throw HTTPRequestException("Request failed with status code: " + status_code);
-                
-		return response.substr(response.find("\r\n\r\n") + 4);
-	}
+    std::string HTTPRequest::GetBodyFromResponse(const std::string &response)
+    {
+        const std::string status_line = response.substr(0, response.find("\r\n"));
+        std::string status_code = status_line.substr(status_line.find(" ") + 1);
+        if (status_code.at(0) != '2')
+            throw HTTPRequestException("Request failed with status code: " + status_code);
+
+        return response.substr(response.find("\r\n\r\n") + 4);
+    }
 } // namespace tortoise

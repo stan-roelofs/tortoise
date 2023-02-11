@@ -45,7 +45,7 @@ int main(int argc, const char *argv[])
     std::cout << "Failed to open file: " << argv[1] << std::endl;
     return EXIT_FAILURE;
   }
-  
+
   using namespace tortoise;
   std::unique_ptr<bencode::Data> data;
   try
@@ -59,6 +59,28 @@ int main(int argc, const char *argv[])
   }
 
   auto metainfo = Metainfo::FromBencode(*data);
-  Tracker tracker(*metainfo);
-  tracker.Announce();
+
+  try
+  {
+    Tracker tracker(*metainfo);
+    tracker.Announce();
+
+    std::cout << "Complete: " << tracker.GetComplete() << std::endl;
+    std::cout << "Incomplete: " << tracker.GetIncomplete() << std::endl;
+    std::cout << "Interval: " << tracker.GetInterval() << std::endl;
+    std::cout << "Min Interval: " << tracker.GetMinimumInterval() << std::endl;
+    const auto &peers = tracker.GetPeers();
+    std::cout << "Peers: " << peers.size() << std::endl;
+    for (const auto &peer : peers)
+    {
+      std::cout << "  ID: " << peer.peer_id << std::endl;
+      std::cout << "  IP address: " << peer.ip << std::endl;
+      std::cout << "  Port: " << peer.port << std::endl;
+      std::cout << std::endl;
+    }
+  }
+  catch (TrackerException &e)
+  {
+    std::cout << e.what();
+  }
 }
