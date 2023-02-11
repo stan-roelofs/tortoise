@@ -4,7 +4,6 @@
 #include <istream>
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -126,7 +125,7 @@ namespace tortoise
         };
 
         template <class T>
-        T Get(const Data &data)
+        const T &Get(const Data &data)
         {
             GetValueVisitor<T> g;
             data.Accept(g);
@@ -134,16 +133,46 @@ namespace tortoise
         }
 
         template <class T>
-        std::optional<T> GetSafe(const Data &data)
+        class CheckTypeVisitor : public Visitor
         {
-            try
+        public:
+            CheckTypeVisitor() : result_(false) {}
+            void Visit(const StringData&) override
             {
-                return Get<T>(data);
+                if constexpr (std::is_same_v<T, string_t>)
+                    result_ = true;
             }
-            catch (BencodeException &)
+            void Visit(const IntegerData&) override
             {
-                return std::nullopt;
+                if constexpr (std::is_same_v<T, integer_t>)
+                    result_ = true;
             }
+            void Visit(const ListData&) override
+            {
+                if constexpr (std::is_same_v<T, list_t>)
+                    result_ = true;
+            }
+            void Visit(const DictionaryData&) override
+            {
+                if constexpr (std::is_same_v<T, dictionary_t>)
+                    result_ = true;
+            }
+
+            const bool result() const
+            {
+                return result_;
+            }
+
+        private:
+            bool result_;
+        };
+        
+        template <class T>
+        bool CheckType(const Data &data)
+        {
+            CheckTypeVisitor<T> v;
+			data.Accept(v);
+			return v.result();			
         }
 
         /*!

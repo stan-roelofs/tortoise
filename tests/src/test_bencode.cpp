@@ -252,12 +252,42 @@ TEST(bencode, get_dictionary_data_invalid_type_throws)
     EXPECT_THROW(Get<dictionary_t>(*Decode(std::istringstream("spam"))), BencodeException);
 }
 
-TEST(bencode, get_safe)
+TEST(bencode, check_type_string_true)
 {
-    EXPECT_EQ("spam", GetSafe<string_t>(*Decode(std::istringstream("4:spam"))));
+    EXPECT_TRUE(CheckType<string_t>(*Decode(std::istringstream("4:spam"))));
 }
 
-TEST(bencode, get_safe_none)
+TEST(bencode, check_type_string_false)
 {
-    EXPECT_EQ(std::nullopt, GetSafe<string_t>(*Decode(std::istringstream("i42e"))));
+    EXPECT_FALSE(CheckType<string_t>(*Decode(std::istringstream("i42e"))));
+}
+
+TEST(bencode, check_type_integer_true)
+{
+    EXPECT_TRUE(CheckType<integer_t>(*Decode(std::istringstream("i42e"))));
+}
+
+TEST(bencode, check_type_integer_false)
+{
+    EXPECT_FALSE(CheckType<integer_t>(*Decode(std::istringstream("4:spam"))));
+}
+
+TEST(bencode, check_type_list_true)
+{
+    EXPECT_TRUE(CheckType<list_t>(*Decode(std::istringstream("l4:spam4:eggse"))));
+}
+
+TEST(bencode, check_type_list_false)
+{
+    EXPECT_FALSE(CheckType<list_t>(*Decode(std::istringstream("4:spam"))));
+}
+
+TEST(bencode, check_type_dictionary_true)
+{
+    EXPECT_TRUE(CheckType<dictionary_t>(*Decode(std::istringstream("d3:cow3:moo4:spam4:eggse"))));
+}
+
+TEST(bencode, check_type_dictionary_false)
+{
+    EXPECT_FALSE(CheckType<dictionary_t>(*Decode(std::istringstream("4:spam"))));
 }
