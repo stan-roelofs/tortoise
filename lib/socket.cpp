@@ -75,20 +75,12 @@ namespace tortoise
 
     int Socket::Send(const void *data, int size)
     {
-        int iResult = send(socket_, (const char *)data, size, 0);
-        if (iResult == SOCKET_ERROR)
-            return -1;
-
-        return iResult;
+        return send(socket_, (const char *)data, size, 0);
     }
 
     int Socket::Receive(void *buffer, int size)
     {
-        int iResult = recv(socket_, static_cast<char *>(buffer), size, 0);
-        if (iResult == SOCKET_ERROR)
-            return -1;
-
-        return iResult;
+        return recv(socket_, static_cast<char *>(buffer), size, 0);
     }
 
 } // namespace tortoise

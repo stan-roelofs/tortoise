@@ -6,11 +6,12 @@
 #include <ws2tcpip.h>
 
 #pragma comment(lib, "Ws2_32.lib")
-
 #else
-// Assume unix
-// TODO
-
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 #endif
 
 #include <string>

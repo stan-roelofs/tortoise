@@ -137,28 +137,28 @@ namespace tortoise
         {
         public:
             CheckTypeVisitor() : result_(false) {}
-            void Visit(const StringData&) override
+            void Visit(const StringData &) override
             {
                 if constexpr (std::is_same_v<T, string_t>)
                     result_ = true;
             }
-            void Visit(const IntegerData&) override
+            void Visit(const IntegerData &) override
             {
                 if constexpr (std::is_same_v<T, integer_t>)
                     result_ = true;
             }
-            void Visit(const ListData&) override
+            void Visit(const ListData &) override
             {
                 if constexpr (std::is_same_v<T, list_t>)
                     result_ = true;
             }
-            void Visit(const DictionaryData&) override
+            void Visit(const DictionaryData &) override
             {
                 if constexpr (std::is_same_v<T, dictionary_t>)
                     result_ = true;
             }
 
-            const bool result() const
+            bool result() const
             {
                 return result_;
             }
@@ -166,13 +166,13 @@ namespace tortoise
         private:
             bool result_;
         };
-        
+
         template <class T>
         bool CheckType(const Data &data)
         {
             CheckTypeVisitor<T> v;
-			data.Accept(v);
-			return v.result();			
+            data.Accept(v);
+            return v.result();
         }
 
         /*!
