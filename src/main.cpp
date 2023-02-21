@@ -3,7 +3,10 @@
 #include <string>
 #include <vector>
 
+#include <tortoise/load_torrent.hpp>
 #include <tortoise/metainfo.hpp>
+#include <tortoise/session.hpp>
+#include <tortoise/torrent.hpp>
 #include <tortoise/tracker.hpp>
 
 static int usage(const char *argv[])
@@ -39,48 +42,20 @@ int main(int argc, const char *argv[])
     return usage(argv);
   }
 
-  std::ifstream file(argv[arg], std::ios::binary);
-  if (!file.is_open())
+  tortoise::Session session;
+  auto metainfo = tortoise::LoadTorrentFile(argv[arg]);
+  if (!metainfo)
   {
-    std::cout << "Failed to open file: " << argv[1] << std::endl;
+    std::cout << "Failed to load torrent file: " << argv[arg] << std::endl;
     return EXIT_FAILURE;
   }
 
-  using namespace tortoise;
-  std::unique_ptr<bencode::Data> data;
-  try
+  tortoise::Torrent::Parameters params;
+  params.metainfo = *metainfo;
+  auto handle = session.AddTorrent(params);
+  if (!handle)
   {
-    data = bencode::Decode(file);
-  }
-  catch (const BencodeException &e)
-  {
-    std::cout << "Failed to decode bencode: " << e.what() << std::endl;
+    std::cout << "Failed to add torrent" << std::endl;
     return EXIT_FAILURE;
-  }
-
-  auto metainfo = Metainfo::FromBencode(*data);
-
-  try
-  {
-    Tracker tracker(*metainfo);
-    tracker.Announce();
-
-    std::cout << "Complete: " << tracker.GetComplete() << std::endl;
-    std::cout << "Incomplete: " << tracker.GetIncomplete() << std::endl;
-    std::cout << "Interval: " << tracker.GetInterval() << std::endl;
-    std::cout << "Min Interval: " << tracker.GetMinimumInterval() << std::endl;
-    const auto &peers = tracker.GetPeers();
-    std::cout << "Peers: " << peers.size() << std::endl;
-    for (const auto &peer : peers)
-    {
-      std::cout << "  ID: " << peer.peer_id << std::endl;
-      std::cout << "  IP address: " << peer.ip << std::endl;
-      std::cout << "  Port: " << peer.port << std::endl;
-      std::cout << std::endl;
-    }
-  }
-  catch (TrackerException &e)
-  {
-    std::cout << e.what();
   }
 }

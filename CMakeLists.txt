@@ -17,7 +17,9 @@ set (HEADERS
   include/tortoise/exceptions.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
+  include/tortoise/session.hpp
   include/tortoise/socket.hpp
+  include/tortoise/torrent.hpp
   include/tortoise/tracker.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
@@ -33,8 +35,10 @@ set(SOURCES
   lib/load_torrent.cpp
   lib/metainfo.cpp
   lib/sha1.cpp
+  lib/session.cpp
   lib/socket.cpp
   lib/socket_helper.cpp
+  lib/torrent.cpp
   lib/tracker.cpp
   lib/url.cpp
 )
