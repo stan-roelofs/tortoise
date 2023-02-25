@@ -18,6 +18,7 @@ set (HEADERS
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
   include/tortoise/session.hpp
+  include/tortoise/sha1_hash.hpp
   include/tortoise/socket.hpp
   include/tortoise/torrent.hpp
   include/tortoise/tracker.hpp
@@ -34,6 +35,7 @@ set(SOURCES
   lib/httprequest.cpp
   lib/load_torrent.cpp
   lib/metainfo.cpp
+  lib/sha1_hash.cpp
   lib/sha1.cpp
   lib/session.cpp
   lib/socket.cpp
