@@ -10,8 +10,21 @@ namespace tortoise
     {
         try
         {
-            std::unique_ptr<Metainfo> metainfo = std::make_unique<Metainfo>();
             const bencode::dictionary_t &dct = bencode::Get<bencode::dictionary_t>(data);
+
+            std::unique_ptr<Metainfo> metainfo;
+            // Calculate the info hash.
+            const bencode::string_t &info_str = dct.at("info")->Encode();
+            try
+            {
+                SHA1 sha1(info_str.c_str(), info_str.length());
+                metainfo.reset(new Metainfo(sha1.GetHash()));
+            }
+            catch (SHA1::HashException &)
+            {
+                return nullptr;
+            }
+
             metainfo->announce_ = bencode::Get<bencode::string_t>(*dct.at("announce"));
 
             if (dct.find("announce-list") != dct.end())
@@ -76,14 +89,6 @@ namespace tortoise
             else
                 return nullptr;
 
-            // Calculate the info hash.
-            const bencode::string_t &info_str = dct.at("info")->Encode();
-            SHA1 sha1(info_str.c_str(), info_str.length());
-            const uint8_t *info_hash = sha1.GetHash();
-            if (!info_hash)
-                return nullptr;
-
-            std::copy(info_hash, info_hash + 20, metainfo->info_hash_.begin());
             return metainfo;
         }
         catch (const BencodeException &)
@@ -94,6 +99,12 @@ namespace tortoise
         {
             return nullptr;
         }
+    }
+
+    Metainfo::Metainfo(const SHA1Hash &hash) : info_hash_(hash),
+                                               creation_date_(0),
+                                               piece_length_(0)
+    {
     }
 
     const std::string &Metainfo::GetAnnounce() const
@@ -146,7 +157,7 @@ namespace tortoise
         return file_info_;
     }
 
-    const std::array<std::uint8_t, 20> &Metainfo::GetInfoHash() const
+    const SHA1Hash &Metainfo::GetInfoHash() const
     {
         return info_hash_;
     }

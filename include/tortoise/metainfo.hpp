@@ -5,6 +5,7 @@
 #include <variant>
 
 #include "bencode.hpp"
+#include "sha1_hash.hpp"
 
 namespace tortoise
 {
@@ -46,7 +47,7 @@ namespace tortoise
         const std::vector<std::string> &GetPieces() const;
 
         //! \brief The SHA1 hash of the bencoded value of the info key.
-        const std::array<std::uint8_t, 20> &GetInfoHash() const;
+        const SHA1Hash &GetInfoHash() const;
 
         struct SingleFile
         {
@@ -69,6 +70,8 @@ namespace tortoise
         std::variant<SingleFile, MultiFile> GetFileInfo() const;
 
     private:
+        Metainfo(const SHA1Hash &info_hash);
+
         std::string announce_;
         std::vector<std::vector<std::string>> announce_list_;
         uint64_t creation_date_;
@@ -79,7 +82,7 @@ namespace tortoise
         std::uint32_t piece_length_;
         std::vector<std::string> pieces_;
         std::variant<SingleFile, MultiFile> file_info_;
-        std::array<std::uint8_t, 20> info_hash_;
+        SHA1Hash info_hash_;
     };
 }
 
