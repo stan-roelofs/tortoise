@@ -105,10 +105,10 @@ SHA1::SHA1(const void *buffer, std::size_t length)
     }
 }
 
-const std::uint8_t *SHA1::GetHash()
+tortoise::SHA1Hash SHA1::GetHash()
 {
     if (Corrupted)
-        return nullptr;
+        throw HashException("SHA1::GetHash: Corrupted message");
 
     if (!Computed)
     {
@@ -124,7 +124,9 @@ const std::uint8_t *SHA1::GetHash()
         }
     }
 
-    return Hash;
+    std::array<std::uint8_t, 20> hash_array;
+    std::copy(std::begin(Hash), std::end(Hash), std::begin(hash_array));
+    return tortoise::SHA1Hash(hash_array);
 }
 
 /*

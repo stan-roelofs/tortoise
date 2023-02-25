@@ -41,15 +41,28 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+
+#include <tortoise/exceptions.hpp>
+#include <tortoise/sha1_hash.hpp>
 
 class SHA1
 {
-
 public:
+    class HashException : public std::exception
+    {
+    public:
+        HashException(const std::string &msg) : std::exception(msg.c_str()) {}
+    };
+
     SHA1(const void *buffer, std::size_t size);
     ~SHA1();
 
-    const std::uint8_t *GetHash();
+    /*! \brief Get the hash of the message
+     *  \return The hash of the message
+     *  \throws HashException if the hash is corrupted
+     */
+    tortoise::SHA1Hash GetHash();
 
 private:
     /*
