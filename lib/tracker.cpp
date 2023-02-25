@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include <tortoise/bencode.hpp>
 #include <tortoise/exceptions.hpp>
 #include <tortoise/url.hpp>
 
@@ -15,36 +16,65 @@ namespace
 
 namespace tortoise
 {
-    Tracker::Tracker(const Metainfo &info) : info_(info), interval_(0), min_interval_(0), complete_(0), incomplete_(0)
+    Tracker::RequestParameters::RequestParameters() : downloaded(0), uploaded(0), left(0), event(Event::None), numwant(0), port(6881)
+    {
+        info_hash.fill(0);
+        peer_id.fill(0);
+    }
+
+    Tracker::Tracker(const std::string &announce_url) : announce_url_(announce_url), min_interval_(0), complete_(0), incomplete_(0)
     {
     }
 
-    bool Tracker::Announce()
+    Tracker::~Tracker()
     {
-        const URL url(info_.GetAnnounce());
+    }
+
+    bool Tracker::Announce(const RequestParameters &request_parameters)
+    {
+        const URL url(announce_url_);
         if (!socket_.Connect(url.GetHost(), url.GetPort().empty() ? DEFAULT_HTTP_PORT : url.GetPort()))
         {
             LOG("Tracker", "Failed to connect to tracker");
             return false;
         }
 
-        // TODO Check the minimum interval?
-
         std::map<std::string, std::string> params;
-        auto hash = info_.GetInfoHash();
-        params["info_hash"] = std::string((const char *)hash.data(), hash.size());
-        // params["peer_id"] = std::string("12345678901234567890", 20); // TODO set this properly
-        // params["port"] = std::to_string(6881);
-        // params["uploaded"] = std::to_string(0);
-        // params["downloaded"] = std::to_string(0);
-        // params["left"] = "500";      // TODO
+        params["info_hash"] = std::string((const char *)request_parameters.info_hash.data(), request_parameters.info_hash.size());
+        params["peer_id"] = std::string((const char *)request_parameters.peer_id.data(), request_parameters.peer_id.size());
+        params["port"] = std::to_string(request_parameters.port);
+        params["uploaded"] = std::to_string(request_parameters.uploaded);
+        params["downloaded"] = std::to_string(request_parameters.downloaded);
+        params["left"] = std::to_string(request_parameters.left);
         params["compact"] = "1";
-        // params["no_peer_id"] = "0";  // TODO
-        params["event"] = "started";
+        // params["no_peer_id"] = "0"; // TODO?
+        if (request_parameters.event != RequestParameters::Event::None)
+        {
+            switch (request_parameters.event)
+            {
+            case RequestParameters::Event::Completed:
+                params["event"] = "completed";
+                break;
+            case RequestParameters::Event::Started:
+                params["event"] = "started";
+                break;
+            case RequestParameters::Event::Stopped:
+                params["event"] = "stopped";
+                break;
+            }
+        }
+        // params["ip"] = "0"; // TODO?
+        if (request_parameters.numwant > 0)
+            params["numwant"] = std::to_string(request_parameters.numwant);
+
+        // params["key"] = "0" // TODO?
+
+        if (!request_parameters.tracker_id.empty())
+            params["trackerid"] = request_parameters.tracker_id;
 
         try
         {
-            HTTPRequest request(info_.GetAnnounce(), params);
+            HTTPRequest request(announce_url_, params);
             return HandleResponse(request.Get(socket_));
         }
         catch (HTTPRequestException &e)
@@ -54,22 +84,22 @@ namespace tortoise
         }
     }
 
-    uint64_t Tracker::GetInterval() const
+    std::uint64_t Tracker::GetInterval() const
     {
         return interval_;
     }
 
-    uint64_t Tracker::GetMinimumInterval() const
+    std::uint64_t Tracker::GetMinimumInterval() const
     {
         return min_interval_;
     }
 
-    uint64_t Tracker::GetComplete() const
+    std::uint64_t Tracker::GetComplete() const
     {
         return complete_;
     }
 
-    uint64_t Tracker::GetIncomplete() const
+    std::uint64_t Tracker::GetIncomplete() const
     {
         return incomplete_;
     }
