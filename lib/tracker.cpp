@@ -4,6 +4,7 @@
 
 #include <tortoise/bencode.hpp>
 #include <tortoise/exceptions.hpp>
+#include <tortoise/sha1_hash.hpp>
 #include <tortoise/url.hpp>
 
 #include "httprequest.hpp"
@@ -16,75 +17,83 @@ namespace
 
 namespace tortoise
 {
-    Tracker::RequestParameters::RequestParameters() : downloaded(0), uploaded(0), left(0), event(Event::None), numwant(0), port(6881)
-    {
-        info_hash.fill(0);
-        peer_id.fill(0);
-    }
-
-    Tracker::Tracker(const std::string &announce_url) : announce_url_(announce_url), min_interval_(0), complete_(0), incomplete_(0)
-    {
-    }
-
-    Tracker::~Tracker()
+    TrackerRequest::TrackerRequest(const SHA1Hash &hash, const std::array<std::uint8_t, 20> peerid) : info_hash(hash),
+                                                                                                      peer_id(peerid),
+                                                                                                      downloaded(0),
+                                                                                                      uploaded(0),
+                                                                                                      left(0),
+                                                                                                      numwant(0),
+                                                                                                      port(0)
     {
     }
 
-    bool Tracker::Announce(const RequestParameters &request_parameters)
+    TrackerResponse::TrackerResponse() : interval(0), min_interval(0), complete_(0), incomplete_(0)
     {
-        const URL url(announce_url_);
-        if (!socket_.Connect(url.GetHost(), url.GetPort().empty() ? DEFAULT_HTTP_PORT : url.GetPort()))
-        {
-            LOG("Tracker", "Failed to connect to tracker");
-            return false;
-        }
-
-        std::map<std::string, std::string> params;
-        params["info_hash"] = std::string((const char *)request_parameters.info_hash.data(), request_parameters.info_hash.size());
-        params["peer_id"] = std::string((const char *)request_parameters.peer_id.data(), request_parameters.peer_id.size());
-        params["port"] = std::to_string(request_parameters.port);
-        params["uploaded"] = std::to_string(request_parameters.uploaded);
-        params["downloaded"] = std::to_string(request_parameters.downloaded);
-        params["left"] = std::to_string(request_parameters.left);
-        params["compact"] = "1";
-        // params["no_peer_id"] = "0"; // TODO?
-        if (request_parameters.event != RequestParameters::Event::None)
-        {
-            switch (request_parameters.event)
-            {
-            case RequestParameters::Event::Completed:
-                params["event"] = "completed";
-                break;
-            case RequestParameters::Event::Started:
-                params["event"] = "started";
-                break;
-            case RequestParameters::Event::Stopped:
-                params["event"] = "stopped";
-                break;
-            }
-        }
-        // params["ip"] = "0"; // TODO?
-        if (request_parameters.numwant > 0)
-            params["numwant"] = std::to_string(request_parameters.numwant);
-
-        // params["key"] = "0" // TODO?
-
-        if (!request_parameters.tracker_id.empty())
-            params["trackerid"] = request_parameters.tracker_id;
-
-        try
-        {
-            HTTPRequest request(announce_url_, params);
-            return HandleResponse(request.Get(socket_));
-        }
-        catch (HTTPRequestException &e)
-        {
-            LOG("Tracker", "Sending announce failed: %s", e.what());
-            return false;
-        }
     }
 
-    std::uint64_t Tracker::GetInterval() const
+    //Tracker::Tracker(const std::string &announce_url) : announce_url_(announce_url), min_interval_(0), complete_(0), incomplete_(0)
+    //{
+    //}
+
+    //Tracker::~Tracker()
+    //{
+    //}
+
+    // bool Tracker::Announce(const RequestParameters &request_parameters)
+    //{
+    //     const URL url(announce_url_);
+    //     if (!socket_.Connect(url.GetHost(), url.GetPort().empty() ? DEFAULT_HTTP_PORT : url.GetPort()))
+    //     {
+    //         LOG("Tracker", "Failed to connect to tracker");
+    //         return false;
+    //     }
+
+    //    std::map<std::string, std::string> params;
+    //    params["info_hash"] = std::string((const char *)request_parameters.info_hash.data(), request_parameters.info_hash.size());
+    //    params["peer_id"] = std::string((const char *)request_parameters.peer_id.data(), request_parameters.peer_id.size());
+    //    params["port"] = std::to_string(request_parameters.port);
+    //    params["uploaded"] = std::to_string(request_parameters.uploaded);
+    //    params["downloaded"] = std::to_string(request_parameters.downloaded);
+    //    params["left"] = std::to_string(request_parameters.left);
+    //    params["compact"] = "1";
+    //    // params["no_peer_id"] = "0"; // TODO?
+    //    if (request_parameters.event != RequestParameters::Event::None)
+    //    {
+    //        switch (request_parameters.event)
+    //        {
+    //        case RequestParameters::Event::Completed:
+    //            params["event"] = "completed";
+    //            break;
+    //        case RequestParameters::Event::Started:
+    //            params["event"] = "started";
+    //            break;
+    //        case RequestParameters::Event::Stopped:
+    //            params["event"] = "stopped";
+    //            break;
+    //        }
+    //    }
+    //    // params["ip"] = "0"; // TODO?
+    //    if (request_parameters.numwant > 0)
+    //        params["numwant"] = std::to_string(request_parameters.numwant);
+
+    //    // params["key"] = "0" // TODO?
+
+    //    if (!request_parameters.tracker_id.empty())
+    //        params["trackerid"] = request_parameters.tracker_id;
+
+    //    try
+    //    {
+    //        HTTPRequest request(announce_url_, params);
+    //        return HandleResponse(request.Get(socket_));
+    //    }
+    //    catch (HTTPRequestException &e)
+    //    {
+    //        LOG("Tracker", "Sending announce failed: %s", e.what());
+    //        return false;
+    //    }
+    //}
+
+   /* std::uint64_t Tracker::GetInterval() const
     {
         return interval_;
     }
@@ -256,6 +265,6 @@ namespace tortoise
         }
 
         return true;
-    }
+    }*/
 
 } // namespace tortoise

@@ -23,6 +23,7 @@ set (HEADERS
   include/tortoise/socket.hpp
   include/tortoise/torrent.hpp
   include/tortoise/tracker.hpp
+  include/tortoise/tracker_manager.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
 
@@ -44,6 +45,7 @@ set(SOURCES
   lib/socket_helper.cpp
   lib/torrent.cpp
   lib/tracker.cpp
+  lib/tracker_manager.cpp
   lib/url.cpp
 )
 
