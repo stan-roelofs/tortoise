@@ -51,11 +51,17 @@ int main(int argc, const char *argv[])
   }
 
   tortoise::Torrent::Parameters params;
-  params.metainfo = *metainfo;
+  params.metainfo = std::move(metainfo);
+  params.save_path = ".";
   auto handle = session.AddTorrent(params);
   if (!handle)
   {
     std::cout << "Failed to add torrent" << std::endl;
     return EXIT_FAILURE;
+  }
+
+  while (true)
+  {
+      std::cout << ".";
   }
 }

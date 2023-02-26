@@ -2,6 +2,7 @@
 #define TORTOISE_SESSION_HPP
 
 #include <memory>
+#include <thread>
 #include <vector>
 
 #include "torrent.hpp"
@@ -14,10 +15,15 @@ namespace tortoise
      * disk access, and other resources used by the torrents.
      * The session will spawn a thread that will do all the work.
      */
-    class Session final
+    class Session
     {
     public:
-        Session();
+        struct Parameters
+        {
+            bool start = true; // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
+        };
+
+        Session(Parameters parameters = Parameters());
         ~Session();
 
         /*! \brief Adds a torrent to the session.
@@ -31,6 +37,12 @@ namespace tortoise
          */
         void RemoveTorrent(Torrent::Handle handle);
 
+        //! \brief Starts the session.
+        void Start();
+
+        //! \brief Stops the session.
+        void Stop();
+
         // Disable copy and move.
         Session(const Session &) = delete;
         Session(Session &&) = delete;
@@ -38,7 +50,12 @@ namespace tortoise
         Session &operator=(Session &&) = delete;
 
     private:
+        static void ThreadFunc(Session &session);
+        void Run();
+
+        bool running_ = true;
         std::vector<std::shared_ptr<Torrent>> torrents_;
+        std::thread thread_;
     };
 }
 
