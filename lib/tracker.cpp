@@ -17,7 +17,7 @@ namespace
 
 namespace tortoise
 {
-    TrackerRequest::TrackerRequest(const SHA1Hash &hash, const std::array<std::uint8_t, 20> peerid) : info_hash(hash),
+    TrackerRequest::TrackerRequest(const SHA1Hash &hash, const PeerId& peerid) : info_hash(hash),
                                                                                                       peer_id(peerid),
                                                                                                       downloaded(0),
                                                                                                       uploaded(0),

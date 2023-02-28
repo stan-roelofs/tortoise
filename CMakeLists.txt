@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 17)
  
-project(tortoise VERSION 0.1.0 LANGUAGES CXX)
+project(Tortoise VERSION 0.1.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
 option(TORTOISE_ENABLE_LOGGING "Enable logging" ON)
@@ -18,6 +18,7 @@ set (HEADERS
   include/tortoise/ip_address.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
+  include/tortoise/peer_id.hpp
   include/tortoise/session.hpp
   include/tortoise/sha1_hash.hpp
   include/tortoise/socket.hpp
@@ -38,6 +39,7 @@ set(SOURCES
   lib/ip_address.cpp
   lib/load_torrent.cpp
   lib/metainfo.cpp
+  lib/peer_id.cpp
   lib/sha1_hash.cpp
   lib/sha1.cpp
   lib/session.cpp

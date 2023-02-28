@@ -7,19 +7,20 @@
 #include <vector>
 
 #include "ip_address.hpp"
+#include "peer_id.hpp"
 #include "sha1_hash.hpp"
 
 namespace tortoise
 {
     struct TrackerRequest
     {
-        TrackerRequest(const SHA1Hash &info_hash, const std::array<std::uint8_t, 20> peer_id);
+        TrackerRequest(const SHA1Hash &info_hash, const PeerId& peer_id);
 
         //! \brief The info hash of the torrent.
-        SHA1Hash info_hash;
+        const SHA1Hash info_hash;
 
         //! \brief The peer id of the client.
-        std::array<std::uint8_t, 20> peer_id;
+        const PeerId peer_id;
 
         //! \brief The port number that the client is listening on.
         std::uint16_t port;
