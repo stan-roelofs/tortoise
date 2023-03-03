@@ -47,4 +47,14 @@ namespace tortoise
     {
         return path_;
     }
+
+    bool URL::operator==(const URL &other) const
+    {
+        return protocol_ == other.protocol_ && host_ == other.host_ && port_ == other.port_ && path_ == other.path_;
+    }
+
+    bool URL::operator!=(const URL &other) const
+    {
+        return !(*this == other);
+    }
 }

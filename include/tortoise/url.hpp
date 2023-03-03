@@ -27,6 +27,9 @@ namespace tortoise
         //! \returns The path of the URL, e.g. "/announce".
         const std::string &GetPath() const;
 
+        bool operator==(const URL &other) const;
+        bool operator!=(const URL &other) const;
+
     private:
         std::string protocol_;
         std::string host_;
