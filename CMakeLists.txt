@@ -15,6 +15,9 @@ endif()
 set (HEADERS
   include/tortoise/bencode.hpp
   include/tortoise/exceptions.hpp
+  include/tortoise/http/exception.hpp
+  include/tortoise/http/request.hpp
+  include/tortoise/http/response.hpp
   include/tortoise/ip_address.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
@@ -27,15 +30,14 @@ set (HEADERS
   include/tortoise/tracker_manager.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
-
-  lib/httprequest.hpp
   lib/sha1.hpp
   lib/socket_helper.hpp
 )
 
 set(SOURCES
   lib/bencode.cpp
-  lib/httprequest.cpp
+  lib/http/request.cpp
+  lib/http/response.cpp
   lib/ip_address.cpp
   lib/load_torrent.cpp
   lib/metainfo.cpp
