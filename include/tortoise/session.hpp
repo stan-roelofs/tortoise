@@ -2,6 +2,7 @@
 #define TORTOISE_SESSION_HPP
 
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -56,6 +57,7 @@ namespace tortoise
         bool running_ = true;
         std::vector<std::shared_ptr<Torrent>> torrents_;
         std::thread thread_;
+        std::mutex mutex_;
     };
 }
 

@@ -15,9 +15,26 @@ namespace tortoise
 
     Torrent::Handle Session::AddTorrent(const Torrent::Parameters &params)
     {
+        // if (params.save_path.empty())
+        //  TODO get default path from settings
+
         auto torrent = std::make_shared<Torrent>(params);
-        torrents_.push_back(torrent);
+        {
+            std::lock_guard lock(mutex_);
+            torrents_.push_back(torrent);
+        }
         return Torrent::Handle(torrent);
+    }
+
+    void Session::RemoveTorrent(Torrent::Handle handle)
+    {
+        if (!handle.IsValid())
+            return;
+
+        std::lock_guard lock(mutex_);
+		auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const std::shared_ptr<Torrent>& torrent) { return Torrent::Handle(torrent) == handle; });
+		if (it != torrents_.end())
+			torrents_.erase(it);
     }
 
     void Session::ThreadFunc(Session &session)
@@ -27,6 +44,8 @@ namespace tortoise
 
     void Session::Start()
     {
+        std::lock_guard lock(mutex_);
+
         if (running_)
             return;
 
@@ -36,6 +55,8 @@ namespace tortoise
 
     void Session::Stop()
     {
+        std::lock_guard lock(mutex_);
+
         if (!running_)
             return;
 
@@ -48,8 +69,13 @@ namespace tortoise
     {
         while (running_)
         {
-			for (const auto& torrent : torrents_)
-				torrent->Process();
+            {
+                std::lock_guard lock(mutex_);
+                for (auto &torrent : torrents_)
+                    torrent->Update();
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 }
