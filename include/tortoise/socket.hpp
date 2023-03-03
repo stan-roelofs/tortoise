@@ -48,7 +48,21 @@ namespace tortoise
          */
         int Receive(void *buffer, int size);
 
+        /*! \brief Sets the socket to blocking or non-blocking mode.
+         *  \param blocking True to set the socket to blocking mode, false to set it to non-blocking mode.
+         *  \return True on success, false on error.
+         */
+        bool SetBlocking(bool blocking);
+
+        //! \returns True if the socket is in blocking mode, false if it is in non-blocking mode.
+        bool GetBlocking() const;
+
+        //! \returns True if the socket is connected, false otherwise.
+        bool Connected() const;
+
     private:
+        bool SetBlockingInternal(bool blocking);
+
 #ifdef _WIN32
         using socket_t = SOCKET;
         static constexpr socket_t INVALID_SOCKET_VALUE = INVALID_SOCKET;
@@ -58,6 +72,7 @@ namespace tortoise
 #endif
 
         socket_t socket_;
+        bool blocking_;
     };
 } // namespace tortoise
 

@@ -3,7 +3,7 @@
 
 namespace tortoise
 {
-    Socket::Socket() : socket_(INVALID_SOCKET_VALUE)
+    Socket::Socket() : socket_(INVALID_SOCKET_VALUE), blocking_(true)
     {
 #ifdef _WIN32
 
@@ -51,19 +51,30 @@ namespace tortoise
             if (socket_ == INVALID_SOCKET_VALUE)
                 continue;
 
-            iResult = connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen);
-            if (iResult == 0)
+            if (!SetBlockingInternal(blocking_))
+                return false;
+
+            if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
                 break;
+
+            if (!GetBlocking())
+            {
+#ifdef _WIN32
+                int error = WSAGetLastError();
+                if (error == WSAEWOULDBLOCK)
+                    break;
+#else
+                if (errno == EINPROGRESS)
+                    break;
+#endif
+            }
 
             Close();
         }
 
         freeaddrinfo(result);
 
-        if (socket_ == INVALID_SOCKET_VALUE)
-            return false;
-
-        return true;
+        return socket_ != INVALID_SOCKET_VALUE;
     }
 
     bool Socket::Listen(const std::string &port)
@@ -83,4 +94,51 @@ namespace tortoise
         return recv(socket_, static_cast<char *>(buffer), size, 0);
     }
 
+    bool Socket::SetBlocking(bool blocking)
+    {
+        blocking_ = blocking;
+
+        if (socket_ == INVALID_SOCKET_VALUE)
+            return true;
+
+        return SetBlockingInternal(blocking);
+    }
+
+    bool Socket::GetBlocking() const
+    {
+        return blocking_;
+    }
+
+    bool Socket::Connected() const
+    {
+        if (socket_ == INVALID_SOCKET_VALUE)
+            return false;
+
+        int error = 0;
+        socklen_t len = sizeof(error);
+        if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, (char *)&error, &len) < 0)
+            return false;
+
+        return error == 0;
+    }
+
+    bool Socket::SetBlockingInternal(bool blocking)
+    {
+
+#ifdef _WIN32
+        u_long mode = blocking ? 0 : 1;
+        return ioctlsocket(socket_, FIONBIO, &mode) == 0;
+#else
+        int flags = fcntl(socket_, F_GETFL, 0);
+        if (flags == -1)
+            return;
+
+        if (blocking)
+            flags &= ~O_NONBLOCK;
+        else
+            flags |= O_NONBLOCK;
+
+        return fcntl(socket_, F_SETFL, flags) == 0;
+#endif
+    }
 } // namespace tortoise
