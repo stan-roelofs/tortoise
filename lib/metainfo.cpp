@@ -25,8 +25,7 @@ namespace tortoise
                 return nullptr;
             }
 
-            metainfo->announce_ = bencode::Get<bencode::string_t>(*dct.at("announce"));
-
+            // If the "announce-list" key is present, we will use it instead of the "announce" key.
             if (dct.find("announce-list") != dct.end())
             {
                 const bencode::list_t &announce_list = bencode::Get<bencode::list_t>(*dct.at("announce-list"));
@@ -37,6 +36,11 @@ namespace tortoise
                     for (const auto &tier_item : tier)
                         metainfo->announce_list_.back().push_back(bencode::Get<bencode::string_t>(*tier_item));
                 }
+            }
+            else
+            {
+                metainfo->announce_list_.push_back(std::vector<URL>());
+                metainfo->announce_list_.front().push_back(bencode::Get<bencode::string_t>(*dct.at("announce")));
             }
 
             if (dct.find("creation date") != dct.end())
@@ -107,17 +111,12 @@ namespace tortoise
     {
     }
 
-    const std::string &Metainfo::GetAnnounce() const
-    {
-        return announce_;
-    }
-
     const std::string &Metainfo::GetName() const
     {
         return name_;
     }
 
-    const std::vector<std::vector<std::string>> &Metainfo::GetAnnounceList() const
+    const std::vector<std::vector<URL>> &Metainfo::GetAnnounceList() const
     {
         return announce_list_;
     }
