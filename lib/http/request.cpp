@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "../log.hpp"
+
 namespace
 {
     std::string url_encode(const std::string &value)
@@ -67,31 +69,43 @@ namespace tortoise
             socket_.SetBlocking(false);
             if (!socket_.Connect(url.GetHost(), url.GetPort()))
                 throw Exception("Failed to connect to " + url.GetHost() + ":" + url.GetPort());
+
+            LOG("AsyncRequest", "Sending request %s to %s:%s", request_.c_str(), url.GetHost().c_str(), url.GetPort().c_str());
         }
 
         bool AsyncRequest::Process()
         {
             if (state_ == State::Connecting && socket_.Connected())
+            {
                 state_ = State::Sending;
+                LOG("AsyncRequest", "Socket connected");
+            }
 
             if (state_ == State::Sending)
             {
                 int sent = socket_.Send(request_.c_str(), static_cast<int>(request_.size()));
+                LOG("AsyncRequest", "Sent %i bytes", sent);
+
                 if (sent > 0)
                     bytes_sent_ += sent;
 
                 if (bytes_sent_ == request_.size())
+                {
                     state_ = State::Receiving;
+                    LOG("AsyncRequest", "Request sent");
+                }
 
                 return false;
             }
 
             if (state_ == State::Receiving)
             {
-                char buffer[0xFFFF];
-                int received = socket_.Receive(buffer, 0xFFFF);
+                char buffer[1024];
+                int received = socket_.Receive(buffer, 1024);
+                LOG("AsyncRequest", "Received %i bytes", received);
                 if (received == 0)
                 {
+                    LOG("AsyncRequest", "Response received: %s", response_buffer_.c_str());
                     state_ = State::Done;
                     try
                     {
@@ -108,7 +122,7 @@ namespace tortoise
                 }
             }
 
-            return false;
+            return state_ == State::Done;
         }
 
         bool AsyncRequest::Done() const
@@ -116,9 +130,9 @@ namespace tortoise
             return state_ == State::Done;
         }
 
-		std::shared_ptr<Response> AsyncRequest::GetResponse() const
-		{
-			return response_;
-		}
+        std::shared_ptr<Response> AsyncRequest::GetResponse() const
+        {
+            return response_;
+        }
     } // namespace http
 } // namespace tortoise

@@ -35,12 +35,6 @@ namespace tortoise
         SocketException(const std::string &msg) : Exception(msg) {}
     };
 
-    class HTTPRequestException : public Exception
-    {
-    public:
-        HTTPRequestException(const std::string &msg) : Exception(msg) {}
-    };
-
     class TrackerException : public Exception
     {
     public:
@@ -51,6 +45,18 @@ namespace tortoise
     {
     public:
         URLException(const std::string &msg) : Exception(msg) {}
+    };
+
+    class TorrentException : public Exception
+    {
+    public:
+        TorrentException(const std::string &msg) : Exception(msg) {}
+    };
+
+    class InvalidArgumentException : public Exception
+    {
+    public:
+        InvalidArgumentException(const std::string &msg) : Exception(msg) {}
     };
 } // namespace tortoise
 

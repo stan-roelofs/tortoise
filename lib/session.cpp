@@ -72,7 +72,7 @@ namespace tortoise
             {
                 std::lock_guard lock(mutex_);
                 for (auto &torrent : torrents_)
-                    torrent->Update();
+                    torrent->Process();
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(100));

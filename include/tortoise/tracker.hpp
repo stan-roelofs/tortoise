@@ -2,6 +2,7 @@
 #define TORTOISE_TRACKER_HPP
 
 #include <array>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -9,12 +10,16 @@
 #include "ip_address.hpp"
 #include "peer_id.hpp"
 #include "sha1_hash.hpp"
+#include "url.hpp"
 
 namespace tortoise
 {
     struct TrackerRequest
     {
-        TrackerRequest(const SHA1Hash &info_hash, const PeerId& peer_id);
+        TrackerRequest(const SHA1Hash &info_hash, const PeerId &peer_id);
+
+        //! \returns The parameters that should be sent to the tracker.
+        std::map<std::string, std::string> GetParameters() const;
 
         //! \brief The info hash of the torrent.
         const SHA1Hash info_hash;
@@ -34,8 +39,8 @@ namespace tortoise
         //! \brief The number of bytes left to download.
         std::uint64_t left;
 
-        //! \brief Indicates whether the client supports compact responses (see BEP 23). 
-		std::optional<bool> compact;
+        //! \brief Indicates whether the client supports compact responses (see BEP 23).
+        std::optional<bool> compact;
 
         //! \brief Indicates that the tracker can omit peer id fields in the peers dictionary. Ignored if compact is enabled.
         std::optional<bool> no_peer_id;
@@ -67,38 +72,44 @@ namespace tortoise
 
     struct TrackerResponse
     {
-        TrackerResponse();
+        TrackerResponse(const std::string &response_string);
 
-        //! \brief (Optional) A human-readable error message as to why the request failed.
-        std::string failure_reason;
+        //! \returns True if the request was successful.
+        bool Success() const;
 
-        //! \brief (Optional) Similar to failure reason, but in this case the request was still processed normally.
-        std::string warning_message;
+        //! \returns True if the request failed.
+        bool Failure() const;
 
-        struct PeerInfo
-        {
-            std::string peer_id; // The 20-byte self-selected peer id of the peer. This may be empty.
-            std::string ip;
-            std::uint16_t port;
-        };
+        //! \brief A human-readable error message as to why the request failed.
+        std::optional<std::string> failure_reason;
+
+        //! \brief Similar to failure reason, but in this case the request was still processed normally.
+        std::optional<std::string> warning_message;
 
         //! \brief Interval in seconds that the client should wait between sending regular requests to the tracker.
         std::uint64_t interval;
 
         //! \brief The minimum announce interval in seconds that the client should wait between sending requests to the tracker. 0 if unspecified.
-        std::uint64_t min_interval;
+        std::optional<std::uint64_t> min_interval;
 
-        //! \brief A string that the client should send back on its next announcements.
-        std::string tracker_id_;
+        //! \brief A string that the client should send back on its next announcements. If not specified, the client should use the previous value.
+        std::optional<std::string> tracker_id;
 
         //! \brief The number of peers with the entire file, i.e. seeders.
-        std::uint64_t complete_;
+        std::uint64_t complete;
 
         //! \brief The number of non-seeder peers, aka "leechers".
-        std::uint64_t incomplete_;
+        std::uint64_t incomplete;
+
+        struct PeerInfo
+        {
+            std::optional<std::string> peer_id; // The 20-byte self-selected peer id of the peer.
+            IPAddress ip;
+            std::uint16_t port;
+        };
 
         //! \brief A list of peers.
-        std::vector<PeerInfo> peers_;
+        std::vector<PeerInfo> peers;
     };
 } // namespace tortoise
 

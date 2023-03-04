@@ -1,11 +1,11 @@
 #ifndef TORTOISE_TORRENT_HPP
 #define TORTOISE_TORRENT_HPP
 
-#include <chrono>
 #include <memory>
 #include <string>
 
 #include "metainfo.hpp"
+#include "peer_id.hpp"
 #include "tracker_manager.hpp"
 
 namespace tortoise
@@ -28,14 +28,26 @@ namespace tortoise
                 return IsValid();
             }
 
+            bool operator==(const Handle &other) const
+            {
+                return ptr_.lock() == other.ptr_.lock();
+            }
+
+            bool operator!=(const Handle &other) const
+            {
+                return !(*this == other);
+            }
+
         private:
             std::weak_ptr<const Torrent> ptr_;
         };
 
         struct Parameters
         {
-            std::unique_ptr<Metainfo> metainfo;
-            std::string save_path = "";
+            Parameters(const Metainfo &info, const PeerId &id) : metainfo(info), peer_id(id) {}
+            Metainfo metainfo;
+            std::string save_path;
+            PeerId peer_id;
         };
 
         Torrent(const Parameters &params);
@@ -45,15 +57,10 @@ namespace tortoise
         void Process();
 
     private:
-        bool ShouldContractTracker() const;
-        void ContactTracker();
-        void HandleTrackerResponse(bool success);
+        TrackerRequest GetTrackerRequest();
 
-        //! \brief The interval of the last tracker we contacted. Used to determine when to contact the tracker again. If 0, we have not contacted a tracker yet.
-        std::uint64_t tracker_interval_;
-
-        //! \brief The time of the last contact with the tracker.
-        std::chrono::steady_clock::time_point last_tracker_contact_;
+        Parameters parameters_;
+        TrackerManager tracker_manager_;
     };
 } // namespace tortoise
 

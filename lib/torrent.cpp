@@ -4,14 +4,12 @@
 
 namespace tortoise
 {
-    Torrent::Torrent(const Parameters &parameters) : tracker_interval_(0)
+    Torrent::Torrent(const Parameters& parameters) : 
+        parameters_(parameters),
+        tracker_manager_(parameters_.metainfo.GetAnnounceList(), std::bind(&Torrent::GetTrackerRequest, this))
     {
-        if (!parameters.metainfo)
-            throw std::invalid_argument("metainfo is null");
-
         if (parameters.save_path.empty())
-            throw std::invalid_argument("save_path is empty");
-
+            throw TorrentException("save_path is empty"); // TODO set a default save path somewhere
     }
 
     Torrent::~Torrent()
@@ -20,35 +18,15 @@ namespace tortoise
 
     void Torrent::Process()
     {
-        if (ShouldContractTracker())
-            ContactTracker();
-    }
-
-    bool Torrent::ShouldContractTracker() const
-    {
-        // No contact yet
-        if (last_tracker_contact_ == std::chrono::steady_clock::time_point())
-            return true;
-
-        assert(tracker_interval_ > 0);
-
-        const auto now = std::chrono::steady_clock::now();
-        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_tracker_contact_);
-        return static_cast<std::uint64_t>(elapsed.count()) > tracker_interval_;
-    }
-
-    void Torrent::ContactTracker()
-    {
-        last_tracker_contact_ = std::chrono::steady_clock::now();
-        // TODO implement a class that manages tracker requests
-    }
-
-    void Torrent::HandleTrackerResponse(bool success)
-    {
-        // TODO
-        if (!success)
+        if (tracker_manager_.Update())
         {
-            last_tracker_contact_ = std::chrono::steady_clock::time_point();
+			// TODO we got new data from the tracker
         }
+    }
+
+    TrackerRequest Torrent::GetTrackerRequest()
+    {
+        TrackerRequest request(parameters_.metainfo.GetInfoHash(), parameters_.peer_id);
+        return request; // TODO
     }
 }

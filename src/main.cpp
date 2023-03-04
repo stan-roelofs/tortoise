@@ -58,4 +58,9 @@ int main(int argc, const char *argv[])
     std::cout << "Failed to add torrent" << std::endl;
     return EXIT_FAILURE;
   }
+
+  while (true)
+  {
+	  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
 }
