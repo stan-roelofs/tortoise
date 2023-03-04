@@ -40,3 +40,11 @@ TEST(URL, no_protocol)
     const std::string url = "www.example.com:9000";
     EXPECT_THROW(tortoise::URL x(url), tortoise::URLException);
 }
+
+TEST(URL, to_string)
+{
+    const std::string url = "http://www.example.com:8080/path/to/file";
+    const tortoise::URL parsed_url(url);
+
+    EXPECT_EQ(parsed_url.ToString(), url);
+}

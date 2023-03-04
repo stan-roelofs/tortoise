@@ -48,6 +48,16 @@ namespace tortoise
         return path_;
     }
 
+    std::string URL::ToString() const
+    {
+        std::string url = protocol_ + "://" + host_;
+        if (!port_.empty())
+            url += ":" + port_;
+        if (!path_.empty())
+            url += path_;
+        return url;
+    }
+
     bool URL::operator==(const URL &other) const
     {
         return protocol_ == other.protocol_ && host_ == other.host_ && port_ == other.port_ && path_ == other.path_;
