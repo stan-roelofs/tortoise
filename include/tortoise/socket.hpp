@@ -18,18 +18,20 @@
 
 namespace tortoise
 {
-    //! \brief A platform independent socket class.
+    //! \brief A platform independent socket class. All sockets are non-blocking!
     class Socket
     {
     public:
         Socket();
         ~Socket();
 
-        //! \brief Connects to a host.
-        bool Connect(const std::string &host, const std::string &port);
-
-        //! \brief Listens on a port.
-        bool Listen(const std::string &port);
+        /*! \brief Connects to a host.
+         *  \param host The host to connect to.
+         *  \param port The port to connect to.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
+         *  \return True if the connection was successful.
+         */
+        bool Connect(const std::string &host, const std::string &port, unsigned int timeout_ms);
 
         //! \brief Closes the socket.
         void Close();
@@ -37,31 +39,25 @@ namespace tortoise
         /*! \brief Sends data to the connected host.
          *  \param data The data to send.
          *  \param size The size of the data to send.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
          *  \return The number of bytes that was actually sent. This may be less than the size of the data. -1 is returned on error.
          */
-        int Send(const void *data, int size);
+        int Send(const void *data, int size, unsigned int timeout_ms);
 
         /*! \brief Receives data from the connected host.
          *  \param buffer The buffer to store the received data in.
          *  \param size The size of the buffer.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
          *  \return The number of bytes that was actually received. This may be less than the size of the buffer. -1 is returned on error.
          */
-        int Receive(void *buffer, int size);
-
-        /*! \brief Sets the socket to blocking or non-blocking mode.
-         *  \param blocking True to set the socket to blocking mode, false to set it to non-blocking mode.
-         *  \return True on success, false on error.
-         */
-        bool SetBlocking(bool blocking);
-
-        //! \returns True if the socket is in blocking mode, false if it is in non-blocking mode.
-        bool GetBlocking() const;
+        int Receive(void *buffer, int size, unsigned int timeout_ms);
 
         //! \returns True if the socket is connected, false otherwise.
         bool Connected() const;
 
     private:
-        bool SetBlockingInternal(bool blocking);
+        bool SetBlocking(bool blocking);
+        bool Select(bool read, bool write, unsigned int timeout_ms);
 
 #ifdef _WIN32
         using socket_t = SOCKET;
@@ -72,7 +68,6 @@ namespace tortoise
 #endif
 
         socket_t socket_;
-        bool blocking_;
     };
 } // namespace tortoise
 

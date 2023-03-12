@@ -1,9 +1,11 @@
 #include <tortoise/exceptions.hpp>
 #include <tortoise/socket.hpp>
 
+#include <cassert>
+
 namespace tortoise
 {
-    Socket::Socket() : socket_(INVALID_SOCKET_VALUE), blocking_(true)
+    Socket::Socket() : socket_(INVALID_SOCKET_VALUE)
     {
 #ifdef _WIN32
 
@@ -32,7 +34,7 @@ namespace tortoise
         socket_ = INVALID_SOCKET_VALUE;
     }
 
-    bool Socket::Connect(const std::string &host, const std::string &port)
+    bool Socket::Connect(const std::string &host, const std::string &port, unsigned int timeout)
     {
         struct addrinfo *result = nullptr, hints;
 
@@ -51,13 +53,13 @@ namespace tortoise
             if (socket_ == INVALID_SOCKET_VALUE)
                 continue;
 
-            if (!SetBlockingInternal(blocking_))
+            if (!SetBlocking(false))
                 return false;
 
             if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
                 break;
 
-            if (!GetBlocking())
+            if (timeout == 0)
             {
 #ifdef _WIN32
                 int error = WSAGetLastError();
@@ -68,6 +70,11 @@ namespace tortoise
                     break;
 #endif
             }
+            else
+            {
+                if (Select(false, true, timeout))
+                    break;
+            }
 
             Close();
         }
@@ -77,36 +84,20 @@ namespace tortoise
         return socket_ != INVALID_SOCKET_VALUE;
     }
 
-    bool Socket::Listen(const std::string &port)
+    int Socket::Send(const void *data, int size, unsigned int timeout_ms)
     {
-        // TODO
-        (void)port;
-        return false;
-    }
+        if (timeout_ms > 0 && !Select(false, true, timeout_ms))
+            return -1;
 
-    int Socket::Send(const void *data, int size)
-    {
         return send(socket_, (const char *)data, size, 0);
     }
 
-    int Socket::Receive(void *buffer, int size)
+    int Socket::Receive(void *buffer, int size, unsigned int timeout_ms)
     {
+        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
+            return -1;
+
         return recv(socket_, static_cast<char *>(buffer), size, 0);
-    }
-
-    bool Socket::SetBlocking(bool blocking)
-    {
-        blocking_ = blocking;
-
-        if (socket_ == INVALID_SOCKET_VALUE)
-            return true;
-
-        return SetBlockingInternal(blocking);
-    }
-
-    bool Socket::GetBlocking() const
-    {
-        return blocking_;
     }
 
     bool Socket::Connected() const
@@ -122,7 +113,46 @@ namespace tortoise
         return error == 0;
     }
 
-    bool Socket::SetBlockingInternal(bool blocking)
+    bool Socket::Select(bool read, bool write, unsigned int timeout_ms)
+    {
+        assert(read || write);
+
+#ifdef _WIN32
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(socket_, &fds);
+
+        timeval tv;
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+        return select(0, read ? &fds : nullptr, write ? &fds : nullptr, nullptr, &tv) > 0;
+#else
+        fd_set read_fds, write_fds;
+        FD_ZERO(&read_fds);
+        FD_ZERO(&write_fds);
+
+        if (read)
+            FD_SET(socket_, &read_fds);
+
+        if (write)
+            FD_SET(socket_, &write_fds);
+
+        timeval tv;
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+        int result = 0;
+        do
+        {
+            result = select(socket_ + 1, read ? &read_fds : nullptr, write ? &write_fds : nullptr, nullptr, &tv);
+        } while (result == -1 && errno == EINTR);
+
+        return result > 0;
+#endif
+    }
+
+    bool Socket::SetBlocking(bool blocking)
     {
 
 #ifdef _WIN32
