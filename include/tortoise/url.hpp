@@ -10,6 +10,8 @@ namespace tortoise
     class URL
     {
     public:
+        URL();
+
         /*! \param url The URL to parse.
          *  \throws URLException If the URL is invalid.
          */
