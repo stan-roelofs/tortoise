@@ -4,6 +4,8 @@
 
 namespace tortoise
 {
+    URL::URL() = default;
+
     URL::URL(const std::string &url)
     {
         std::size_t pos = url.find("://");

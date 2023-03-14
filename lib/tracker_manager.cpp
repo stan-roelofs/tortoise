@@ -8,11 +8,6 @@
 
 #include "log.hpp"
 
-namespace
-{
-    constexpr int TIMEOUT_SECONDS = 10;
-}
-
 namespace tortoise
 {
     // TODO we could just have a single instance on its own thread and have it manage all torrents
@@ -41,45 +36,13 @@ namespace tortoise
     bool TrackerManager::Update()
     {
         if (request_pending_)
-            return Receive();
+            return false;
 
         auto now = std::chrono::steady_clock::now();
         if (tracker_interval_seconds_ == 0 || (last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now))
             RequestTrackerUpdate();
 
         return false;
-    }
-
-    bool TrackerManager::Receive()
-    {
-        const bool done = request_->Process();
-        if (!done)
-        {
-            if (std::chrono::steady_clock::now() - request_start_time_ > std::chrono::seconds(TIMEOUT_SECONDS))
-            {
-                LOG("TrackerManager", "Request timed out");
-                request_.reset();
-                request_pending_ = false;
-            }
-            return false;
-        }
-
-        if (!request_->GetResponse() || !request_->GetResponse()->Success())
-        {
-            LOG("TrackerManager", "Request failed");
-            SelectNextTracker();
-            request_.reset();
-            request_pending_ = false;
-            return false;
-        }
-
-        LOG("TrackerManager", "Request succeeded");
-        // TrackerResponse response(request_->GetResponse()->GetBody());
-        //  TODO
-
-        request_.reset();
-        request_pending_ = false;
-        return true;
     }
 
     void TrackerManager::SelectNextTracker()
@@ -99,10 +62,22 @@ namespace tortoise
         assert(current_tracker_ != nullptr);
         try
         {
-            request_ = std::make_unique<http::AsyncRequest>(current_tracker_->url, request.GetParameters());
+            request_ = std::make_unique<http::AsyncRequest>();
+            for (const auto &parameter : request.GetParameters())
+                request_->AddParameter(parameter.first, parameter.second);
+
+            request_->Send(
+                current_tracker_->url, [this](http::AsyncRequest::Result result, std::shared_ptr<http::Response> response)
+                {
+                    if (result == http::AsyncRequest::Result::Success)
+                    {
+						LOG("TrackerManager", "Tracker response: %s", response->GetBody().c_str());
+                    }
+                    else {
+                        LOG("TrackerManager", "Request failed");
+                    } },
+                10000);
             LOG("TrackerManager", "Requesting tracker update from %s", current_tracker_->url.ToString().c_str());
-            request_->Process();
-            request_start_time_ = std::chrono::steady_clock::now();
         }
         catch (http::Exception &)
         {

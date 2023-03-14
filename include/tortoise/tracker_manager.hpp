@@ -31,7 +31,6 @@ namespace tortoise
         void RequestTrackerUpdate();
         void OnTrackerResponse(const TrackerResponse &response);
         void SelectNextTracker();
-        bool Receive();
 
         std::chrono::steady_clock::time_point last_tracker_contact_;
         std::uint64_t tracker_interval_seconds_;
@@ -46,7 +45,6 @@ namespace tortoise
         std::vector<std::list<Tracker>> trackers_;
         Tracker *current_tracker_;
         std::unique_ptr<http::AsyncRequest> request_;
-        std::chrono::steady_clock::time_point request_start_time_;
     };
 }
 

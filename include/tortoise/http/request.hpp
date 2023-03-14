@@ -1,8 +1,10 @@
 #ifndef TORTOISE_HTTP_REQUEST_HPP
 #define TORTOISE_HTTP_REQUEST_HPP
 
+#include <functional>
 #include <map>
 #include <memory>
+#include <thread>
 
 #include <tortoise/socket.hpp>
 #include <tortoise/url.hpp>
@@ -17,43 +19,38 @@ namespace tortoise
         class AsyncRequest
         {
         public:
-            /*! \param url The URL to send the request to.
-             *  \param params The parameters to send with the request.
-             *  \throws HTTPException If the URL is invalid.
-             */
-            AsyncRequest(const URL &url, const std::map<std::string, std::string> &params = {});
+            AsyncRequest();
+            AsyncRequest(const AsyncRequest &) = delete;
+            AsyncRequest(AsyncRequest &&) = delete;
+            AsyncRequest &operator=(const AsyncRequest &) = delete;
+            AsyncRequest &operator=(AsyncRequest &&) = delete;
+            ~AsyncRequest();
 
-            /*! \brief Processes the request. The expectation is that this is called repeatedly until it returns true.
-             *  \returns True if the request is complete.
-             */
-            bool Process();
+            void AddParameter(const std::string &key, const std::string &value);
 
-            //! \returns True if the request is complete.
-            bool Done() const;
-
-            /*! \brief Returns the response to the request.
-             *  \returns The response to the request, or nullptr if the request is not complete.
-             */
-            std::shared_ptr<Response> GetResponse() const;
-
-        private:
-            void CreateRequest(const URL &url, const std::map<std::string, std::string> &params);
-
-            std::shared_ptr<Response> response_;
-            std::string request_;
-            std::string response_buffer_;
-            Socket socket_;
-
-            enum class State
+            enum class Result
             {
-                Connecting,
-                Sending,
-                Receiving,
-                Done
+                Success,
+				Error,
+                Cancelled // TODO
             };
 
-            int bytes_sent_;
-            State state_;
+            void Send(const URL &url, std::function<void(Result result, std::shared_ptr<Response> response)> callback, unsigned int timeout);
+
+
+        private:
+            std::string CreateRequest(const URL &url, const std::map<std::string, std::string> &params);
+            static void ThreadFunc(AsyncRequest *request);
+
+            void SendRequest();
+
+            std::map<std::string, std::string> params_;
+            std::function<void(Result result, std::shared_ptr<Response> response)> callback_;
+            std::string request_;
+            URL url_;
+            unsigned int timeout_;
+
+            std::thread thread_;
         };
     }
 }

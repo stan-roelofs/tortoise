@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "../log.hpp"
+#include "../socket_helper.hpp"
 
 namespace
 {
@@ -38,13 +39,20 @@ namespace tortoise
 {
     namespace http
     {
-        AsyncRequest::AsyncRequest(const URL &url, const std::map<std::string, std::string> &params) : state_(State::Connecting), bytes_sent_(0)
+        // TODO mutex
+        AsyncRequest::AsyncRequest()
         {
-            CreateRequest(url, params);
         }
 
-        void AsyncRequest::CreateRequest(const URL &url, const std::map<std::string, std::string> &params)
+        AsyncRequest::~AsyncRequest()
         {
+            // TODO cancel
+        }
+
+        std::string AsyncRequest::CreateRequest(const URL &url, const std::map<std::string, std::string> &params)
+        {
+            std::string request;
+
             if (url.GetProtocol() != "http")
                 throw Exception("Unsupported protocol: " + url.GetProtocol());
 
@@ -61,78 +69,66 @@ namespace tortoise
                 query += url_encode(param.first) + "=" + url_encode(param.second);
             }
 
-            request_ = "GET " + url.GetPath() + (query.empty() ? "" : "?" + query) + " HTTP/1.1\r\n";
-            request_ += "Host: " + url.GetHost() + "\r\n";
-            request_ += "Connection: close\r\n";
-            request_ += "\r\n";
-
-            socket_.SetBlocking(false);
-            if (!socket_.Connect(url.GetHost(), url.GetPort()))
-                throw Exception("Failed to connect to " + url.GetHost() + ":" + url.GetPort());
-
-            LOG("AsyncRequest", "Sending request %s to %s:%s", request_.c_str(), url.GetHost().c_str(), url.GetPort().c_str());
+            request = "GET " + url.GetPath() + (query.empty() ? "" : "?" + query) + " HTTP/1.1\r\n";
+            request += "Host: " + url.GetHost() + "\r\n";
+            request += "Connection: close\r\n";
+            request += "\r\n";
+            return request;
         }
 
-        bool AsyncRequest::Process()
+        void AsyncRequest::AddParameter(const std::string &key, const std::string &value)
         {
-            if (state_ == State::Connecting && socket_.Connected())
-            {
-                state_ = State::Sending;
-                LOG("AsyncRequest", "Socket connected");
-            }
-
-            if (state_ == State::Sending)
-            {
-                int sent = socket_.Send(request_.c_str(), static_cast<int>(request_.size()));
-                LOG("AsyncRequest", "Sent %i bytes", sent);
-
-                if (sent > 0)
-                    bytes_sent_ += sent;
-
-                if (bytes_sent_ == request_.size())
-                {
-                    state_ = State::Receiving;
-                    LOG("AsyncRequest", "Request sent");
-                }
-
-                return false;
-            }
-
-            if (state_ == State::Receiving)
-            {
-                char buffer[1024];
-                int received = socket_.Receive(buffer, 1024);
-                LOG("AsyncRequest", "Received %i bytes", received);
-                if (received == 0)
-                {
-                    LOG("AsyncRequest", "Response received: %s", response_buffer_.c_str());
-                    state_ = State::Done;
-                    try
-                    {
-                        response_ = std::make_shared<Response>(response_buffer_);
-                    }
-                    catch (const Exception &)
-                    {
-                    }
-                    return true;
-                }
-                else if (received > 0)
-                {
-                    response_buffer_ += std::string(buffer, received);
-                }
-            }
-
-            return state_ == State::Done;
+            params_[key] = value;
         }
 
-        bool AsyncRequest::Done() const
+        void AsyncRequest::Send(const URL &url, std::function<void(Result result, std::shared_ptr<Response> response)> callback, unsigned int timeout)
         {
-            return state_ == State::Done;
+            if (thread_.joinable())
+                throw Exception("Request already in progress");
+
+            request_ = CreateRequest(url, params_);
+
+            url_ = url;
+            callback_ = callback;
+            timeout_ = timeout;
+            thread_ = std::thread(&AsyncRequest::ThreadFunc, this);
         }
 
-        std::shared_ptr<Response> AsyncRequest::GetResponse() const
+        void AsyncRequest::ThreadFunc(AsyncRequest *request)
         {
-            return response_;
+            request->SendRequest();
+        }
+
+        void AsyncRequest::SendRequest()
+        {
+            Socket socket;
+            if (!socket.Connect(url_.GetHost(), url_.GetPort(), timeout_))
+            {
+                callback_(Result::Error, nullptr);
+                return;
+            }
+
+            LOG("AsyncRequest", "Connected to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
+
+            if (!socket_helper::SendAll(socket, request_.c_str(), timeout_))
+            {
+                callback_(Result::Error, nullptr);
+                return;
+            }
+
+            LOG("AsyncRequest", "Sent request:\n%s", request_.c_str());
+
+            std::vector<std::uint8_t> response;
+            if (!socket_helper::ReceiveAll(socket, response, timeout_))
+            {
+                callback_(Result::Error, nullptr);
+                return;
+            }
+
+            LOG("AsyncRequest", "Received response:\n%s", std::string(response.begin(), response.end()).c_str());
+
+            std::string response_str(response.begin(), response.end());
+            callback_(Result::Success, std::make_shared<Response>(response_str));
         }
     } // namespace http
 } // namespace tortoise
