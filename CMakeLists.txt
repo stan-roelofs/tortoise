@@ -30,27 +30,27 @@ set (HEADERS
   include/tortoise/tracker_manager.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
-  lib/sha1.hpp
-  lib/socket_helper.hpp
+  tortoise/sha1.hpp
+  tortoise/socket_helper.hpp
 )
 
 set(SOURCES
-  lib/bencode.cpp
-  lib/http/request.cpp
-  lib/http/response.cpp
-  lib/ip_address.cpp
-  lib/load_torrent.cpp
-  lib/metainfo.cpp
-  lib/peer_id.cpp
-  lib/sha1_hash.cpp
-  lib/sha1.cpp
-  lib/session.cpp
-  lib/socket.cpp
-  lib/socket_helper.cpp
-  lib/torrent.cpp
-  lib/tracker.cpp
-  lib/tracker_manager.cpp
-  lib/url.cpp
+  tortoise/bencode.cpp
+  tortoise/http/request.cpp
+  tortoise/http/response.cpp
+  tortoise/ip_address.cpp
+  tortoise/load_torrent.cpp
+  tortoise/metainfo.cpp
+  tortoise/peer_id.cpp
+  tortoise/sha1_hash.cpp
+  tortoise/sha1.cpp
+  tortoise/session.cpp
+  tortoise/socket.cpp
+  tortoise/socket_helper.cpp
+  tortoise/torrent.cpp
+  tortoise/tracker.cpp
+  tortoise/tracker_manager.cpp
+  tortoise/url.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
@@ -73,5 +73,5 @@ if(TORTOISE_BUILD_TESTS)
 endif()
 
 if (TORTOISE_BUILD_APP)
-  add_subdirectory(src)
+  add_subdirectory(tortoise_app)
 endif()
