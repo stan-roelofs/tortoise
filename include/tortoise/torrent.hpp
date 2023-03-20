@@ -6,6 +6,7 @@
 
 #include "metainfo.hpp"
 #include "peer_id.hpp"
+#include "tracker_announce.hpp"
 #include "tracker_manager.hpp"
 
 namespace tortoise
@@ -57,7 +58,7 @@ namespace tortoise
         void Process();
 
     private:
-        TrackerRequest GetTrackerRequest();
+        AnnounceParameters GetTrackerRequest();
 
         Parameters parameters_;
         TrackerManager tracker_manager_;

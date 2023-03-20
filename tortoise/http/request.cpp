@@ -8,6 +8,8 @@
 
 namespace
 {
+    constexpr unsigned int DEFAULT_TIMEOUT_MS = 30000;
+
     std::string url_encode(const std::string &value)
     {
         std::ostringstream escaped;
@@ -40,7 +42,7 @@ namespace tortoise
     namespace http
     {
         // TODO mutex
-        AsyncRequest::AsyncRequest()
+        AsyncRequest::AsyncRequest(const URL &url) : url_(url), timeout_(DEFAULT_TIMEOUT_MS)
         {
         }
 
@@ -54,7 +56,7 @@ namespace tortoise
             std::string request;
 
             if (url.GetProtocol() != "http")
-                throw Exception("Unsupported protocol: " + url.GetProtocol());
+                throw UnsupportedProtocolException(url.GetProtocol());
 
             std::string path = url.GetPath();
             // The absolute path cannot be empty; if none is present in the original URI, it MUST be given as "/"
@@ -81,17 +83,21 @@ namespace tortoise
             params_[key] = value;
         }
 
-        void AsyncRequest::Send(const URL &url, std::function<void(Result result, std::shared_ptr<Response> response)> callback, unsigned int timeout)
+        void AsyncRequest::SetTimeout(unsigned int timeout)
+        {
+            timeout_ = timeout;
+        }
+
+        bool AsyncRequest::Get(std::function<void(Result result, std::shared_ptr<Response> response)> callback)
         {
             if (thread_.joinable())
-                throw Exception("Request already in progress");
+                return false;
 
-            request_ = CreateRequest(url, params_);
+            request_ = CreateRequest(url_, params_);
 
-            url_ = url;
             callback_ = callback;
-            timeout_ = timeout;
             thread_ = std::thread(&AsyncRequest::ThreadFunc, this);
+            return true;
         }
 
         void AsyncRequest::ThreadFunc(AsyncRequest *request)
@@ -104,7 +110,7 @@ namespace tortoise
             Socket socket;
             if (!socket.Connect(url_.GetHost(), url_.GetPort(), timeout_))
             {
-                callback_(Result::Error, nullptr);
+                callback_(Result::Failure, nullptr);
                 return;
             }
 
@@ -112,7 +118,7 @@ namespace tortoise
 
             if (!socket_helper::SendAll(socket, request_.c_str(), timeout_))
             {
-                callback_(Result::Error, nullptr);
+                callback_(Result::Failure, nullptr);
                 return;
             }
 
@@ -121,7 +127,7 @@ namespace tortoise
             std::vector<std::uint8_t> response;
             if (!socket_helper::ReceiveAll(socket, response, timeout_))
             {
-                callback_(Result::Error, nullptr);
+                callback_(Result::Failure, nullptr);
                 return;
             }
 

@@ -18,10 +18,19 @@ namespace tortoise
             ParseException(const std::string &message) : Exception(message) {}
         };
 
+        using ipv4_address_t = std::array<std::uint8_t, 4>;
+        using ipv6_address_t = std::array<std::uint16_t, 8>;
+
         /*! \brief Creates an instance of IPAddress from a dotted quad or rfc3513 hexed formatted string.
          *  \throws ParseException if the string is not a valid IP address.
          */
         IPAddress(const std::string &address);
+
+        //! \brief Creates an instance of IPAddress from an IPv4 address.
+        IPAddress(const ipv4_address_t &address);
+
+        //! \brief Creates an instance of IPAddress from an IPv6 address.
+        IPAddress(const ipv6_address_t &address);
 
         //! \returns true if the IP address is an IPv4 address.
         bool IsIPv4() const;
@@ -33,8 +42,6 @@ namespace tortoise
         std::string ToString() const;
 
     private:
-        using ipv4_address_t = std::array<std::uint8_t, 4>;
-        using ipv6_address_t = std::array<std::uint16_t, 8>;
         std::variant<ipv4_address_t, ipv6_address_t> address_;
     };
 }

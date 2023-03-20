@@ -7,7 +7,6 @@
 #include <tortoise/metainfo.hpp>
 #include <tortoise/session.hpp>
 #include <tortoise/torrent.hpp>
-#include <tortoise/tracker.hpp>
 
 static int usage(const char *argv[])
 {

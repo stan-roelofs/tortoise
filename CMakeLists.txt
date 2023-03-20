@@ -26,7 +26,8 @@ set (HEADERS
   include/tortoise/sha1_hash.hpp
   include/tortoise/socket.hpp
   include/tortoise/torrent.hpp
-  include/tortoise/tracker.hpp
+  include/tortoise/tracker_announce.hpp
+  include/tortoise/tracker_connection.hpp
   include/tortoise/tracker_manager.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
@@ -48,7 +49,8 @@ set(SOURCES
   tortoise/socket.cpp
   tortoise/socket_helper.cpp
   tortoise/torrent.cpp
-  tortoise/tracker.cpp
+  tortoise/tracker_announce.cpp
+  tortoise/tracker_connection.cpp
   tortoise/tracker_manager.cpp
   tortoise/url.cpp
 )

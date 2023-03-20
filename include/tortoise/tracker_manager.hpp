@@ -6,7 +6,8 @@
 
 #include "http/request.hpp"
 #include "sha1_hash.hpp"
-#include "tracker.hpp"
+#include "tracker_announce.hpp"
+#include "tracker_connection.hpp"
 #include "url.hpp"
 
 namespace tortoise
@@ -19,7 +20,7 @@ namespace tortoise
          *  \param request_callback A callback that returns the request to send to the tracker.
          *  \throws InvalidArgumentException If the trackers list is empty.
          */
-        TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<TrackerRequest()> request_callback);
+        TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<AnnounceParameters()> request_callback);
         ~TrackerManager();
 
         /*! \brief Updates the tracker information.
@@ -29,13 +30,13 @@ namespace tortoise
 
     private:
         void RequestTrackerUpdate();
-        void OnTrackerResponse(const TrackerResponse &response);
+        void OnTrackerResponse(const AnnounceResponse &response);
         void SelectNextTracker();
 
         std::chrono::steady_clock::time_point last_tracker_contact_;
         std::uint64_t tracker_interval_seconds_;
         bool request_pending_;
-        std::function<TrackerRequest()> request_callback_;
+        std::function<AnnounceParameters()> request_callback_;
 
         struct Tracker
         {
@@ -44,7 +45,7 @@ namespace tortoise
         };
         std::vector<std::list<Tracker>> trackers_;
         Tracker *current_tracker_;
-        std::unique_ptr<http::AsyncRequest> request_;
+        std::unique_ptr<TrackerConnection> request_;
     };
 }
 

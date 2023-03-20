@@ -19,19 +19,30 @@ namespace tortoise
 
         if (is_ipv4)
         {
-			ipv4_address_t result;
+            ipv4_address_t result;
             assert((result.size() * sizeof(result[0])) >= sizeof(in_addr));
-			if (inet_pton(AF_INET, address.c_str(), result.data()) != 1)
-				throw ParseException("invalid IPv4 address");
+            if (inet_pton(AF_INET, address.c_str(), result.data()) != 1)
+                throw ParseException("invalid IPv4 address");
             address_ = result;
         }
-        else {
+        else
+        {
             ipv6_address_t result;
             assert((result.size() * sizeof(result[0])) >= sizeof(in_addr));
             if (inet_pton(AF_INET6, address.c_str(), result.data()) != 1)
-				throw ParseException("invalid IPv6 address");   
+                throw ParseException("invalid IPv6 address");
             address_ = result;
         }
+    }
+
+    IPAddress::IPAddress(const ipv4_address_t &address)
+    {
+        address_ = address;
+    }
+
+    IPAddress::IPAddress(const ipv6_address_t &address)
+    {
+        address_ = address;
     }
 
     bool IPAddress::IsIPv4() const

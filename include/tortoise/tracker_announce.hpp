@@ -1,25 +1,19 @@
-#ifndef TORTOISE_TRACKER_HPP
-#define TORTOISE_TRACKER_HPP
+#ifndef TORTOISE_ANNOUNCE_PARAMETERS_HPP
+#define TORTOISE_ANNOUNCE_PARAMETERS_HPP
 
-#include <array>
-#include <map>
 #include <optional>
-#include <string>
 #include <vector>
 
-#include "ip_address.hpp"
-#include "peer_id.hpp"
-#include "sha1_hash.hpp"
-#include "url.hpp"
+#include <tortoise/ip_address.hpp>
+#include <tortoise/peer_id.hpp>
+#include <tortoise/sha1_hash.hpp>
+#include <tortoise/url.hpp>
 
 namespace tortoise
 {
-    struct TrackerRequest
+    struct AnnounceParameters
     {
-        TrackerRequest(const SHA1Hash &info_hash, const PeerId &peer_id);
-
-        //! \returns The parameters that should be sent to the tracker.
-        std::map<std::string, std::string> GetParameters() const;
+        AnnounceParameters(const SHA1Hash &info_hash, const PeerId &peer_id);
 
         //! \brief The info hash of the torrent.
         const SHA1Hash info_hash;
@@ -70,15 +64,9 @@ namespace tortoise
         std::optional<std::string> tracker_id;
     };
 
-    struct TrackerResponse
+    struct AnnounceResponse
     {
-        TrackerResponse(const std::string &response_string);
-
-        //! \returns True if the request was successful.
-        bool Success() const;
-
-        //! \returns True if the request failed.
-        bool Failure() const;
+        AnnounceResponse();
 
         //! \brief A human-readable error message as to why the request failed.
         std::optional<std::string> failure_reason;
@@ -103,8 +91,9 @@ namespace tortoise
 
         struct PeerInfo
         {
+            PeerInfo(const std::string &ip, std::uint16_t port) : ip(ip), port(port) {}
             std::optional<std::string> peer_id; // The 20-byte self-selected peer id of the peer.
-            IPAddress ip;
+            std::string ip;                     // The peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name.
             std::uint16_t port;
         };
 
@@ -113,4 +102,4 @@ namespace tortoise
     };
 } // namespace tortoise
 
-#endif
+#endif // TORTOISE_ANNOUNCE_PARAMETERS_HPP

@@ -19,7 +19,7 @@ namespace tortoise
         class AsyncRequest
         {
         public:
-            AsyncRequest();
+            AsyncRequest(const URL &url);
             AsyncRequest(const AsyncRequest &) = delete;
             AsyncRequest(AsyncRequest &&) = delete;
             AsyncRequest &operator=(const AsyncRequest &) = delete;
@@ -31,12 +31,13 @@ namespace tortoise
             enum class Result
             {
                 Success,
-				Error,
+                Failure,
                 Cancelled // TODO
             };
 
-            void Send(const URL &url, std::function<void(Result result, std::shared_ptr<Response> response)> callback, unsigned int timeout);
+            void SetTimeout(unsigned int timeout);
 
+            bool Get(std::function<void(Result result, std::shared_ptr<Response> response)> callback);
 
         private:
             std::string CreateRequest(const URL &url, const std::map<std::string, std::string> &params);

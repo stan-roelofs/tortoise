@@ -11,7 +11,7 @@
 namespace tortoise
 {
     // TODO we could just have a single instance on its own thread and have it manage all torrents
-    TrackerManager::TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<TrackerRequest()> request_callback)
+    TrackerManager::TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<AnnounceParameters()> request_callback)
         : tracker_interval_seconds_(0),
           request_pending_(false),
           request_callback_(request_callback),
@@ -55,23 +55,21 @@ namespace tortoise
     {
         request_pending_ = true;
 
-        TrackerRequest request = request_callback_();
-        request.compact = true;
-        request.no_peer_id = true;
+        AnnounceParameters parameters = request_callback_();
+        parameters.compact = true;
+        parameters.no_peer_id = true;
 
         assert(current_tracker_ != nullptr);
         try
         {
-            request_ = std::make_unique<http::AsyncRequest>();
-            for (const auto &parameter : request.GetParameters())
-                request_->AddParameter(parameter.first, parameter.second);
+            request_ = TrackerConnectionFactory::Create(current_tracker_->url);
 
-            request_->Send(
-                current_tracker_->url, [this](http::AsyncRequest::Result result, std::shared_ptr<http::Response> response)
+            request_->Announce(
+                parameters, [this](TrackerConnection::Result result, std::shared_ptr<AnnounceResponse> response)
                 {
-                    if (result == http::AsyncRequest::Result::Success)
+                    if (result == TrackerConnection::Result::Success)
                     {
-						LOG("TrackerManager", "Tracker response: %s", response->GetBody().c_str());
+						LOG("TrackerManager", "Request succeeded");
                     }
                     else {
                         LOG("TrackerManager", "Request failed");
@@ -79,8 +77,10 @@ namespace tortoise
                 10000);
             LOG("TrackerManager", "Requesting tracker update from %s", current_tracker_->url.ToString().c_str());
         }
-        catch (http::Exception &)
+        catch (UnsupportedProtocolException &e)
         {
+            LOG("TrackerManager", "Unsupported protocol: %s", e.what());
+
             request_pending_ = false;
             // TODO remove this tracker from the list
             SelectNextTracker();
@@ -88,17 +88,17 @@ namespace tortoise
         }
     }
 
-    void TrackerManager::OnTrackerResponse(const TrackerResponse &response)
+    void TrackerManager::OnTrackerResponse(const AnnounceResponse &)
     {
-        request_pending_ = false;
+        // request_pending_ = false;
 
-        if (response.Failure())
-        {
-            SelectNextTracker();
-            return;
-        }
+        // if (response.Failure())
+        // {
+        //     SelectNextTracker();
+        //     return;
+        // }
 
-        last_tracker_contact_ = std::chrono::steady_clock::now();
-        tracker_interval_seconds_ = response.min_interval ? *response.min_interval : response.interval;
+        // last_tracker_contact_ = std::chrono::steady_clock::now();
+        // tracker_interval_seconds_ = response.min_interval ? *response.min_interval : response.interval;
     }
 }

@@ -24,9 +24,9 @@ namespace tortoise
         }
     }
 
-    TrackerRequest Torrent::GetTrackerRequest()
+    AnnounceParameters Torrent::GetTrackerRequest()
     {
-        TrackerRequest request(parameters_.metainfo.GetInfoHash(), parameters_.peer_id);
+        AnnounceParameters request(parameters_.metainfo.GetInfoHash(), parameters_.peer_id);
         return request; // TODO
     }
 }
