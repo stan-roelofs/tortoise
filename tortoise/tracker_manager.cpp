@@ -70,7 +70,7 @@ namespace tortoise
                     if (result == TrackerConnection::Result::Success)
                     {
 						LOG("TrackerManager", "Request succeeded");
-                        LOG("TrackerManager", "Interval: %lu", response->interval);
+                        LOG("TrackerManager", "Interval: %I64u", response->interval);
                     }
                     else {
                         LOG("TrackerManager", "Request failed");
