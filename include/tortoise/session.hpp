@@ -24,7 +24,7 @@ namespace tortoise
             bool start = true; // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
         };
 
-        Session(Parameters parameters = Parameters());
+        Session(Parameters parameters);
         ~Session();
 
         /*! \brief Adds a torrent to the session.

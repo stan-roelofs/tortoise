@@ -49,10 +49,10 @@
 class SHA1
 {
 public:
-    class HashException : public std::exception
+    class HashException : public tortoise::Exception
     {
     public:
-        HashException(const std::string &msg) : std::exception(msg.c_str()) {}
+        HashException(const std::string &msg) : tortoise::Exception(msg) {}
     };
 
     SHA1(const void *buffer, std::size_t size);

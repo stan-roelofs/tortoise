@@ -11,8 +11,8 @@ namespace tortoise
         : info_hash(infohash),
           peer_id(peerid),
           port(DEFAULT_BITTORRENT_PORT),
-          uploaded(0),
           downloaded(0),
+          uploaded(0),
           left(0)
     {
     }

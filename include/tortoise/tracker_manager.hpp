@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <functional>
+#include <list>
 
 #include "http/request.hpp"
 #include "sha1_hash.hpp"

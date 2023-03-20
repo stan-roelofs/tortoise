@@ -12,7 +12,7 @@ jobs:
           submodules: true
 
       - name: CMake
-        run: cmake -B ${{github.workspace}}/build -S ${{github.workspace}} -DCMAKE_BUILD_TYPE=Release -DTORTOISE_BUILD_TESTS=ON -DTORTOISE_BUILD_APP=ON
+        run: cmake -B ${{github.workspace}}/build -S ${{github.workspace}} -DTORTOISE_BUILD_TESTS=ON -DTORTOISE_BUILD_APP=ON
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config Release

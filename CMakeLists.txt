@@ -56,8 +56,13 @@ set(SOURCES
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+target_link_libraries(tortoise PRIVATE Threads::Threads)
+
 if (WIN32)
-  target_link_libraries(tortoise ws2_32)
+  target_link_libraries(tortoise PRIVATE ws2_32)
 endif()
 
 if(MSVC)

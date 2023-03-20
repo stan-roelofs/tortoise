@@ -3,6 +3,10 @@
 
 #include <cassert>
 
+#ifdef __linux__
+#include <fcntl.h>
+#endif
+
 namespace tortoise
 {
     Socket::Socket() : socket_(INVALID_SOCKET_VALUE)
@@ -161,7 +165,7 @@ namespace tortoise
 #else
         int flags = fcntl(socket_, F_GETFL, 0);
         if (flags == -1)
-            return;
+            return false;
 
         if (blocking)
             flags &= ~O_NONBLOCK;

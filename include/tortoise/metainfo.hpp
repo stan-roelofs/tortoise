@@ -71,6 +71,7 @@ namespace tortoise
         Metainfo(const SHA1Hash &info_hash);
 
         std::vector<std::vector<URL>> announce_list_;
+        SHA1Hash info_hash_;
         uint64_t creation_date_;
         std::string comment_;
         std::string created_by_;
@@ -79,7 +80,6 @@ namespace tortoise
         std::uint32_t piece_length_;
         std::vector<std::string> pieces_;
         std::variant<SingleFile, MultiFile> file_info_;
-        SHA1Hash info_hash_;
     };
 }
 

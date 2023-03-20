@@ -41,7 +41,8 @@ int main(int argc, const char *argv[])
     return usage(argv);
   }
 
-  tortoise::Session session;
+  tortoise::Session::Parameters params;
+  tortoise::Session session(params);
   auto metainfo = tortoise::LoadTorrentFile(argv[arg]);
   if (!metainfo)
   {
@@ -49,9 +50,9 @@ int main(int argc, const char *argv[])
     return EXIT_FAILURE;
   }
 
-  tortoise::Torrent::Parameters params(*metainfo, tortoise::PeerId());
-  params.save_path = ".";
-  auto handle = session.AddTorrent(params);
+  tortoise::Torrent::Parameters torrent_params(*metainfo, tortoise::PeerId());
+  torrent_params.save_path = ".";
+  auto handle = session.AddTorrent(torrent_params);
   if (!handle)
   {
     std::cout << "Failed to add torrent" << std::endl;
@@ -60,6 +61,6 @@ int main(int argc, const char *argv[])
 
   while (true)
   {
-	  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }

@@ -1,0 +1,21 @@
+name: Linux
+
+on: push
+
+jobs:
+  build:      
+      runs-on: ubuntu-latest
+  
+      steps:
+      - uses: actions/checkout@v3
+        with: 
+          submodules: true
+
+      - name: CMake
+        run: cmake -B ${{github.workspace}}/build -S ${{github.workspace}} -DCMAKE_BUILD_TYPE=Release -DTORTOISE_BUILD_TESTS=ON -DTORTOISE_BUILD_APP=ON
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build
+
+      - name: Test
+        run: ctest -C Release -V
