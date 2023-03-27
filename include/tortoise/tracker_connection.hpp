@@ -25,7 +25,7 @@ namespace tortoise
          * \brief Asynchronously sends an announce request to the tracker.
          * \param parameters The parameters to send to the tracker.
          * \param result_callback The callback to call when the response is received.
-         * \param timeout The timeout in milliseconds.
+         * \param timeout The timeout for each socket operation in milliseconds.
          * \returns True if the request was sent successfully.
          */
         virtual bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) = 0;

@@ -25,6 +25,22 @@ namespace tortoise
          *  \return True if all data was received successfully. False if an error occurred.
          */
         bool ReceiveAll(Socket &socket, std::vector<std::uint8_t> &buffer, unsigned int timeout = 0);
+
+        /*! \brief Receives a fixed amount of data from the socket.
+         *  \param socket The socket to receive the data from.
+         *  \param buffer The buffer to store the received data in.
+         *  \param buffer_size The size of the buffer.
+         *  \param timeout The timeout in milliseconds. 0 means no timeout.
+         *  \return True if all data was received successfully. False if an error occurred.
+         */
+        bool ReceiveAll(Socket &socket, void *buffer, int buffer_size, unsigned int timeout);
+
+        std::uint64_t ToNetworkByteOrder(std::uint64_t value);
+        std::uint64_t FromNetworkByteOrder(std::uint64_t value);
+        std::uint32_t ToNetworkByteOrder(std::uint32_t value);
+        std::uint32_t FromNetworkByteOrder(std::uint32_t value);
+        std::uint16_t ToNetworkByteOrder(std::uint16_t value);
+        std::uint16_t FromNetworkByteOrder(std::uint16_t value);
     } // namespace socket_helper
 }
 

@@ -32,9 +32,10 @@ namespace tortoise
             return;
 
         std::lock_guard lock(mutex_);
-		auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const std::shared_ptr<Torrent>& torrent) { return Torrent::Handle(torrent) == handle; });
-		if (it != torrents_.end())
-			torrents_.erase(it);
+        auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const std::shared_ptr<Torrent> &torrent)
+                               { return Torrent::Handle(torrent) == handle; });
+        if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
+            torrents_.erase(it);
     }
 
     void Session::ThreadFunc(Session &session)

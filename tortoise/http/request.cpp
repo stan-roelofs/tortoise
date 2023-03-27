@@ -107,7 +107,7 @@ namespace tortoise
 
         void AsyncRequest::SendRequest()
         {
-            Socket socket;
+            Socket socket(Socket::TransportProtocol::TCP);
             if (!socket.Connect(url_.GetHost(), url_.GetPort(), timeout_))
             {
                 callback_(Result::Failure, nullptr);

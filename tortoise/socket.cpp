@@ -9,10 +9,9 @@
 
 namespace tortoise
 {
-    Socket::Socket() : socket_(INVALID_SOCKET_VALUE)
+    Socket::Socket(TransportProtocol protocol) : protocol_(protocol), internet_protocol_(InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE)
     {
 #ifdef _WIN32
-
         WSADATA wsaData;
         int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if (iResult != 0)
@@ -44,14 +43,25 @@ namespace tortoise
 
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
+
+        switch (protocol_)
+        {
+        case TransportProtocol::TCP:
+            hints.ai_socktype = SOCK_STREAM;
+            break;
+        case TransportProtocol::UDP:
+            hints.ai_socktype = SOCK_DGRAM;
+            break;
+        }
+
         hints.ai_protocol = 0;
 
         int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
         if (iResult != 0)
             return false;
 
-        for (addrinfo *ptr = result; ptr != nullptr; ptr = ptr->ai_next)
+        addrinfo *ptr;
+        for (ptr = result; ptr != nullptr; ptr = ptr->ai_next)
         {
             socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
             if (socket_ == INVALID_SOCKET_VALUE)
@@ -76,7 +86,7 @@ namespace tortoise
             }
             else
             {
-                if (Select(false, true, timeout))
+                if (protocol_ == TransportProtocol::TCP && Select(false, true, timeout))
                     break;
             }
 
@@ -85,7 +95,22 @@ namespace tortoise
 
         freeaddrinfo(result);
 
-        return socket_ != INVALID_SOCKET_VALUE;
+        if (socket_ != INVALID_SOCKET_VALUE)
+        {
+            switch (ptr->ai_family)
+            {
+            case AF_INET:
+                internet_protocol_ = InternetProtocol::IPv4;
+                break;
+            case AF_INET6:
+                internet_protocol_ = InternetProtocol::IPv6;
+                break;
+            default:
+                internet_protocol_ = InternetProtocol::Unknown;
+            }
+        }
+
+        return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != InternetProtocol::Unknown;
     }
 
     int Socket::Send(const void *data, int size, unsigned int timeout_ms)
@@ -174,5 +199,38 @@ namespace tortoise
 
         return fcntl(socket_, F_SETFL, flags) == 0;
 #endif
+    }
+
+#define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
+#define ntohll(x) ((1 == ntohl(1)) ? (x) : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+
+    std::uint64_t Socket::ToNetworkByteOrder(std::uint64_t value)
+    {
+        return htonll(value);
+    }
+
+    std::uint64_t Socket::FromNetworkByteOrder(std::uint64_t value)
+    {
+        return ntohll(value);
+    }
+
+    std::uint32_t Socket::ToNetworkByteOrder(std::uint32_t value)
+    {
+        return htonl(value);
+    }
+
+    std::uint32_t Socket::FromNetworkByteOrder(std::uint32_t value)
+    {
+        return ntohl(value);
+    }
+
+    std::uint16_t Socket::ToNetworkByteOrder(std::uint16_t value)
+    {
+        return htons(value);
+    }
+
+    std::uint16_t Socket::FromNetworkByteOrder(std::uint16_t value)
+    {
+        return ntohs(value);
     }
 } // namespace tortoise

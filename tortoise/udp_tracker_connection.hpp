@@ -9,15 +9,24 @@ namespace tortoise
     class UDPTrackerConnection : public TrackerConnection
     {
     public:
-		/* \brief Creates a new UDP tracker connection.
-		 *  \param url The URL of the tracker.
-		 *  \throws UnsupportedProtocolException If the protocol is not supported.
-		 */
-        UDPTrackerConnection(const URL& url);
-        
-        bool Announce(const AnnounceParameters& parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
+        /* \brief Creates a new UDP tracker connection.
+         *  \param url The URL of the tracker.
+         *  \throws UnsupportedProtocolException If the protocol is not supported.
+         */
+        UDPTrackerConnection(const URL &url);
+
+        bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
 
     private:
+        static void ThreadFunc(UDPTrackerConnection *connection);
+
+        void Announce();
+
+        std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback_;
+        unsigned int timeout_;
+
+        Socket socket_;
+        std::thread thread_;
     };
 
 } // namespace tortoise

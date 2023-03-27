@@ -22,10 +22,23 @@ namespace tortoise
     class Socket
     {
     public:
-        Socket();
+        enum class TransportProtocol
+        {
+            TCP,
+            UDP
+        };
+
+        enum class InternetProtocol
+        {
+            Unknown,
+            IPv4,
+            IPv6
+        };
+
+        Socket(TransportProtocol protocol);
         ~Socket();
 
-        /*! \brief Connects to a host.
+        /*! \brief Connects to a host. If a connectionless protocol is used, this will merely set the default host and port for future send/receive calls.
          *  \param host The host to connect to.
          *  \param port The port to connect to.
          *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
@@ -55,6 +68,19 @@ namespace tortoise
         //! \returns True if the socket is connected, false otherwise.
         bool Connected() const;
 
+        //! \returns The transport protocol used by the socket.
+        TransportProtocol GetTransportProtocol() const;
+
+        //! \returns The internet protocol used by the socket.
+        InternetProtocol GetInternetProtocol() const;
+
+        static std::uint64_t ToNetworkByteOrder(std::uint64_t value);
+        static std::uint64_t FromNetworkByteOrder(std::uint64_t value);
+        static std::uint32_t ToNetworkByteOrder(std::uint32_t value);
+        static std::uint32_t FromNetworkByteOrder(std::uint32_t value);
+        static std::uint16_t ToNetworkByteOrder(std::uint16_t value);
+        static std::uint16_t FromNetworkByteOrder(std::uint16_t value);
+
     private:
         bool SetBlocking(bool blocking);
         bool Select(bool read, bool write, unsigned int timeout_ms);
@@ -67,6 +93,8 @@ namespace tortoise
         static constexpr socket_t INVALID_SOCKET_VALUE = -1;
 #endif
 
+        TransportProtocol protocol_;
+        InternetProtocol internet_protocol_;
         socket_t socket_;
     };
 } // namespace tortoise

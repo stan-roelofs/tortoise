@@ -33,5 +33,20 @@ namespace tortoise
                 buffer.insert(buffer.end(), chunk, chunk + received);
             }
         }
+
+        bool ReceiveAll(Socket& socket, void* buffer, int buffer_size, unsigned int timeout)
+        {
+            int left = buffer_size;
+            while (left > 0)
+            {
+                int received = socket.Receive((std::uint8_t*)buffer + (buffer_size - left), left, timeout);
+                if (received == -1)
+                    return false;
+
+                left = left - received;
+            }
+
+            return true;
+        }
     }
 }
