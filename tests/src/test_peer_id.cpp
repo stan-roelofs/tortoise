@@ -11,16 +11,12 @@ TEST(PeerId, length_is_20)
     ASSERT_EQ(peer_id.Get().size(), 20);
 }
 
-TEST(PeerId, client_information_is_correct)
+TEST(PeerId, client_information_is_azureus_style)
 {
 	PeerId peer_id;
 	ASSERT_EQ(peer_id.Get()[0], '-');
 	ASSERT_EQ(peer_id.Get()[1], 'T');
 	ASSERT_EQ(peer_id.Get()[2], 'R');
-	ASSERT_EQ(peer_id.Get()[3], TORTOISE_VERSION_MAJOR);
-	ASSERT_EQ(peer_id.Get()[4], TORTOISE_VERSION_MINOR);
-	ASSERT_EQ(peer_id.Get()[5], TORTOISE_VERSION_PATCH / 10);
-	ASSERT_EQ(peer_id.Get()[6], TORTOISE_VERSION_PATCH % 10);
 	ASSERT_EQ(peer_id.Get()[7], '-');
 }
 
