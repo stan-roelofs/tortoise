@@ -33,7 +33,6 @@ set (HEADERS
   include/tortoise/version.hpp
   tortoise/http_tracker_connection.hpp
   tortoise/sha1.hpp
-  tortoise/socket_helper.hpp
   tortoise/udp_tracker_connection.hpp
 )
 
@@ -50,7 +49,6 @@ set(SOURCES
   tortoise/sha1.cpp
   tortoise/session.cpp
   tortoise/socket.cpp
-  tortoise/socket_helper.cpp
   tortoise/torrent.cpp
   tortoise/tracker_announce.cpp
   tortoise/tracker_connection.cpp

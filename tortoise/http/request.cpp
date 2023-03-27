@@ -1,10 +1,10 @@
 #include <tortoise/http/request.hpp>
 
 #include <iomanip>
+#include <limits>
 #include <sstream>
 
 #include "../log.hpp"
-#include "../socket_helper.hpp"
 
 namespace
 {
@@ -115,8 +115,15 @@ namespace tortoise
             }
 
             LOG("AsyncRequest", "Connected to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
+            
+			if (request_.length() > (std::numeric_limits<int>::max)())
+			{
+				LOG("AsyncRequest", "Request too long");
+				callback_(Result::Failure, nullptr);
+				return;
+			}
 
-            if (!socket_helper::SendAll(socket, request_.c_str(), timeout_))
+            if (!socket.SendAll(request_.c_str(), (int)strlen(request_.c_str()), timeout_))
             {
                 callback_(Result::Failure, nullptr);
                 return;
@@ -125,7 +132,7 @@ namespace tortoise
             LOG("AsyncRequest", "Sent request:\n%s", request_.c_str());
 
             std::vector<std::uint8_t> response;
-            if (!socket_helper::ReceiveAll(socket, response, timeout_))
+            if (!socket.ReceiveAll(response, timeout_))
             {
                 callback_(Result::Failure, nullptr);
                 return;

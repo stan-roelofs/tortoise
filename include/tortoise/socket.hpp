@@ -15,6 +15,7 @@
 #endif
 
 #include <string>
+#include <vector>
 
 namespace tortoise
 {
@@ -64,6 +65,29 @@ namespace tortoise
          *  \return The number of bytes that was actually received. This may be less than the size of the buffer. -1 is returned on error.
          */
         int Receive(void *buffer, int size, unsigned int timeout_ms);
+
+        /*! \brief Sends all data to the socket.
+         *  \param data The data to send.
+         *  \param size The size of the data to send.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
+         *  \return True if all data was sent. False if an error occurred.
+         */
+        bool SendAll(const void *data, int size, unsigned int timeout_ms);
+
+        /*! \brief Receives all data from the socket.
+         *  \param buffer The buffer to store the received data in.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
+         *  \return True if all data was received successfully. False if an error occurred.
+         */
+        bool ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout_ms);
+
+        /*! \brief Receives a fixed amount of data from the socket.
+         *  \param buffer The buffer to store the received data in.
+         *  \param buffer_size The size of the buffer.
+         *  \param timeout The timeout in milliseconds. 0 means no timeout.
+         *  \return True if all data was received successfully. False if an error occurred.
+         */
+        bool ReceiveAll(void *buffer, int buffer_size, unsigned int timeout);
 
         //! \returns True if the socket is connected, false otherwise.
         bool Connected() const;

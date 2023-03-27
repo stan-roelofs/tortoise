@@ -4,7 +4,6 @@
 #include <random>
 
 #include "log.hpp"
-#include "socket_helper.hpp"
 
 namespace tortoise
 {
@@ -71,7 +70,7 @@ namespace tortoise
             ((std::uint32_t *)packet)[2] = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Connect)); // Offset 8 : 32-bit action
             ((std::uint32_t *)packet)[3] = Socket::ToNetworkByteOrder(transaction_id);                              // Offset 12 : 32-bit transaction ID
 
-            if (!socket_helper::SendAll(socket_, packet, CONNECT_REQUEST_SIZE, timeout_))
+            if (!socket_.SendAll(packet, CONNECT_REQUEST_SIZE, timeout_))
             {
                 LOG("UDPTrackerConnection", "Failed to send connect request.");
                 result_callback_(Result::Failure, nullptr);
@@ -90,7 +89,7 @@ namespace tortoise
          */
         {
             std::uint8_t packet[CONNECT_RESPONSE_SIZE];
-            if (!socket_helper::ReceiveAll(socket_, packet, CONNECT_RESPONSE_SIZE, timeout_))
+            if (!socket_.ReceiveAll(packet, CONNECT_RESPONSE_SIZE, timeout_))
             {
                 LOG("UDPTrackerConnection", "Failed to receive connect response.");
                 result_callback_(Result::Failure, nullptr);
