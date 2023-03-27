@@ -34,26 +34,6 @@ namespace tortoise
         const URL url_;
     };
 
-    //! \brief Implements the legacy HTTP tracker protocol.
-    class HTTPTrackerConnection : public TrackerConnection
-    {
-    public:
-        HTTPTrackerConnection(const URL &url);
-        bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
-
-    private:
-        std::shared_ptr<AnnounceResponse> ParseResponse(const std::string &response);
-        std::unique_ptr<http::AsyncRequest> request_;
-    };
-
-    //! \brief Implements the UDP tracker protocol as described in BEP 15.
-    class UDPTrackerConnection : public TrackerConnection
-    {
-    public:
-        UDPTrackerConnection(const URL &url);
-        bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
-    };
-
     class TrackerConnectionFactory
     {
     public:

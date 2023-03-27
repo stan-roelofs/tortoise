@@ -48,7 +48,7 @@ namespace tortoise
     void TrackerManager::SelectNextTracker()
     {
         // TODO
-        assert(false);
+        //assert(false);
     }
 
     void TrackerManager::RequestTrackerUpdate()

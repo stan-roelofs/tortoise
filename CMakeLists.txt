@@ -31,14 +31,17 @@ set (HEADERS
   include/tortoise/tracker_manager.hpp
   include/tortoise/url.hpp
   include/tortoise/version.hpp
+  tortoise/http_tracker_connection.hpp
   tortoise/sha1.hpp
   tortoise/socket_helper.hpp
+  tortoise/udp_tracker_connection.hpp
 )
 
 set(SOURCES
   tortoise/bencode.cpp
   tortoise/http/request.cpp
   tortoise/http/response.cpp
+  tortoise/http_tracker_connection.cpp
   tortoise/ip_address.cpp
   tortoise/load_torrent.cpp
   tortoise/metainfo.cpp
@@ -52,6 +55,7 @@ set(SOURCES
   tortoise/tracker_announce.cpp
   tortoise/tracker_connection.cpp
   tortoise/tracker_manager.cpp
+  tortoise/udp_tracker_connection.cpp
   tortoise/url.cpp
 )
 
