@@ -1,6 +1,7 @@
 #ifndef TORTOISE_LOG_HPP
 #define TORTOISE_LOG_HPP
 
+#include <cinttypes>
 #include <iostream>
 
 #ifdef TORTOISE_ENABLE_LOGGING

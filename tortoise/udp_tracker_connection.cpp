@@ -114,7 +114,7 @@ namespace tortoise
                 return;
             }
 
-            LOG("UDPTrackerConnection", "Connected!");
+            LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id);
         }
     }
 }
