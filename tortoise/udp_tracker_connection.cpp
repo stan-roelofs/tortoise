@@ -21,7 +21,7 @@ namespace tortoise
         };
     }
 
-    UDPTrackerConnection::UDPTrackerConnection(const URL &url) : TrackerConnection(url), socket_(Socket::TransportProtocol::UDP), timeout_(0u)
+    UDPTrackerConnection::UDPTrackerConnection(const URL &url) : TrackerConnection(url), timeout_(0u), socket_(Socket::TransportProtocol::UDP)
     {
         if (url.GetProtocol() != "udp")
             throw UnsupportedProtocolException(url.GetProtocol());
