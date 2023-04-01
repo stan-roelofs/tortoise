@@ -4,6 +4,7 @@
 #include <array>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "exceptions.hpp"
 
@@ -19,7 +20,7 @@ namespace tortoise
         };
 
         using ipv4_address_t = std::array<std::uint8_t, 4>;
-        using ipv6_address_t = std::array<std::uint16_t, 8>;
+        using ipv6_address_t = std::array<std::uint8_t, 16>;
 
         /*! \brief Creates an instance of IPAddress from a dotted quad or rfc3513 hexed formatted string.
          *  \throws ParseException if the string is not a valid IP address.
@@ -40,6 +41,9 @@ namespace tortoise
 
         //! \returns the IP address as a string. If the IP address is an IPv4 address, it will be returned in dotted quad format. If the IP address is an IPv6 address, it will be returned in rfc3513 hexed format.
         std::string ToString() const;
+
+		//! \returns the IP address as a vector of bytes. For IPv4 the length will be 4, for IPv6 the length will be 16.
+        std::vector<std::uint8_t> ToVector() const;
 
     private:
         std::variant<ipv4_address_t, ipv6_address_t> address_;

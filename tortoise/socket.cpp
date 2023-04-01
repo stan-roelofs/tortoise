@@ -119,7 +119,7 @@ namespace tortoise
         while (total < size)
         {
             int sent = SendInternal((const char *)data + total, size - total, timeout);
-            if (sent == -1)
+            if (sent == ERROR_VALUE)
                 return false;
 
             total += sent;
@@ -129,11 +129,12 @@ namespace tortoise
 
     bool Socket::ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout)
     {
+        // TODO is this function correct
         while (true)
         {
             std::uint8_t chunk[1024];
             int received = Receive(chunk, 1024, timeout);
-            if (received == -1)
+            if (received == ERROR_VALUE)
                 return false;
             if (received == 0)
                 return true;
@@ -142,19 +143,12 @@ namespace tortoise
         }
     }
 
-    bool Socket::Receive(void *buffer, int buffer_size, unsigned int timeout)
+    int Socket::Receive(void *buffer, int buffer_size, unsigned int timeout_ms)
     {
-        int left = buffer_size;
-        while (left > 0)
-        {
-            int received = ReceiveInternal((std::uint8_t *)buffer + (buffer_size - left), left, timeout);
-            if (received == -1)
-                return false;
+        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
+            return ERROR_VALUE;
 
-            left = left - received;
-        }
-
-        return true;
+        return recv(socket_, static_cast<char*>(buffer), buffer_size, 0);
     }
 
     bool Socket::Connected() const
@@ -169,6 +163,16 @@ namespace tortoise
 
         return error == 0;
     }
+
+	Socket::TransportProtocol Socket::GetTransportProtocol() const
+	{
+		return protocol_;
+	}
+
+	Socket::InternetProtocol Socket::GetInternetProtocol() const
+	{
+		return internet_protocol_;
+	}
 
     bool Socket::Select(bool read, bool write, unsigned int timeout_ms)
     {
@@ -235,17 +239,9 @@ namespace tortoise
     int Socket::SendInternal(const void *data, int size, unsigned int timeout_ms)
     {
         if (timeout_ms > 0 && !Select(false, true, timeout_ms))
-            return -1;
+            return ERROR_VALUE;
 
         return send(socket_, (const char *)data, size, 0);
-    }
-
-    int Socket::ReceiveInternal(void *buffer, int size, unsigned int timeout_ms)
-    {
-        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
-            return -1;
-
-        return recv(socket_, static_cast<char *>(buffer), size, 0);
     }
 
     std::uint64_t Socket::ToNetworkByteOrder(std::uint64_t value)

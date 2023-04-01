@@ -25,6 +25,8 @@ namespace tortoise
     class Socket
     {
     public:
+        static constexpr int ERROR_VALUE = -1;
+        
         enum class TransportProtocol
         {
             TCP,
@@ -37,7 +39,7 @@ namespace tortoise
             IPv4,
             IPv6
         };
-
+        
         class SocketException : public Exception
         {
         public:
@@ -70,13 +72,13 @@ namespace tortoise
          */
         bool Send(const void *data, int size, unsigned int timeout_ms);
 
-        /*! \brief Receives a fixed amount of data from the socket.
+        /*! \brief Receives available data from the socket.
          *  \param buffer The buffer to store the received data in.
          *  \param buffer_size The size of the buffer.
          *  \param timeout The timeout in milliseconds. 0 means no timeout.
-         *  \return True if all data was received successfully. False if an error occurred.
+         *  \return The number of bytes that was written to the buffer, or ERROR_VALUE if receiving failed.
          */
-        bool Receive(void *buffer, int buffer_size, unsigned int timeout);
+        int Receive(void *buffer, int buffer_size, unsigned int timeout_ms);
 
         /*! \brief Receives all data from the socket.
          *  \param buffer The buffer to store the received data in.
@@ -105,7 +107,6 @@ namespace tortoise
         bool SetBlocking(bool blocking);
         bool Select(bool read, bool write, unsigned int timeout_ms);
         int SendInternal(const void *data, int size, unsigned int timeout_ms);
-        int ReceiveInternal(void *buffer, int size, unsigned int timeout_ms);
 
 #ifdef _WIN32
         using socket_t = SOCKET;

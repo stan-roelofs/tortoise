@@ -13,7 +13,10 @@ namespace tortoise
           port(DEFAULT_BITTORRENT_PORT),
           downloaded(0),
           uploaded(0),
-          left(0)
+          left(0),
+          event(Event::None),
+          compact(true),
+          no_peer_id(false)
     {
     }
 

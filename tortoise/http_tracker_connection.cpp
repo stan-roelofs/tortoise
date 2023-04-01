@@ -22,7 +22,7 @@ namespace tortoise
     {
         if (request_)
         {
-            LOG("TrackerConnection", "Announce already in progress");
+            LOG("HTTPTrackerConnection", "Announce already in progress");
             return false;
         }
 
@@ -37,26 +37,28 @@ namespace tortoise
             request_->AddParameter("compact", parameters.compact.value() ? "1" : "0");
         if (parameters.no_peer_id.has_value())
             request_->AddParameter("no_peer_id", parameters.no_peer_id.value() ? "1" : "0");
-        if (parameters.event.has_value())
+        switch (parameters.event)
         {
-            switch (parameters.event.value())
-            {
-            case AnnounceParameters::Event::Started:
-                request_->AddParameter("event", "started");
-                break;
-            case AnnounceParameters::Event::Stopped:
-                request_->AddParameter("event", "stopped");
-                break;
-            case AnnounceParameters::Event::Completed:
-                request_->AddParameter("event", "completed");
-                break;
-            }
+        case AnnounceParameters::Event::Started:
+            request_->AddParameter("event", "started");
+            break;
+        case AnnounceParameters::Event::Stopped:
+            request_->AddParameter("event", "stopped");
+            break;
+        case AnnounceParameters::Event::Completed:
+            request_->AddParameter("event", "completed");
+            break;
+        case AnnounceParameters::Event::None:
+            break;
         }
 
         // if (parameters.ip.has_value()) // TODO
 
         if (parameters.numwant.has_value())
             request_->AddParameter("numwant", std::to_string(parameters.numwant.value()));
+
+        if (parameters.key.has_value())
+            request_->AddParameter("key", parameters.key.value());
 
         if (parameters.tracker_id.has_value())
             request_->AddParameter("trackerid", parameters.tracker_id.value());
@@ -67,7 +69,7 @@ namespace tortoise
                              {
                           if (result != http::AsyncRequest::Result::Success || !response || response->GetStatusCode() != 200)
                           {
-                              LOG("TrackerConnection", "Announce failed");
+                              LOG("HTTPTrackerConnection", "Announce failed");
                               result_callback(Result::Failure, nullptr);
                               return;
                           }
@@ -75,7 +77,7 @@ namespace tortoise
                           auto announce_response = ParseResponse(response->GetBody());
                           if (!announce_response)
                           {
-                              LOG("TrackerConnection", "Announce failed");
+                              LOG("HTTPTrackerConnection", "Announce failed");
                               result_callback(Result::Failure, nullptr);
                               return;
                           }
@@ -96,7 +98,7 @@ namespace tortoise
         }
         catch (BencodeException &e)
         {
-            LOG("TrackerConnection", "Failed to decode response: %s", e.what());
+            LOG("HTTPTrackerConnection", "Failed to decode response: %s", e.what());
             return nullptr;
         }
 
@@ -116,7 +118,7 @@ namespace tortoise
             integer_t interval = Get<integer_t>(*interval_data->second);
             if (interval < 0)
             {
-                LOG("TrackerConnection", "Interval is negative");
+                LOG("HTTPTrackerConnection", "Interval is negative");
                 return nullptr;
             }
 
@@ -124,7 +126,7 @@ namespace tortoise
         }
         else
         {
-            LOG("TrackerConnection", "Interval not found");
+            LOG("HTTPTrackerConnection", "Interval not found");
             return nullptr;
         }
 
@@ -134,7 +136,7 @@ namespace tortoise
             integer_t min_interval = Get<integer_t>(*min_interval_data->second);
             if (min_interval < 0)
             {
-                LOG("TrackerConnection", "Min interval is negative");
+                LOG("HTTPTrackerConnection", "Min interval is negative");
                 return nullptr;
             }
 
@@ -151,7 +153,7 @@ namespace tortoise
             integer_t complete = Get<integer_t>(*complete_data->second);
             if (complete < 0)
             {
-                LOG("TrackerConnection", "Complete is negative");
+                LOG("HTTPTrackerConnection", "Complete is negative");
                 return nullptr;
             }
 
@@ -159,7 +161,7 @@ namespace tortoise
         }
         else
         {
-            LOG("TrackerConnection", "Complete not found");
+            LOG("HTTPTrackerConnection", "Complete not found");
             return nullptr;
         }
 
@@ -169,7 +171,7 @@ namespace tortoise
             integer_t incomplete = Get<integer_t>(*incomplete_data->second);
             if (incomplete < 0)
             {
-                LOG("TrackerConnection", "Incomplete is negative");
+                LOG("HTTPTrackerConnection", "Incomplete is negative");
                 return nullptr;
             }
 
@@ -177,7 +179,7 @@ namespace tortoise
         }
         else
         {
-            LOG("TrackerConnection", "Incomplete not found");
+            LOG("HTTPTrackerConnection", "Incomplete not found");
             return nullptr;
         }
 
@@ -194,7 +196,7 @@ namespace tortoise
                     const integer_t port = Get<integer_t>(*dict.at("port"));
                     if (port < 0 || port > 65535)
                     {
-                        LOG("TrackerConnection", "Invalid port number");
+                        LOG("HTTPTrackerConnection", "Invalid port number");
                         return nullptr;
                     }
 
@@ -209,7 +211,7 @@ namespace tortoise
                 const string_t &peers = Get<string_t>(*dict.at("peers"));
                 if (peers.size() % 6 != 0)
                 {
-                    LOG("TrackerConnection", "Invalid peers field");
+                    LOG("HTTPTrackerConnection", "Invalid peers field");
                     return nullptr;
                 }
 
@@ -225,8 +227,37 @@ namespace tortoise
             }
             else
             {
-                LOG("TrackerConnection", "Invalid peers field");
+                LOG("HTTPTrackerConnection", "Invalid peers field");
                 return nullptr;
+            }
+        }
+
+        if (dict.find("peers_ipv6") != dict.end())
+        {
+            if (!CheckType<string_t>(*dict.at("peers")))
+            {
+                LOG("HTTPTrackerConnection", "Invalid peers_ipv6 field");
+                return nullptr;
+            }
+
+            const string_t &peers = Get<string_t>(*dict.at("peers_ipv6"));
+            if (peers.size() % 18 != 0)
+            {
+                LOG("HTTPTrackerConnection", "Invalid peers_ipv6 field");
+                return nullptr;
+            }
+
+            for (size_t i = 0; i < peers.size(); i += 18)
+            {
+                const std::uint8_t *peer = (const uint8_t *)(peers.data() + i);
+
+                const IPAddress ip = IPAddress(IPAddress::ipv6_address_t{
+                    peer[0], peer[1], peer[2], peer[3], peer[4], peer[5], peer[6], peer[7], peer[8],
+                    peer[9], peer[10], peer[11], peer[12], peer[13], peer[14], peer[15]});
+
+                auto port = static_cast<std::uint16_t>((peer[16] << 8) | peer[17]);
+                AnnounceResponse::PeerInfo info(ip.ToString(), port);
+                response->peers.emplace_back(info);
             }
         }
 

@@ -41,14 +41,14 @@ namespace tortoise
 {
     namespace http
     {
-        // TODO mutex
         AsyncRequest::AsyncRequest(const URL &url) : url_(url), timeout_(DEFAULT_TIMEOUT_MS)
         {
         }
 
         AsyncRequest::~AsyncRequest()
         {
-            // TODO cancel
+            if (thread_.joinable())
+                thread_.join();
         }
 
         std::string AsyncRequest::CreateRequest(const URL &url, const std::map<std::string, std::string> &params)

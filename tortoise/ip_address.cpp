@@ -80,4 +80,21 @@ namespace tortoise
         }
         return stream.str();
     }
+
+    std::vector<std::uint8_t> IPAddress::ToVector() const
+    {
+        std::vector<std::uint8_t> result;
+
+        if (IsIPv4())
+        {
+            const auto& address = std::get<0>(address_);
+			std::copy(address.begin(), address.end(), std::back_inserter(result));
+        }
+        else {
+			const auto& address = std::get<1>(address_);
+			std::copy(address.begin(), address.end(), std::back_inserter(result));                
+        }
+        
+        return result;
+    }
 } // namespace tortoise

@@ -10,7 +10,6 @@
 
 namespace tortoise
 {
-    // TODO we could just have a single instance on its own thread and have it manage all torrents
     TrackerManager::TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<AnnounceParameters()> request_callback)
         : tracker_interval_seconds_(0),
           request_pending_(false),
@@ -58,6 +57,8 @@ namespace tortoise
         AnnounceParameters parameters = request_callback_();
         parameters.compact = true;
         parameters.no_peer_id = true;
+		parameters.event = AnnounceParameters::Event::Started;
+        parameters.numwant = 10;
 
         assert(current_tracker_ != nullptr);
         try
@@ -69,8 +70,12 @@ namespace tortoise
                 {
                     if (result == TrackerConnection::Result::Success)
                     {
-						LOG("TrackerManager", "Request succeeded");
-                        (void)response;
+                        LOG("TrackerManager", "Request succeeded");
+                        LOG("TrackerManager", "Peers:");
+						for (const auto& peer : response->peers)
+						{
+							LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
+						}
                     }
                     else {
                         LOG("TrackerManager", "Request failed");

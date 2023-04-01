@@ -38,27 +38,33 @@ namespace tortoise
 
         //! \brief Indicates that the tracker can omit peer id fields in the peers dictionary. Ignored if compact is enabled.
         std::optional<bool> no_peer_id;
-
+     
+        //! \details These values are specified in BEP 15
         enum class Event
         {
-            //! \brief Sent when the client starts downloading the torrent.
-            Started,
-
-            //! \brief Sent when the client stops downloading the torrent.
-            Stopped,
+            None = 0,
 
             //! \brief Sent when the client completes the download. Must not be sent if the download was already 100% when the client started.
-            Completed
+            Completed = 1,
+            
+            //! \brief Sent when the client starts downloading the torrent.
+            Started = 2,
+
+            //! \brief Sent when the client stops downloading the torrent.
+            Stopped = 3
         };
 
         //! \brief The event that the client is reporting.
-        std::optional<Event> event;
+        Event event;
 
         //! \brief The true IP address of the client machine.
         std::optional<IPAddress> ip;
 
         //! \brief The number of peers that the client would like to receive from the tracker.
-        std::optional<std::uint64_t> numwant;
+        std::optional<std::uint32_t> numwant;
+
+		//! \brief An additional identification that is not shared with any other peers. It is intended to allow a client to prove their identity should their IP address change.
+        std::optional<std::uint32_t> key;
 
         //! \brief A string that the client should send back on its next announcements.
         std::optional<std::string> tracker_id;
@@ -93,7 +99,7 @@ namespace tortoise
         {
             PeerInfo(const std::string &ip, std::uint16_t port) : ip(ip), port(port) {}
             std::optional<std::string> peer_id; // The 20-byte self-selected peer id of the peer.
-            std::string ip;                     // The peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name.
+            std::string ip;                     // The peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name (string).
             std::uint16_t port;
         };
 

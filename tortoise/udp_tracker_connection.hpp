@@ -1,6 +1,8 @@
 #ifndef TORTOISE_UDP_TRACKER_CONNECTION_HPP
 #define TORTOISE_UDP_TRACKER_CONNECTION_HPP
 
+#include <memory>
+
 #include <tortoise/tracker_connection.hpp>
 
 namespace tortoise
@@ -14,16 +16,17 @@ namespace tortoise
          *  \throws UnsupportedProtocolException If the protocol is not supported.
          */
         UDPTrackerConnection(const URL &url);
+        ~UDPTrackerConnection() override;
 
         bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
 
     private:
         static void ThreadFunc(UDPTrackerConnection *connection);
-
         void Announce();
 
         std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback_;
         unsigned int timeout_;
+        std::unique_ptr<AnnounceParameters> parameters_;
 
         Socket socket_;
         std::thread thread_;
