@@ -113,28 +113,12 @@ namespace tortoise
         return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != InternetProtocol::Unknown;
     }
 
-    int Socket::Send(const void *data, int size, unsigned int timeout_ms)
-    {
-        if (timeout_ms > 0 && !Select(false, true, timeout_ms))
-            return -1;
-
-        return send(socket_, (const char *)data, size, 0);
-    }
-
-    int Socket::Receive(void *buffer, int size, unsigned int timeout_ms)
-    {
-        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
-            return -1;
-
-        return recv(socket_, static_cast<char *>(buffer), size, 0);
-    }
-
-    bool Socket::SendAll(const void *data, int size, unsigned int timeout)
+    bool Socket::Send(const void *data, int size, unsigned int timeout)
     {
         int total = 0;
         while (total < size)
         {
-            int sent = Send((const char *)data + total, size - total, timeout);
+            int sent = SendInternal((const char *)data + total, size - total, timeout);
             if (sent == -1)
                 return false;
 
@@ -158,12 +142,12 @@ namespace tortoise
         }
     }
 
-    bool Socket::ReceiveAll(void *buffer, int buffer_size, unsigned int timeout)
+    bool Socket::Receive(void *buffer, int buffer_size, unsigned int timeout)
     {
         int left = buffer_size;
         while (left > 0)
         {
-            int received = Receive((std::uint8_t *)buffer + (buffer_size - left), left, timeout);
+            int received = ReceiveInternal((std::uint8_t *)buffer + (buffer_size - left), left, timeout);
             if (received == -1)
                 return false;
 
@@ -248,6 +232,22 @@ namespace tortoise
 #define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
 #define ntohll(x) ((1 == ntohl(1)) ? (x) : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
 
+    int Socket::SendInternal(const void *data, int size, unsigned int timeout_ms)
+    {
+        if (timeout_ms > 0 && !Select(false, true, timeout_ms))
+            return -1;
+
+        return send(socket_, (const char *)data, size, 0);
+    }
+
+    int Socket::ReceiveInternal(void *buffer, int size, unsigned int timeout_ms)
+    {
+        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
+            return -1;
+
+        return recv(socket_, static_cast<char *>(buffer), size, 0);
+    }
+
     std::uint64_t Socket::ToNetworkByteOrder(std::uint64_t value)
     {
         return htonll(value);
@@ -277,4 +277,7 @@ namespace tortoise
     {
         return ntohs(value);
     }
+
+#undef htonll
+#undef ntohll
 } // namespace tortoise

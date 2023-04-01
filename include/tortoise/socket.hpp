@@ -50,36 +50,13 @@ namespace tortoise
         //! \brief Closes the socket.
         void Close();
 
-        /*! \brief Sends data to the connected host.
-         *  \param data The data to send.
-         *  \param size The size of the data to send.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
-         *  \return The number of bytes that was actually sent. This may be less than the size of the data. -1 is returned on error.
-         */
-        int Send(const void *data, int size, unsigned int timeout_ms);
-
-        /*! \brief Receives data from the connected host.
-         *  \param buffer The buffer to store the received data in.
-         *  \param size The size of the buffer.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
-         *  \return The number of bytes that was actually received. This may be less than the size of the buffer. -1 is returned on error.
-         */
-        int Receive(void *buffer, int size, unsigned int timeout_ms);
-
         /*! \brief Sends all data to the socket.
          *  \param data The data to send.
          *  \param size The size of the data to send.
          *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
          *  \return True if all data was sent. False if an error occurred.
          */
-        bool SendAll(const void *data, int size, unsigned int timeout_ms);
-
-        /*! \brief Receives all data from the socket.
-         *  \param buffer The buffer to store the received data in.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
-         *  \return True if all data was received successfully. False if an error occurred.
-         */
-        bool ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout_ms);
+        bool Send(const void *data, int size, unsigned int timeout_ms);
 
         /*! \brief Receives a fixed amount of data from the socket.
          *  \param buffer The buffer to store the received data in.
@@ -87,7 +64,14 @@ namespace tortoise
          *  \param timeout The timeout in milliseconds. 0 means no timeout.
          *  \return True if all data was received successfully. False if an error occurred.
          */
-        bool ReceiveAll(void *buffer, int buffer_size, unsigned int timeout);
+        bool Receive(void *buffer, int buffer_size, unsigned int timeout);
+
+        /*! \brief Receives all data from the socket.
+         *  \param buffer The buffer to store the received data in.
+         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
+         *  \return True if all data was received successfully. False if an error occurred.
+         */
+        bool ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout_ms);
 
         //! \returns True if the socket is connected, false otherwise.
         bool Connected() const;
@@ -108,6 +92,8 @@ namespace tortoise
     private:
         bool SetBlocking(bool blocking);
         bool Select(bool read, bool write, unsigned int timeout_ms);
+        int SendInternal(const void *data, int size, unsigned int timeout_ms);
+        int ReceiveInternal(void *buffer, int size, unsigned int timeout_ms);
 
 #ifdef _WIN32
         using socket_t = SOCKET;

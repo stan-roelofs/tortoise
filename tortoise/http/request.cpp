@@ -115,15 +115,15 @@ namespace tortoise
             }
 
             LOG("AsyncRequest", "Connected to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
-            
-			if (request_.length() > (std::numeric_limits<int>::max)())
-			{
-				LOG("AsyncRequest", "Request too long");
-				callback_(Result::Failure, nullptr);
-				return;
-			}
 
-            if (!socket.SendAll(request_.c_str(), (int)strlen(request_.c_str()), timeout_))
+            if (request_.length() > (std::numeric_limits<int>::max)())
+            {
+                LOG("AsyncRequest", "Request too long");
+                callback_(Result::Failure, nullptr);
+                return;
+            }
+
+            if (!socket.Send(request_.c_str(), (int)strlen(request_.c_str()), timeout_))
             {
                 callback_(Result::Failure, nullptr);
                 return;
