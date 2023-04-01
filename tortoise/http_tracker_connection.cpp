@@ -58,7 +58,7 @@ namespace tortoise
             request_->AddParameter("numwant", std::to_string(parameters.numwant.value()));
 
         if (parameters.key.has_value())
-            request_->AddParameter("key", parameters.key.value());
+            request_->AddParameter("key", std::to_string(parameters.key.value()));
 
         if (parameters.tracker_id.has_value())
             request_->AddParameter("trackerid", parameters.tracker_id.value());
