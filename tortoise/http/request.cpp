@@ -138,7 +138,7 @@ namespace tortoise
                 return;
             }
 
-            LOG("AsyncRequest", "Received response:\n%s", std::string(response.begin(), response.end()).c_str());
+            LOG("AsyncRequest", "Received response");
 
             std::string response_str(response.begin(), response.end());
             callback_(Result::Success, std::make_shared<Response>(response_str));

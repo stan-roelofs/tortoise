@@ -21,10 +21,11 @@ namespace tortoise
 
     Socket::~Socket()
     {
+        Close();
+
 #ifdef _WIN32
         WSACleanup();
 #endif
-        Close();
     }
 
     void Socket::Close()
@@ -95,7 +96,7 @@ namespace tortoise
 
         freeaddrinfo(result);
 
-        if (socket_ != INVALID_SOCKET_VALUE)
+        if (socket_ != INVALID_SOCKET_VALUE && ptr != nullptr)
         {
             switch (ptr->ai_family)
             {
@@ -178,7 +179,6 @@ namespace tortoise
     {
         assert(read || write);
 
-#ifdef _WIN32
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(socket_, &fds);
@@ -187,26 +187,13 @@ namespace tortoise
         tv.tv_sec = timeout_ms / 1000;
         tv.tv_usec = (timeout_ms % 1000) * 1000;
 
-        return select(0, read ? &fds : nullptr, write ? &fds : nullptr, nullptr, &tv) > 0;
-#else
-        fd_set read_fds, write_fds;
-        FD_ZERO(&read_fds);
-        FD_ZERO(&write_fds);
-
-        if (read)
-            FD_SET(socket_, &read_fds);
-
-        if (write)
-            FD_SET(socket_, &write_fds);
-
-        timeval tv;
-        tv.tv_sec = timeout_ms / 1000;
-        tv.tv_usec = (timeout_ms % 1000) * 1000;
-
+#ifdef _WIN32
+        return select(0, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv) > 0;
+#else      
         int result = 0;
         do
         {
-            result = select(socket_ + 1, read ? &read_fds : nullptr, write ? &write_fds : nullptr, nullptr, &tv);
+            result = select(socket_ + 1, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv);
         } while (result == -1 && errno == EINTR);
 
         return result > 0;
