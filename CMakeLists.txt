@@ -14,6 +14,7 @@ endif()
 
 set (HEADERS
   include/tortoise/bencode.hpp
+  include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/http/exception.hpp
   include/tortoise/http/request.hpp

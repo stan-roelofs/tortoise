@@ -95,7 +95,7 @@ namespace tortoise
 
             return metainfo;
         }
-        catch (const BencodeException &)
+        catch (const bencode::BencodeException &)
         {
             return nullptr;
         }

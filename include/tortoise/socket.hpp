@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include <tortoise/exception.hpp>
+
 namespace tortoise
 {
     //! \brief A platform independent socket class. All sockets are non-blocking!
@@ -36,6 +38,16 @@ namespace tortoise
             IPv6
         };
 
+        class SocketException : public Exception
+        {
+        public:
+            SocketException(const std::string &msg) : Exception(msg) {}
+        };
+
+        /*! \brief Creates a new socket.
+         *  \param protocol The transport protocol to use.
+         *  \throws SocketException if the socket could not be created.
+         */
         Socket(TransportProtocol protocol);
         ~Socket();
 

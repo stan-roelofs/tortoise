@@ -13,6 +13,12 @@ namespace tortoise
 {
     namespace bencode
     {
+        class BencodeException : public Exception
+        {
+        public:
+            BencodeException(const std::string &msg) : Exception(msg) {}
+        };
+
         using string_t = std::string;
         using string_view_t = std::string_view;
         using integer_t = std::int64_t;

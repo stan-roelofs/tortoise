@@ -15,8 +15,9 @@ namespace tortoise
     {
     public:
         //! \brief A non-owning handle to a torrent.
-        struct Handle
+        class Handle
         {
+        public:
             Handle(const std::shared_ptr<const Torrent> &ptr) : ptr_(ptr) {}
 
             bool IsValid() const
@@ -41,6 +42,12 @@ namespace tortoise
 
         private:
             std::weak_ptr<const Torrent> ptr_;
+        };
+
+        class TorrentException : public Exception
+        {
+        public:
+            TorrentException(const std::string &msg) : Exception(msg) {}
         };
 
         struct Parameters

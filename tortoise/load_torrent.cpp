@@ -16,7 +16,7 @@ namespace tortoise
         {
             data = bencode::Decode(file);
         }
-        catch (const BencodeException &)
+        catch (const bencode::BencodeException &)
         {
             return nullptr;
         }

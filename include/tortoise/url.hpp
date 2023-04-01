@@ -7,6 +7,12 @@
 
 namespace tortoise
 {
+    class URLException : public Exception
+    {
+    public:
+        URLException(const std::string &msg) : Exception(msg) {}
+    };
+
     class URL
     {
     public:
