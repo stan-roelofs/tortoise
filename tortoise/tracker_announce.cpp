@@ -14,9 +14,9 @@ namespace tortoise
           downloaded(0),
           uploaded(0),
           left(0),
-          event(Event::None),
           compact(true),
-          no_peer_id(false)
+          no_peer_id(false),
+          event(Event::None)
     {
     }
 

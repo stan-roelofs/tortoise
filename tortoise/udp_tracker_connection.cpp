@@ -3,6 +3,7 @@
 #include <array>
 #include <cassert>
 #include <chrono>
+#include <cstring>
 #include <random>
 
 #include "log.hpp"

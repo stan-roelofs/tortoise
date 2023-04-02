@@ -262,5 +262,5 @@ namespace tortoise
         }
 
         return response;
-    };
+    }
 } // namespace tortoise
