@@ -39,7 +39,7 @@ namespace tortoise
             }
             else
             {
-                metainfo->announce_list_.push_back(std::vector<URL>());
+                metainfo->announce_list_.push_back(std::vector<std::string>());
                 metainfo->announce_list_.front().push_back(bencode::Get<bencode::string_t>(*dct.at("announce")));
             }
 
@@ -116,7 +116,7 @@ namespace tortoise
         return name_;
     }
 
-    const std::vector<std::vector<URL>> &Metainfo::GetAnnounceList() const
+    const std::vector<std::vector<std::string>> &Metainfo::GetAnnounceList() const
     {
         return announce_list_;
     }

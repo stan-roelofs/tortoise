@@ -6,9 +6,9 @@
 #include <tortoise/bencode.hpp>
 #include <tortoise/exceptions.hpp>
 #include <tortoise/sha1_hash.hpp>
-#include <tortoise/url.hpp>
 
 #include "log.hpp"
+#include "url.hpp"
 
 namespace tortoise
 {

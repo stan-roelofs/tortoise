@@ -6,8 +6,8 @@
 #include <memory>
 #include <thread>
 
-#include <tortoise/socket.hpp>
-#include <tortoise/url.hpp>
+#include "../socket.hpp"
+#include "../url.hpp"
 
 #include "response.hpp"
 

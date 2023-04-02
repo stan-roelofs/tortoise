@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include <tortoise/tracker_connection.hpp>
+#include "tracker_connection.hpp"
 
 namespace tortoise
 {

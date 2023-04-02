@@ -5,8 +5,8 @@
 #include <functional>
 #include <list>
 
-#include "http/request.hpp"
-#include "sha1_hash.hpp"
+#include <tortoise/sha1_hash.hpp>
+
 #include "tracker_announce.hpp"
 #include "tracker_connection.hpp"
 #include "url.hpp"
@@ -21,7 +21,7 @@ namespace tortoise
          *  \param request_callback A callback that returns the request to send to the tracker.
          *  \throws InvalidArgumentException If the trackers list is empty.
          */
-        TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<AnnounceParameters()> request_callback);
+        TrackerManager(const std::vector<std::vector<std::string>> &trackers, std::function<AnnounceParameters()> request_callback);
         ~TrackerManager();
 
         /*! \brief Updates the tracker information.

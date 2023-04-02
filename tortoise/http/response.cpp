@@ -1,8 +1,8 @@
-#include <tortoise/http/response.hpp>
+#include "response.hpp"
 
 #include <stdexcept>
 
-#include <tortoise/http/exception.hpp>
+#include "exception.hpp"
 
 namespace tortoise
 {

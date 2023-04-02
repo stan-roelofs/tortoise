@@ -1,8 +1,10 @@
-#include <tortoise/http/request.hpp>
+#include "request.hpp"
 
 #include <iomanip>
 #include <limits>
 #include <sstream>
+
+#include <tortoise/exceptions.hpp>
 
 #include "../log.hpp"
 

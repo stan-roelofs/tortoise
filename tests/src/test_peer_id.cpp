@@ -1,14 +1,13 @@
 #include <gtest/gtest.h>
 
-#include <tortoise/peer_id.hpp>
-#include <tortoise/version.hpp>
+#include "../tortoise/peer_id.hpp"
 
 using namespace tortoise;
 
 TEST(PeerId, length_is_20)
 {
-    PeerId peer_id;
-    ASSERT_EQ(peer_id.Get().size(), 20);
+	PeerId peer_id;
+	ASSERT_EQ(peer_id.Get().size(), 20);
 }
 
 TEST(PeerId, client_information_is_azureus_style)

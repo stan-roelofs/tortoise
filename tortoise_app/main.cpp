@@ -50,7 +50,7 @@ int main(int argc, const char *argv[])
     return EXIT_FAILURE;
   }
 
-  tortoise::Torrent::Parameters torrent_params(*metainfo, tortoise::PeerId());
+  tortoise::TorrentParameters torrent_params(*metainfo);
   torrent_params.save_path = ".";
   auto handle = session.AddTorrent(torrent_params);
   if (!handle)

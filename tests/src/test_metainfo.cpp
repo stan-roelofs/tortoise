@@ -11,7 +11,7 @@ TEST(Metainfo, single_file_without_optional_fields)
 	auto data = bencode::Decode(iss);
 	auto metainfo = Metainfo::FromBencode(*data);
 	ASSERT_NE(nullptr, metainfo);
-	EXPECT_EQ(URL("http://tracker.example.com/announce"), metainfo->GetAnnounceList().front().front());
+	EXPECT_EQ("http://tracker.example.com/announce", metainfo->GetAnnounceList().front().front());
 	EXPECT_EQ("spam", metainfo->GetName());
 	EXPECT_EQ(16384, metainfo->GetPieceLength());
 	ASSERT_EQ(1, metainfo->GetPieces().size());
@@ -101,9 +101,9 @@ TEST(Metainfo, multi_file_with_optional_fields)
 	auto announce_list = metainfo->GetAnnounceList();
 	ASSERT_EQ(1u, announce_list.size());
 	ASSERT_EQ(3u, announce_list[0].size());
-	EXPECT_EQ(URL("http://tracker1.com"), announce_list[0][0]);
-	EXPECT_EQ(URL("http://tracker2.com"), announce_list[0][1]);
-	EXPECT_EQ(URL("http://tracker3.com"), announce_list[0][2]);
+	EXPECT_EQ("http://tracker1.com", announce_list[0][0]);
+	EXPECT_EQ("http://tracker2.com", announce_list[0][1]);
+	EXPECT_EQ("http://tracker3.com", announce_list[0][2]);
 	EXPECT_EQ(1182163222, metainfo->GetCreationDate());
 	EXPECT_EQ("Just a testing comment for my testing torrent.", metainfo->GetComment());
 	EXPECT_EQ("KTorrent 2.1.4", metainfo->GetCreatedBy());

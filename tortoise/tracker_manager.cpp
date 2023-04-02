@@ -1,13 +1,13 @@
-#include <tortoise/tracker_manager.hpp>
+#include "tracker_manager.hpp"
 
 #include <cassert>
 
 #include <tortoise/exceptions.hpp>
-#include <tortoise/http/exception.hpp>
-#include <tortoise/http/request.hpp>
 
-#include "log.hpp"
+#include "http/exception.hpp"
+#include "http/request.hpp"
 #include "http_tracker_connection.hpp"
+#include "log.hpp"
 #include "udp_tracker_connection.hpp"
 
 namespace
@@ -32,7 +32,7 @@ namespace
 
 namespace tortoise
 {
-    TrackerManager::TrackerManager(const std::vector<std::vector<URL>> &trackers, std::function<AnnounceParameters()> request_callback)
+    TrackerManager::TrackerManager(const std::vector<std::vector<std::string>> &trackers, std::function<AnnounceParameters()> request_callback)
         : tracker_interval_seconds_(0),
           request_pending_(false),
           request_callback_(request_callback),

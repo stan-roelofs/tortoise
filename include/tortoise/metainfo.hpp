@@ -6,10 +6,11 @@
 
 #include "bencode.hpp"
 #include "sha1_hash.hpp"
-#include "url.hpp"
 
 namespace tortoise
 {
+    // TODO make this a struct and removed the constructor
+
     class Metainfo
     {
     public:
@@ -21,7 +22,7 @@ namespace tortoise
         static std::unique_ptr<Metainfo> FromBencode(const bencode::Data &data);
 
         //! \brief A list of lists of tracker URLs as described in BEP 12. If there is no announce-list key, this is a list of one list containing the announce key.
-        const std::vector<std::vector<URL>> &GetAnnounceList() const;
+        const std::vector<std::vector<std::string>> &GetAnnounceList() const;
 
         //! \brief (optional) The creation time of the torrent, in standard UNIX epoch format.
         uint64_t GetCreationDate() const;
@@ -70,7 +71,7 @@ namespace tortoise
     private:
         Metainfo(const SHA1Hash &info_hash);
 
-        std::vector<std::vector<URL>> announce_list_;
+        std::vector<std::vector<std::string>> announce_list_;
         SHA1Hash info_hash_;
         uint64_t creation_date_;
         std::string comment_;

@@ -4,10 +4,11 @@
 #include <optional>
 #include <vector>
 
-#include <tortoise/ip_address.hpp>
-#include <tortoise/peer_id.hpp>
 #include <tortoise/sha1_hash.hpp>
-#include <tortoise/url.hpp>
+
+#include "ip_address.hpp"
+#include "peer_id.hpp"
+#include "url.hpp"
 
 namespace tortoise
 {
@@ -38,7 +39,7 @@ namespace tortoise
 
         //! \brief Indicates that the tracker can omit peer id fields in the peers dictionary. Ignored if compact is enabled.
         std::optional<bool> no_peer_id;
-     
+
         //! \details These values are specified in BEP 15
         enum class Event
         {
@@ -46,7 +47,7 @@ namespace tortoise
 
             //! \brief Sent when the client completes the download. Must not be sent if the download was already 100% when the client started.
             Completed = 1,
-            
+
             //! \brief Sent when the client starts downloading the torrent.
             Started = 2,
 
@@ -63,7 +64,7 @@ namespace tortoise
         //! \brief The number of peers that the client would like to receive from the tracker.
         std::optional<std::uint32_t> numwant;
 
-		//! \brief An additional identification that is not shared with any other peers. It is intended to allow a client to prove their identity should their IP address change.
+        //! \brief An additional identification that is not shared with any other peers. It is intended to allow a client to prove their identity should their IP address change.
         std::optional<std::uint32_t> key;
 
         //! \brief A string that the client should send back on its next announcements.

@@ -5,70 +5,52 @@
 #include <string>
 
 #include "metainfo.hpp"
-#include "peer_id.hpp"
-#include "tracker_announce.hpp"
-#include "tracker_manager.hpp"
 
 namespace tortoise
 {
-    class Torrent
+    class Torrent;
+
+    //! \brief A non-owning handle to a torrent.
+    class TorrentHandle
     {
     public:
-        //! \brief A non-owning handle to a torrent.
-        class Handle
+        TorrentHandle(const std::shared_ptr<const Torrent> &ptr) : ptr_(ptr) {}
+
+        bool IsValid() const
         {
-        public:
-            Handle(const std::shared_ptr<const Torrent> &ptr) : ptr_(ptr) {}
+            return !ptr_.expired();
+        }
 
-            bool IsValid() const
-            {
-                return !ptr_.expired();
-            }
-
-            operator bool() const
-            {
-                return IsValid();
-            }
-
-            bool operator==(const Handle &other) const
-            {
-                return ptr_.lock() == other.ptr_.lock();
-            }
-
-            bool operator!=(const Handle &other) const
-            {
-                return !(*this == other);
-            }
-
-        private:
-            std::weak_ptr<const Torrent> ptr_;
-        };
-
-        class TorrentException : public Exception
+        operator bool() const
         {
-        public:
-            TorrentException(const std::string &msg) : Exception(msg) {}
-        };
+            return IsValid();
+        }
 
-        struct Parameters
+        bool operator==(const TorrentHandle &other) const
         {
-            Parameters(const Metainfo &info, const PeerId &id) : metainfo(info), peer_id(id) {}
-            Metainfo metainfo;
-            std::string save_path;
-            PeerId peer_id;
-        };
+            return ptr_.lock() == other.ptr_.lock();
+        }
 
-        Torrent(const Parameters &params);
-        ~Torrent();
-
-        //! \brief This should be called periodically and will do all the work that is required to keep the torrent running.
-        void Process();
+        bool operator!=(const TorrentHandle &other) const
+        {
+            return !(*this == other);
+        }
 
     private:
-        AnnounceParameters GetTrackerRequest();
+        std::weak_ptr<const Torrent> ptr_;
+    };
 
-        Parameters parameters_;
-        TrackerManager tracker_manager_;
+    class TorrentException : public Exception
+    {
+    public:
+        TorrentException(const std::string &msg) : Exception(msg) {}
+    };
+
+    struct TorrentParameters
+    {
+        TorrentParameters(const Metainfo &info) : metainfo(info) {}
+        Metainfo metainfo;
+        std::string save_path;
     };
 } // namespace tortoise
 

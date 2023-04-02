@@ -4,8 +4,9 @@
 #include <functional>
 #include <memory>
 
-#include "http/request.hpp"
 #include "tracker_announce.hpp"
+
+#include "http/request.hpp"
 
 namespace tortoise
 {
@@ -29,11 +30,6 @@ namespace tortoise
          * \returns True if the request was sent successfully.
          */
         virtual bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) = 0;
-
-        virtual bool Shutdown() = 0;
-
-        //! \brief Returns true if the tracker connection is verified - that is, we have received a valid response from the tracker at least once.
-        virtual bool Verified() = 0;
 
     protected:
         const URL url_;

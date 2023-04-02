@@ -6,6 +6,8 @@
 #include <cstring>
 #include <random>
 
+#include <tortoise/exceptions.hpp>
+
 #include "log.hpp"
 
 namespace tortoise

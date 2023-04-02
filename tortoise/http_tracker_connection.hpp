@@ -1,7 +1,7 @@
 #ifndef TORTOISE_HTTP_TRACKER_CONNECTION_HPP
 #define TORTOISE_HTTP_TRACKER_CONNECTION_HPP
 
-#include <tortoise/tracker_connection.hpp>
+#include "tracker_connection.hpp"
 
 namespace tortoise
 {

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <tortoise/http/exception.hpp>
-#include <tortoise/http/response.hpp>
+#include "../tortoise/http/exception.hpp"
+#include "../tortoise/http/response.hpp"
 
 TEST(http_response, test_success)
 {

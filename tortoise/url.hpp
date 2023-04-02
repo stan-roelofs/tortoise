@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "exceptions.hpp"
+#include <tortoise/exception.hpp>
 
 namespace tortoise
 {

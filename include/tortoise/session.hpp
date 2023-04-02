@@ -31,12 +31,12 @@ namespace tortoise
          *  \param torrent Parameters for the the new torrent.
          *  \return A handle to the torrent.
          */
-        Torrent::Handle AddTorrent(const Torrent::Parameters &parameters);
+        TorrentHandle AddTorrent(const TorrentParameters &parameters);
 
         /*! \brief Removes a torrent from the session. If the torrent is not in the session, this function has no effect.
          *  \param handle handle to the torrent.
          */
-        void RemoveTorrent(Torrent::Handle handle);
+        void RemoveTorrent(TorrentHandle handle);
 
         //! \brief Starts the session.
         void Start();
@@ -51,13 +51,8 @@ namespace tortoise
         Session &operator=(Session &&) = delete;
 
     private:
-        static void ThreadFunc(Session &session);
-        void Run();
-
-        bool running_ = true;
-        std::vector<std::shared_ptr<Torrent>> torrents_;
-        std::thread thread_;
-        std::mutex mutex_;
+        class Implementation;
+        std::unique_ptr<Implementation> implementation_;
     };
 }
 
