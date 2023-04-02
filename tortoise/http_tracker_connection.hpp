@@ -14,6 +14,16 @@ namespace tortoise
          *  \throws UnsupportedProtocolException If the protocol is not supported.
          */
         HTTPTrackerConnection(const URL &url);
+
+        /*! \brief Destroys the HTTP tracker connection. This may block
+         */
+        ~HTTPTrackerConnection() override;
+
+        HTTPTrackerConnection(const HTTPTrackerConnection &) = delete;
+        HTTPTrackerConnection &operator=(const HTTPTrackerConnection &) = delete;
+        HTTPTrackerConnection(HTTPTrackerConnection &&) = delete;
+        HTTPTrackerConnection &operator=(HTTPTrackerConnection &&) = delete;
+
         bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
 
     private:

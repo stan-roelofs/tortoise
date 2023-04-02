@@ -30,19 +30,13 @@ namespace tortoise
          */
         virtual bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) = 0;
 
+        virtual bool Shutdown() = 0;
+
+        //! \brief Returns true if the tracker connection is verified - that is, we have received a valid response from the tracker at least once.
+        virtual bool Verified() = 0;
+
     protected:
         const URL url_;
-    };
-
-    class TrackerConnectionFactory
-    {
-    public:
-        /*! \brief Creates a tracker connection for the specified URL.
-         *  \param url The URL of the tracker.
-         *  \returns A tracker connection object.
-         *  \throws UnsupportedProtocolException If the protocol is not supported.
-         */
-        static std::unique_ptr<TrackerConnection> Create(const URL &url);
     };
 } // namespace tortoise
 

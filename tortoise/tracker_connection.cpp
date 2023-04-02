@@ -16,15 +16,4 @@ namespace tortoise
     TrackerConnection::TrackerConnection(const URL &url) : url_(url) {}
 
     TrackerConnection::~TrackerConnection() = default;
-
-    std::unique_ptr<TrackerConnection> TrackerConnectionFactory::Create(const URL &url)
-    {
-        if (url.GetProtocol() == "http")
-            return std::make_unique<HTTPTrackerConnection>(url);
-        else if (url.GetProtocol() == "udp")
-            return std::make_unique<UDPTrackerConnection>(url);
-        else
-            throw UnsupportedProtocolException(url.GetProtocol());
-    }
-
 } // namespace tortoise

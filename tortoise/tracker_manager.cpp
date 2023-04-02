@@ -7,6 +7,28 @@
 #include <tortoise/http/request.hpp>
 
 #include "log.hpp"
+#include "http_tracker_connection.hpp"
+#include "udp_tracker_connection.hpp"
+
+namespace
+{
+    /*! \brief Creates a tracker connection for the specified URL.
+     *  \param url The URL of the tracker.
+     *  \returns A tracker connection object.
+     *  \throws UnsupportedProtocolException If the protocol is not supported.
+     */
+    std::unique_ptr<tortoise::TrackerConnection> CreateTrackerConnection(const tortoise::URL &url)
+    {
+        using namespace tortoise;
+
+        if (url.GetProtocol() == "http")
+            return std::make_unique<HTTPTrackerConnection>(url);
+        else if (url.GetProtocol() == "udp")
+            return std::make_unique<UDPTrackerConnection>(url);
+        else
+            throw UnsupportedProtocolException(url.GetProtocol());
+    }
+}
 
 namespace tortoise
 {
@@ -47,7 +69,7 @@ namespace tortoise
     void TrackerManager::SelectNextTracker()
     {
         // TODO
-        //assert(false);
+        // assert(false);
     }
 
     void TrackerManager::RequestTrackerUpdate()
@@ -57,13 +79,13 @@ namespace tortoise
         AnnounceParameters parameters = request_callback_();
         parameters.compact = true;
         parameters.no_peer_id = true;
-		parameters.event = AnnounceParameters::Event::Started;
+        parameters.event = AnnounceParameters::Event::Started;
         parameters.numwant = 10;
 
         assert(current_tracker_ != nullptr);
         try
         {
-            request_ = TrackerConnectionFactory::Create(current_tracker_->url);
+            request_ = CreateTrackerConnection(current_tracker_->url);
 
             request_->Announce(
                 parameters, [this](TrackerConnection::Result result, std::shared_ptr<AnnounceResponse> response)

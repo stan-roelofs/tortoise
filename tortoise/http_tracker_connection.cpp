@@ -18,6 +18,11 @@ namespace tortoise
             throw UnsupportedProtocolException(url.GetProtocol());
     }
 
+    HTTPTrackerConnection::~HTTPTrackerConnection()
+    {
+        // TODO
+    }
+
     bool HTTPTrackerConnection::Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout)
     {
         if (request_)
