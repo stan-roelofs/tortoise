@@ -2,6 +2,7 @@
 #define TORTOISE_HTTP_TRACKER_CONNECTION_HPP
 
 #include "tracker_connection.hpp"
+#include "../http/request.hpp"
 
 namespace tortoise
 {

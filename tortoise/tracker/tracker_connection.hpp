@@ -6,8 +6,6 @@
 
 #include "tracker_announce.hpp"
 
-#include "http/request.hpp"
-
 namespace tortoise
 {
     class TrackerConnection

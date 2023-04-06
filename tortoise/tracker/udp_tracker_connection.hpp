@@ -2,8 +2,10 @@
 #define TORTOISE_UDP_TRACKER_CONNECTION_HPP
 
 #include <memory>
+#include <thread>
 
 #include "tracker_connection.hpp"
+#include "../socket.hpp"
 
 namespace tortoise
 {

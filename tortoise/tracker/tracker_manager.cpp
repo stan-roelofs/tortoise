@@ -4,10 +4,10 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "http/exception.hpp"
-#include "http/request.hpp"
+#include "../http/exception.hpp"
+#include "../http/request.hpp"
+#include "../log.hpp"
 #include "http_tracker_connection.hpp"
-#include "log.hpp"
 #include "udp_tracker_connection.hpp"
 
 namespace

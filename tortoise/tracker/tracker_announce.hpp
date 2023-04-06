@@ -6,9 +6,9 @@
 
 #include <tortoise/sha1_hash.hpp>
 
-#include "ip_address.hpp"
-#include "peer_id.hpp"
-#include "url.hpp"
+#include "../ip_address.hpp"
+#include "../peer_id.hpp"
+#include "../url.hpp"
 
 namespace tortoise
 {

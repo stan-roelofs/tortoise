@@ -26,16 +26,16 @@ set (HEADERS
   tortoise/http/exception.hpp
   tortoise/http/request.hpp
   tortoise/http/response.hpp
-  tortoise/http_tracker_connection.hpp
   tortoise/ip_address.hpp
   tortoise/peer_id.hpp
-  tortoise/tracker_announce.hpp
-  tortoise/tracker_connection.hpp
-  tortoise/tracker_manager.hpp
+  tortoise/tracker/http_tracker_connection.hpp
+  tortoise/tracker/tracker_announce.hpp
+  tortoise/tracker/tracker_connection.hpp
+  tortoise/tracker/tracker_manager.hpp
+  tortoise/tracker/udp_tracker_connection.hpp
   tortoise/sha1.hpp
   tortoise/socket.hpp
   tortoise/torrent_impl.hpp
-  tortoise/udp_tracker_connection.hpp
   tortoise/url.hpp
 )
 
@@ -43,7 +43,6 @@ set(SOURCES
   tortoise/bencode.cpp
   tortoise/http/request.cpp
   tortoise/http/response.cpp
-  tortoise/http_tracker_connection.cpp
   tortoise/ip_address.cpp
   tortoise/load_torrent.cpp
   tortoise/peer_id.cpp
@@ -52,10 +51,11 @@ set(SOURCES
   tortoise/session.cpp
   tortoise/socket.cpp
   tortoise/torrent_impl.cpp
-  tortoise/tracker_announce.cpp
-  tortoise/tracker_connection.cpp
-  tortoise/tracker_manager.cpp
-  tortoise/udp_tracker_connection.cpp
+  tortoise/tracker/http_tracker_connection.cpp
+  tortoise/tracker/tracker_announce.cpp
+  tortoise/tracker/tracker_connection.cpp
+  tortoise/tracker/tracker_manager.cpp
+  tortoise/tracker/udp_tracker_connection.cpp
   tortoise/url.cpp
 )
 

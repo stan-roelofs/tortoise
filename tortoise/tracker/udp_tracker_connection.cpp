@@ -8,7 +8,7 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "log.hpp"
+#include "../log.hpp"
 
 namespace tortoise
 {
