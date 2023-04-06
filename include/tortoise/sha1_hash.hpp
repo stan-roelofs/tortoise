@@ -9,6 +9,8 @@ namespace tortoise
     class SHA1Hash
     {
     public:
+		// This creates a hash with all bytes set to 0.
+        SHA1Hash();
         SHA1Hash(const std::array<std::uint8_t, 20> &bytes);
 
         bool operator==(const SHA1Hash &other) const;

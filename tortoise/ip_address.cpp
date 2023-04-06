@@ -57,28 +57,22 @@ namespace tortoise
 
     std::string IPAddress::ToString() const
     {
-        std::stringstream stream;
         if (IsIPv4())
         {
+            char buffer[INET_ADDRSTRLEN];
             const auto &address = std::get<0>(address_);
-            for (std::size_t i = 0; i < address.size(); ++i)
-            {
-                if (i > 0)
-                    stream << '.';
-                stream << static_cast<int>(address[i]);
-            }
+            if (inet_ntop(AF_INET, address.data(), buffer, INET_ADDRSTRLEN) == nullptr)
+                throw ParseException("invalid IPv4 address");
+            return buffer;
         }
         else
         {
             const auto &address = std::get<1>(address_);
-            for (std::size_t i = 0; i < address.size(); ++i)
-            {
-                if (i > 0)
-                    stream << ':';
-                stream << std::hex << htons(address[i]);
-            }
+            char buffer[INET6_ADDRSTRLEN];
+            if (inet_ntop(AF_INET6, address.data(), buffer, INET6_ADDRSTRLEN) == nullptr)
+                throw ParseException("invalid IPv6 address");
+            return buffer;
         }
-        return stream.str();
     }
 
     std::vector<std::uint8_t> IPAddress::ToVector() const
@@ -87,14 +81,15 @@ namespace tortoise
 
         if (IsIPv4())
         {
-            const auto& address = std::get<0>(address_);
-			std::copy(address.begin(), address.end(), std::back_inserter(result));
+            const auto &address = std::get<0>(address_);
+            std::copy(address.begin(), address.end(), std::back_inserter(result));
         }
-        else {
-			const auto& address = std::get<1>(address_);
-			std::copy(address.begin(), address.end(), std::back_inserter(result));                
+        else
+        {
+            const auto &address = std::get<1>(address_);
+            std::copy(address.begin(), address.end(), std::back_inserter(result));
         }
-        
+
         return result;
     }
 } // namespace tortoise

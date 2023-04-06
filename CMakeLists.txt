@@ -13,7 +13,6 @@ if (TORTOISE_ENABLE_LOGGING)
 endif()
 
 set (HEADERS
-  include/tortoise/bencode.hpp
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/load_torrent.hpp
@@ -23,6 +22,7 @@ set (HEADERS
   include/tortoise/torrent.hpp
   include/tortoise/version.hpp
 
+  tortoise/bencode.hpp
   tortoise/http/exception.hpp
   tortoise/http/request.hpp
   tortoise/http/response.hpp
@@ -41,13 +41,11 @@ set (HEADERS
 
 set(SOURCES
   tortoise/bencode.cpp
-
   tortoise/http/request.cpp
   tortoise/http/response.cpp
   tortoise/http_tracker_connection.cpp
   tortoise/ip_address.cpp
   tortoise/load_torrent.cpp
-  tortoise/metainfo.cpp
   tortoise/peer_id.cpp
   tortoise/sha1_hash.cpp
   tortoise/sha1.cpp

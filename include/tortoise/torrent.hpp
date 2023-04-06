@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "exception.hpp"
 #include "metainfo.hpp"
 
 namespace tortoise

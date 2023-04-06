@@ -1,86 +1,54 @@
 #ifndef TORTOISE_METADATA_HPP
 #define TORTOISE_METADATA_HPP
 
-#include <array>
-#include <variant>
+#include <vector>
 
-#include "bencode.hpp"
 #include "sha1_hash.hpp"
 
 namespace tortoise
 {
-    // TODO make this a struct and removed the constructor
-
-    class Metainfo
+    struct Metainfo
     {
-    public:
-        /*!
-         * \brief Create metainfo from bencoded data.
-         * \param data Bencoded data.
-         * \return A new metainfo object if the data is valid, otherwise nullptr.
+        /*! \brief A list of lists of tracker URLs as described in BEP 12. If there is no announce - list key,
+         * this is a list of one list containing the announce key.
          */
-        static std::unique_ptr<Metainfo> FromBencode(const bencode::Data &data);
-
-        //! \brief A list of lists of tracker URLs as described in BEP 12. If there is no announce-list key, this is a list of one list containing the announce key.
-        const std::vector<std::vector<std::string>> &GetAnnounceList() const;
-
-        //! \brief (optional) The creation time of the torrent, in standard UNIX epoch format.
-        uint64_t GetCreationDate() const;
-
-        //! \brief (optional) Free-form textual comments of the author.
-        const std::string &GetComment() const;
-
-        //! \brief (optional) Name and version of the program used to create the .torrent.
-        const std::string &GetCreatedBy() const;
-
-        //! \brief (optional) The string encoding format used to generate the pieces part of the info dictionary.
-        const std::string &GetEncoding() const;
-
-        //! \brief A UTF-8 encoded string which is the suggested name to save the file (or directory) as.
-        const std::string &GetName() const;
-
-        //! \brief The number of bytes in each piece the file is split into.
-        std::uint32_t GetPieceLength() const;
-
-        //! \brief A list of strings corresponding to the SHA1 hash values of each piece the file is split into.
-        const std::vector<std::string> &GetPieces() const;
+        std::vector<std::vector<std::string>> announce_list;
 
         //! \brief The SHA1 hash of the bencoded value of the info key.
-        const SHA1Hash &GetInfoHash() const;
+        SHA1Hash info_hash;
 
-        struct SingleFile
+        //! \brief (optional) The creation time of the torrent, in standard UNIX epoch format.
+        uint64_t creation_date;
+
+        //! \brief (optional) Free-form textual comments of the author.
+        std::string comment;
+
+        //! \brief (optional) Name and version of the program used to create the .torrent.
+        std::string created_by;
+
+        //! \brief (optional) The string encoding format used to generate the pieces part of the info dictionary.
+        std::string encoding;
+
+        //! \brief A UTF-8 encoded string which is the suggested name to save the file (or directory) as.
+        std::string name;
+
+        //! \brief The number of bytes in each piece the file is split into.
+        std::uint32_t piece_length;
+
+        //! \brief A list of strings corresponding to the SHA1 hash values of each piece the file is split into.
+        std::vector<std::string> pieces;
+
+        struct File
         {
+            //! \brief The length of the file in bytes.
             std::uint32_t length;
+
+            //! \brief A list of UTF-8 encoded strings corresponding to subdirectory name, the last is the actual file name.
+            std::vector<std::string> path;
         };
 
-        struct MultiFile
-        {
-            struct File
-            {
-                //! \brief The length of the file in bytes.
-                std::uint32_t length;
-                //! \brief A list of UTF-8 encoded strings corresponding to subdirectory name, the last is the actual file name.
-                std::vector<std::string> path;
-            };
-
-            std::vector<File> files;
-        };
-
-        std::variant<SingleFile, MultiFile> GetFileInfo() const;
-
-    private:
-        Metainfo(const SHA1Hash &info_hash);
-
-        std::vector<std::vector<std::string>> announce_list_;
-        SHA1Hash info_hash_;
-        uint64_t creation_date_;
-        std::string comment_;
-        std::string created_by_;
-        std::string encoding_;
-        std::string name_;
-        std::uint32_t piece_length_;
-        std::vector<std::string> pieces_;
-        std::variant<SingleFile, MultiFile> file_info_;
+        //! \brief Either a single file or a list of files.
+        std::vector<File> files;
     };
 }
 

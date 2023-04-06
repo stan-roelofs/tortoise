@@ -3,10 +3,10 @@
 #include <optional>
 #include <sstream>
 
-#include <tortoise/bencode.hpp>
 #include <tortoise/exceptions.hpp>
 #include <tortoise/sha1_hash.hpp>
 
+#include "bencode.hpp"
 #include "log.hpp"
 #include "url.hpp"
 
@@ -86,6 +86,13 @@ namespace tortoise
                               result_callback(Result::Failure, nullptr);
                               return;
                           }
+
+						  if (announce_response->failure_reason.has_value())
+						  {
+							  LOG("HTTPTrackerConnection", "Announce failed: %s", announce_response->failure_reason.value().c_str());
+							  result_callback(Result::Failure, nullptr);
+							  return;
+						  }
 
                           result_callback(Result::Success, announce_response); });
     }

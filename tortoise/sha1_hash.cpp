@@ -2,6 +2,10 @@
 
 namespace tortoise
 {
+	SHA1Hash::SHA1Hash() : bytes_{ 0 }
+	{
+	}
+
     SHA1Hash::SHA1Hash(const std::array<uint8_t, 20> &bytes) : bytes_(bytes)
     {
     }

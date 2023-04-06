@@ -31,16 +31,16 @@ TEST(IPAddress, parse_ipv4_address_out_of_range_throws)
 
 TEST(IPAddress, parse_ipv6_address_reduced)
 {
-    tortoise::IPAddress address("::");
+    tortoise::IPAddress address("0::0");
     EXPECT_TRUE(address.IsIPv6());
-    EXPECT_EQ("0:0:0:0:0:0:0:0", address.ToString());
+    EXPECT_EQ("::", address.ToString());
 }
 
 TEST(IPAddress, parse_ipv6_address_full)
 {
     tortoise::IPAddress address("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
     EXPECT_TRUE(address.IsIPv6());
-    EXPECT_EQ("2001:db8:85a3:0:0:8a2e:370:7334", address.ToString());
+    EXPECT_EQ("2001:db8:85a3::8a2e:370:7334", address.ToString());
 }
 
 TEST(IPAddress, parse_ipv6_address_multiple_reduced_throws)

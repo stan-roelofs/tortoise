@@ -43,7 +43,7 @@ int main(int argc, const char *argv[])
 
   tortoise::Session::Parameters params;
   tortoise::Session session(params);
-  auto metainfo = tortoise::LoadTorrentFile(argv[arg]);
+  auto metainfo = tortoise::LoadTorrent(argv[arg]);
   if (!metainfo)
   {
     std::cout << "Failed to load torrent file: " << argv[arg] << std::endl;
