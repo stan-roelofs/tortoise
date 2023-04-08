@@ -25,8 +25,13 @@ namespace tortoise
     class Socket
     {
     public:
-        static constexpr int ERROR_VALUE = -1;
-        
+        enum class Result
+        {
+            Ok,
+            WouldBlock,
+            Error,
+        };
+
         enum class TransportProtocol
         {
             TCP,
@@ -39,7 +44,7 @@ namespace tortoise
             IPv4,
             IPv6
         };
-        
+
         class SocketException : public Exception
         {
         public:
@@ -56,36 +61,30 @@ namespace tortoise
         /*! \brief Connects to a host. If a connectionless protocol is used, this will merely set the default host and port for future send/receive calls.
          *  \param host The host to connect to.
          *  \param port The port to connect to.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout and will return immediately.
          *  \return True if the connection was successful.
          */
-        bool Connect(const std::string &host, const std::string &port, unsigned int timeout_ms);
+        bool Connect(const std::string &host, const std::string &port);
 
         //! \brief Closes the socket.
         void Close();
 
-        /*! \brief Sends all data to the socket.
+        /*! \brief Sends data to the socket.
          *  \param data The data to send.
-         *  \param size The size of the data to send.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
-         *  \return True if all data was sent. False if an error occurred.
+         *  \param size The size of the data to send. This will be updated to the number of bytes that was actually sent.
+         *  \return Result::Ok if the data was sent successfully.
+         *          Result::WouldBlock if the socket is non-blocking and the data could not be sent immediately.
+         *          Result::Error if an error occurred.
          */
-        bool Send(const void *data, int size, unsigned int timeout_ms);
+        Result Send(const void *data, int &length);
 
         /*! \brief Receives available data from the socket.
          *  \param buffer The buffer to store the received data in.
-         *  \param buffer_size The size of the buffer.
-         *  \param timeout The timeout in milliseconds. 0 means no timeout.
-         *  \return The number of bytes that was written to the buffer, or ERROR_VALUE if receiving failed.
+         *  \param length The maximum number of bytes to receive. This will be updated to the number of bytes that was actually written.
+         *  \return Result::Ok if the data was received successfully.
+         *          Result::WouldBlock if the socket is non-blocking and no data is available.
+         *          Result::Error if an error occurred.
          */
-        int Receive(void *buffer, int buffer_size, unsigned int timeout_ms);
-
-        /*! \brief Receives all data from the socket.
-         *  \param buffer The buffer to store the received data in.
-         *  \param timeout_ms The timeout in milliseconds. 0 means no timeout.
-         *  \return True if all data was received successfully. False if an error occurred.
-         */
-        bool ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout_ms);
+        Result Receive(void *buffer, int &length);
 
         //! \returns True if the socket is connected, false otherwise.
         bool Connected() const;
@@ -106,7 +105,6 @@ namespace tortoise
     private:
         bool SetBlocking(bool blocking);
         bool Select(bool read, bool write, unsigned int timeout_ms);
-        int SendInternal(const void *data, int size, unsigned int timeout_ms);
 
 #ifdef _WIN32
         using socket_t = SOCKET;

@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #endif
 
+#include "log.hpp"
+
 namespace tortoise
 {
     Socket::Socket(TransportProtocol protocol) : protocol_(protocol), internet_protocol_(InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE)
@@ -37,7 +39,7 @@ namespace tortoise
         socket_ = INVALID_SOCKET_VALUE;
     }
 
-    bool Socket::Connect(const std::string &host, const std::string &port, unsigned int timeout)
+    bool Socket::Connect(const std::string &host, const std::string &port)
     {
         struct addrinfo *result = nullptr, hints;
 
@@ -73,22 +75,14 @@ namespace tortoise
             if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
                 break;
 
-            if (timeout == 0)
-            {
 #ifdef _WIN32
-                int error = WSAGetLastError();
-                if (error == WSAEWOULDBLOCK)
-                    break;
+            int error = WSAGetLastError();
+            if (error == WSAEWOULDBLOCK)
+                break;
 #else
-                if (errno == EINPROGRESS)
-                    break;
+            if (errno == EINPROGRESS)
+                break;
 #endif
-            }
-            else
-            {
-                if (protocol_ == TransportProtocol::TCP && Select(false, true, timeout))
-                    break;
-            }
 
             Close();
         }
@@ -113,42 +107,59 @@ namespace tortoise
         return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != InternetProtocol::Unknown;
     }
 
-    bool Socket::Send(const void *data, int size, unsigned int timeout)
+    Socket::Result Socket::Send(const void *data, int &length)
     {
-        int total = 0;
-        while (total < size)
+        const int bytes_sent = send(socket_, static_cast<const char *>(data), length, 0);
+        if (bytes_sent >= 0)
         {
-            int sent = SendInternal((const char *)data + total, size - total, timeout);
-            if (sent == ERROR_VALUE)
-                return false;
-
-            total += sent;
+            length = bytes_sent;
+            return Result::Ok;
         }
-        return true;
+
+        length = 0;
+
+        // Check whether
+#ifdef _WIN32
+        const int error = WSAGetLastError();
+        if (error == WSAEWOULDBLOCK)
+            return Result::WouldBlock;
+
+        LOG("Socket", "Send failed with error code: %i", error);
+        return Result::Error;
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return Result::WouldBlock;
+
+        LOG("Socket", "Send failed with error code: %i", errno);
+        return Result::Error;
+#endif
     }
 
-    bool Socket::ReceiveAll(std::vector<std::uint8_t> &buffer, unsigned int timeout)
+    Socket::Result Socket::Receive(void *buffer, int &length)
     {
-        // TODO is this function correct
-        while (true)
+        const int bytes_received = recv(socket_, static_cast<char *>(buffer), length, 0);
+        if (bytes_received >= 0)
         {
-            std::uint8_t chunk[1024];
-            int received = Receive(chunk, 1024, timeout);
-            if (received == ERROR_VALUE)
-                return false;
-            if (received == 0)
-                return true;
-
-            buffer.insert(buffer.end(), chunk, chunk + received);
+            length = bytes_received;
+            return Result::Ok;
         }
-    }
 
-    int Socket::Receive(void *buffer, int buffer_size, unsigned int timeout_ms)
-    {
-        if (timeout_ms > 0 && !Select(true, false, timeout_ms))
-            return ERROR_VALUE;
+        length = 0;
 
-        return recv(socket_, static_cast<char*>(buffer), buffer_size, 0);
+#ifdef _WIN32
+        const int error = WSAGetLastError();
+        if (error == WSAEWOULDBLOCK)
+            return Result::WouldBlock;
+
+        LOG("Socket", "Receive failed with error code: %i", error);
+        return Result::Error;
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return Result::WouldBlock;
+
+        LOG("Socket", "Receive failed with error code: %i", errno);
+        return Result::Error;
+#endif
     }
 
     bool Socket::Connected() const
@@ -164,15 +175,15 @@ namespace tortoise
         return error == 0;
     }
 
-	Socket::TransportProtocol Socket::GetTransportProtocol() const
-	{
-		return protocol_;
-	}
+    Socket::TransportProtocol Socket::GetTransportProtocol() const
+    {
+        return protocol_;
+    }
 
-	Socket::InternetProtocol Socket::GetInternetProtocol() const
-	{
-		return internet_protocol_;
-	}
+    Socket::InternetProtocol Socket::GetInternetProtocol() const
+    {
+        return internet_protocol_;
+    }
 
     bool Socket::Select(bool read, bool write, unsigned int timeout_ms)
     {
@@ -188,7 +199,7 @@ namespace tortoise
 
 #ifdef _WIN32
         return select(0, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv) > 0;
-#else      
+#else
         int result = 0;
         do
         {
@@ -221,14 +232,6 @@ namespace tortoise
 
 #define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
 #define ntohll(x) ((1 == ntohl(1)) ? (x) : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
-
-    int Socket::SendInternal(const void *data, int size, unsigned int timeout_ms)
-    {
-        if (timeout_ms > 0 && !Select(false, true, timeout_ms))
-            return ERROR_VALUE;
-
-        return send(socket_, (const char *)data, size, 0);
-    }
 
     std::uint64_t Socket::ToNetworkByteOrder(std::uint64_t value)
     {
