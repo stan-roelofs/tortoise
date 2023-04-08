@@ -12,7 +12,6 @@
 
 namespace tortoise
 {
-    // TODO this code is a mess, clean it up
     // TODO handle errors (action 3)
 
     namespace
@@ -20,8 +19,9 @@ namespace tortoise
         constexpr std::uint64_t MAGIC_PROTOCOL_CONSTANT = 0x41727101980;
         constexpr int CONNECT_REQUEST_SIZE = 16;
         constexpr int CONNECT_RESPONSE_SIZE = 16;
-        constexpr int ANNOUNCE_REQUEST_SIZE = 98;
+        constexpr int ANNOUNCE_REQUEST_SIZE = 100;
         constexpr int ANNOUNCE_RESPONSE_MINIMUM_SIZE = 20;
+        constexpr unsigned MAX_TIMEOUTS = 8;
 
         enum class Action : uint32_t
         {
@@ -31,113 +31,37 @@ namespace tortoise
             Error = 3
         };
 
-        /*! \brief A connection ID is a 64-bit number that is used to identify a connection to a tracker. It is sent by the tracker in response to a connect request.
-         *         A client can use a connection ID until one minute after it has received it.
-         */
-        class ConnectionId
+        void CreateUDPAnnounceRequest(std::vector<std::uint8_t> &buffer, const AnnounceParameters &parameters,
+                                      std::uint32_t transaction_id, std::uint64_t connection_id)
         {
-        public:
-            ConnectionId() : id(0) {}
-            ConnectionId(std::uint64_t id) : id(id), receive_time(std::chrono::steady_clock::now()) {}
-
-            std::uint64_t GetId() const { return id; }
-            bool IsValid() const
-            {
-                const auto now = std::chrono::steady_clock::now();
-                const auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - receive_time);
-                return duration.count() < 60;
-            }
-
-        private:
-            std::uint64_t id;
-            std::chrono::steady_clock::time_point receive_time;
-        };
-
-#pragma pack(push, 1)
-        struct UDPConnectRequest
-        {
-            std::uint64_t protocol_constant;
-            std::uint32_t action;
-            std::uint32_t transaction_id;
-        };
-
-        struct UDPConnectResponse
-        {
-            std::uint32_t action;
-            std::uint32_t transaction_id;
-            std::uint64_t connection_id;
-        };
-
-        struct UDPAnnounceRequest
-        {
-            std::uint64_t connection_id;
-            std::uint32_t action;
-            std::uint32_t transaction_id;
-            std::uint8_t info_hash[20];
-            std::uint8_t peer_id[20];
-            std::uint64_t downloaded;
-            std::uint64_t left;
-            std::uint64_t uploaded;
-            std::uint32_t event;
-            std::uint32_t ip_address;
-            std::uint32_t key;
-            std::uint32_t num_want;
-            std::uint16_t port;
-        };
-
-        struct UDPAnnounceResponse
-        {
-            std::uint32_t action;
-            std::uint32_t transaction_id;
-            std::uint32_t interval;
-            std::uint32_t leechers;
-            std::uint32_t seeders;
-
-            struct Peer
-            {
-                std::uint32_t ip_address;
-                std::uint16_t port;
-            };
-        };
-#pragma pack(pop)
-        static_assert(sizeof(UDPConnectRequest) == CONNECT_REQUEST_SIZE);
-        static_assert(sizeof(UDPConnectResponse) == CONNECT_RESPONSE_SIZE);
-        static_assert(sizeof(UDPAnnounceRequest) == ANNOUNCE_REQUEST_SIZE);
-        static_assert(sizeof(UDPAnnounceResponse) == ANNOUNCE_RESPONSE_MINIMUM_SIZE);
-
-        UDPAnnounceRequest CreateAnnounceRequest(const AnnounceParameters &parameters,
-                                                 std::uint32_t transaction_id, std::uint64_t connection_id)
-        {
-            UDPAnnounceRequest result;
-
-            result.connection_id = Socket::ToNetworkByteOrder(connection_id);
-            result.action = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Announce));
-            result.transaction_id = Socket::ToNetworkByteOrder(transaction_id);
-            std::memcpy(result.info_hash, parameters.info_hash.GetBytes().data(), 20);
-            std::memcpy(result.peer_id, parameters.peer_id.Get().data(), 20);
-            result.downloaded = Socket::ToNetworkByteOrder(parameters.downloaded);
-            result.left = Socket::ToNetworkByteOrder(parameters.left);
-            result.uploaded = Socket::ToNetworkByteOrder(parameters.uploaded);
-            result.event = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(parameters.event));
+            buffer.resize(ANNOUNCE_REQUEST_SIZE);
+            std::uint8_t *packet = buffer.data();
+            *(std::uint64_t *)(packet + 0) = Socket::ToNetworkByteOrder(connection_id);
+            *(std::uint32_t *)(packet + 8) = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Announce));
+            *(std::uint32_t *)(packet + 12) = Socket::ToNetworkByteOrder(transaction_id);
+            std::memcpy(packet + 16, parameters.info_hash.GetBytes().data(), 20);
+            std::memcpy(packet + 36, parameters.peer_id.Get().data(), 20);
+            *(std::uint64_t *)(packet + 56) = Socket::ToNetworkByteOrder(parameters.downloaded);
+            *(std::uint64_t *)(packet + 64) = Socket::ToNetworkByteOrder(parameters.left);
+            *(std::uint64_t *)(packet + 72) = Socket::ToNetworkByteOrder(parameters.uploaded);
+            *(std::uint32_t *)(packet + 80) = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(parameters.event));
             if (!parameters.ip || parameters.ip->IsIPv6()) // the IP address field in the request remains 32bits wide which makes this field not usable under IPv6.
             {
-                result.ip_address = 0;
+                *(std::uint32_t *)(packet + 84) = 0;
             }
             else
             {
                 const auto ip_address = parameters.ip->ToVector();
                 assert(ip_address.size() == 4);
-                result.ip_address = Socket::ToNetworkByteOrder(*reinterpret_cast<const std::uint32_t *>(ip_address.data())); // TODO is this correct?
+                *(std::uint32_t *)(packet + 84) = Socket::ToNetworkByteOrder(*(std::uint32_t *)ip_address.data());
             }
-
-            result.key = Socket::ToNetworkByteOrder(parameters.key ? *parameters.key : 0);
-            result.num_want = Socket::ToNetworkByteOrder(parameters.numwant ? *parameters.numwant : -1);
-            result.port = Socket::ToNetworkByteOrder(parameters.port);
-
-            return result;
+            *(std::uint32_t *)(packet + 88) = parameters.key ? Socket::ToNetworkByteOrder(parameters.key.value()) : 0;
+            *(std::uint32_t *)(packet + 92) = parameters.numwant ? Socket::ToNetworkByteOrder(parameters.numwant.value()) : 0;
+            *(std::uint16_t *)(packet + 96) = Socket::ToNetworkByteOrder(parameters.port);
+            *(std::uint16_t *)(packet + 98) = Socket::ToNetworkByteOrder((uint16_t)0); // extensions
         }
 
-        std::shared_ptr<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, Socket::InternetProtocol protocol)
+        std::optional<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, Socket::InternetProtocol protocol)
         {
             if (packet_size < ANNOUNCE_RESPONSE_MINIMUM_SIZE)
             {
@@ -162,11 +86,11 @@ namespace tortoise
                 return {};
             }
 
-            std::shared_ptr<AnnounceResponse> result = std::make_shared<AnnounceResponse>();
+            AnnounceResponse result;
 
-            result->interval = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[2]);
-            result->incomplete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[3]);
-            result->complete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[4]);
+            result.interval = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[2]);
+            result.incomplete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[3]);
+            result.complete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[4]);
 
             const int nr_peers = (packet_size - ANNOUNCE_RESPONSE_MINIMUM_SIZE) / stride_size;
             for (int i = 0; i < nr_peers; i++)
@@ -176,7 +100,7 @@ namespace tortoise
                 {
                     const IPAddress ip_address(IPAddress::ipv4_address_t{peer_start[0], peer_start[1], peer_start[2], peer_start[3]});
                     const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[2]);
-                    result->peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
+                    result.peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
                 }
                 else if (stride_size == 18)
                 {
@@ -186,15 +110,40 @@ namespace tortoise
                         peer_start[8], peer_start[9], peer_start[10], peer_start[11],
                         peer_start[12], peer_start[13], peer_start[14], peer_start[15]});
                     const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[8]);
-                    result->peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
+                    result.peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
                 }
             }
 
             return result;
         }
+
+        std::uint32_t GenerateTransactionId()
+        {
+            static std::random_device rd;
+            static std::mt19937 gen(rd());
+            static std::uniform_int_distribution<std::uint32_t> dis;
+            return dis(gen);
+        }
+
+        /* If a response is not received after 15 * 2 ^ n seconds, the client should retransmit the request,
+         *  where n starts at 0 and is increased up to 8 (3840 seconds) after every retransmission
+         */
+        std::chrono::steady_clock::time_point GetTimeoutTime(unsigned int nr_timeouts)
+        {
+            if (nr_timeouts > 8)
+                nr_timeouts = 8;
+            const auto timeout = std::chrono::seconds(static_cast<int>(15 * std::pow(2, nr_timeouts)));
+            return std::chrono::steady_clock::now() + timeout;
+        }
     }
 
-    UDPTrackerConnection::UDPTrackerConnection(const URL &url) : TrackerConnection(url), timeout_(0u), socket_(Socket::TransportProtocol::UDP)
+    UDPTrackerConnection::UDPTrackerConnection(const URL &url) : TrackerConnection(url),
+                                                                 result_({false, {}}),
+                                                                 state_(State::Idle),
+                                                                 socket_(Socket::TransportProtocol::UDP),
+                                                                 transaction_id_(0),
+                                                                 current_buffer_position_(0u),
+                                                                 nr_timeouts_(0u)
     {
         if (url.GetProtocol() != "udp")
             throw UnsupportedProtocolException(url.GetProtocol());
@@ -202,175 +151,236 @@ namespace tortoise
 
     UDPTrackerConnection::~UDPTrackerConnection()
     {
-        if (thread_.joinable())
-            thread_.join();
+        // TODO send a "stopped" event
     }
 
-    void UDPTrackerConnection::ThreadFunc(UDPTrackerConnection *connection)
+    bool UDPTrackerConnection::Announce(const AnnounceParameters &parameters)
     {
-        connection->Announce();
-    }
-
-    bool UDPTrackerConnection::Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout)
-    {
-        if (thread_.joinable())
+        if (state_ != State::Idle)
             return false;
 
-        timeout_ = timeout;
-        result_callback_ = result_callback;
         parameters_ = std::make_unique<AnnounceParameters>(parameters);
+        if (!socket_.Connect(url_.GetHost(), url_.GetPort()))
+        {
+            LOG("UDPTrackerConnection", "failed to connect to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
+            return false;
+        }
 
-        thread_ = std::thread(ThreadFunc, this);
+        CreateConnectRequest();
+        state_ = State::SendConnectRequest;
+
+        LOG("UDPTrackerConnection", "connected to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
         return true;
     }
 
-    void UDPTrackerConnection::Announce()
+    TrackerConnection::Result UDPTrackerConnection::GetLastResult() const
     {
-        if (!socket_.Connect(url_.GetHost(), url_.GetPort(), timeout_))
+        return result_;
+    }
+
+    void UDPTrackerConnection::Cancel()
+    {
+        state_ = State::Idle;
+    }
+
+    bool UDPTrackerConnection::Process()
+    {
+        // TODO handle timeouts
+        switch (state_)
         {
-            LOG("UDPTrackerConnection", "Failed to connect to tracker.");
-            result_callback_(Result::Failure, nullptr);
-            return;
+        case State::Idle:
+            return true;
+        case State::SendConnectRequest:
+        {
+            if (!Send())
+                return false;
+
+            LOG("UDPTrackerConnection", "sent connect request");
+            ResizeBuffer(CONNECT_RESPONSE_SIZE);
+            state_ = State::ReceiveConnectResponse;
+            return false;
+        }
+        case State::ReceiveConnectResponse:
+        {
+            const auto receive_result = Receive();
+            switch (receive_result)
+            {
+            case ReceiveResult::Finished:
+                break;
+            case ReceiveResult::Unfinished:
+            case ReceiveResult::Error:
+                return false;
+            case ReceiveResult::Timeout:
+                CreateConnectRequest();
+                state_ = State::SendConnectRequest;
+                return false;
+            }
+
+            const std::uint8_t *packet = buffer_.data();
+            const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
+            const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
+            std::uint64_t connection_id = Socket::FromNetworkByteOrder(((std::uint64_t *)packet)[1]);
+
+            if (received_transaction_id != transaction_id_)
+            {
+                LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                return false;
+            }
+
+            if (action != static_cast<std::uint32_t>(Action::Connect))
+            {
+                LOG("UDPTrackerConnection", "Invalid action.");
+                return false;
+            }
+
+            connection_id_ = ConnectionId(connection_id);
+            LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id_.GetId());
+
+            CreateAnnounceRequest();
+            state_ = State::SendAnnounceRequest;
+        }
+            [[fallthrough]];
+        case State::SendAnnounceRequest:
+        {
+            if (!connection_id_.IsValid())
+            {
+                CreateConnectRequest();
+                state_ = State::SendConnectRequest;
+                return false;
+            }
+
+            if (!Send())
+                return false;
+
+            LOG("UDPTrackerConnection", "sent announce request");
+            state_ = State::ReceiveAnnounceResponse;
+            ResizeBuffer(0xFFFF);
+            return false;
+        }
+        case State::ReceiveAnnounceResponse:
+        {
+            const auto receive_result = Receive();
+            switch (receive_result)
+            {
+            case ReceiveResult::Finished:
+                break;
+            case ReceiveResult::Unfinished:
+            case ReceiveResult::Error:
+                return false;
+            case ReceiveResult::Timeout:
+                CreateAnnounceRequest();
+                state_ = State::SendAnnounceRequest;
+                return false;
+            }
+
+            const std::uint8_t *packet = buffer_.data();
+            const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
+            const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
+
+            if (received_transaction_id != transaction_id_)
+            {
+                LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                return false;
+            }
+
+            if (action != static_cast<std::uint32_t>(Action::Announce))
+            {
+                LOG("UDPTrackerConnection", "Invalid action.");
+                return false;
+            }
+
+            std::optional<AnnounceResponse> response = ParseResponse(packet, (int)current_buffer_position_, socket_.GetInternetProtocol());
+            if (!response)
+            {
+                LOG("UDPTrackerConnection", "Failed to parse announce response.");
+                return false;
+            }
+
+            result_ = Result{true, response};
+            state_ = State::Idle;
+            return true;
+        }
         }
 
-        // TODO timeout
-        while (true)
+        return false;
+    }
+
+    void UDPTrackerConnection::CreateConnectRequest()
+    {
+        transaction_id_ = GenerateTransactionId();
+        ResizeBuffer(CONNECT_REQUEST_SIZE);
+
+        std::uint8_t *packet = buffer_.data();
+        ((std::uint64_t *)packet)[0] = Socket::ToNetworkByteOrder(MAGIC_PROTOCOL_CONSTANT);                     // Offset 0 : 64-bit magic constant
+        ((std::uint32_t *)packet)[2] = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Connect)); // Offset 8 : 32-bit action
+        ((std::uint32_t *)packet)[3] = Socket::ToNetworkByteOrder(transaction_id_);                             // Offset 12 : 32-bit transaction ID
+    }
+
+    void UDPTrackerConnection::CreateAnnounceRequest()
+    {
+        transaction_id_ = GenerateTransactionId();
+        current_buffer_position_ = 0;
+
+        CreateUDPAnnounceRequest(buffer_, *parameters_, transaction_id_, connection_id_.GetId());
+    }
+
+    bool UDPTrackerConnection::Send()
+    {
+        assert(current_buffer_position_ < buffer_.size());
+
+        int length = static_cast<int>(buffer_.size() - current_buffer_position_);
+        const Socket::Result result = socket_.Send(buffer_.data() + current_buffer_position_, length);
+        if (result == Socket::Result::Error)
         {
-
-            /* 1. Send connect request
-             *    - Choose a random transaction ID.
-             *    - Fill the connect request structure.
-             *    - Send the packet.
-             */
-            std::random_device r;
-            std::mt19937 gen(r());
-            std::uniform_int_distribution<uint32_t> dist;
-
-            std::uint32_t transaction_id = dist(gen);
-
-            {
-                std::uint8_t packet[CONNECT_REQUEST_SIZE];                                                              // 8 + 4 + 4
-                ((std::uint64_t *)packet)[0] = Socket::ToNetworkByteOrder(MAGIC_PROTOCOL_CONSTANT);                     // Offset 0 : 64-bit magic constant
-                ((std::uint32_t *)packet)[2] = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Connect)); // Offset 8 : 32-bit action
-                ((std::uint32_t *)packet)[3] = Socket::ToNetworkByteOrder(transaction_id);                              // Offset 12 : 32-bit transaction ID
-
-                if (!socket_.Send(packet, CONNECT_REQUEST_SIZE, timeout_))
-                {
-                    LOG("UDPTrackerConnection", "Failed to send connect request.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-            }
-
-            ConnectionId connection_id;
-
-            /* 2. Receive connect response
-             *    - Receive the response.
-             *    - Check whether the packet is at least 16 bytes.
-             *    - Check whether the transaction ID is equal to the one you chose.
-             *    - Check whether the action is connect.
-             *    - Store the connection ID for future use.
-             */
-            {
-                std::uint8_t packet[CONNECT_RESPONSE_SIZE];
-                if (!socket_.Receive(packet, CONNECT_RESPONSE_SIZE, timeout_))
-                {
-                    LOG("UDPTrackerConnection", "Failed to receive connect response.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
-                const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
-                connection_id = Socket::FromNetworkByteOrder(((std::uint64_t *)packet)[1]);
-
-                if (received_transaction_id != transaction_id)
-                {
-                    LOG("UDPTrackerConnection", "Transaction ID mismatch.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                if (action != static_cast<std::uint32_t>(Action::Connect))
-                {
-                    LOG("UDPTrackerConnection", "Invalid action.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id.GetId());
-            }
-
-            /* 3. Send announce request
-             *      - Choose a random transaction ID.
-             *      - Fill the announce request structure.
-             *      - Send the packet.
-             */
-            {
-                transaction_id = dist(gen);
-                const auto packet = CreateAnnounceRequest(*parameters_, transaction_id, connection_id.GetId());
-                if (!socket_.Send(&packet, ANNOUNCE_REQUEST_SIZE, timeout_))
-                {
-                    LOG("UDPTrackerConnection", "Failed to send announce request.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-            }
-
-            /* 4. Receive announce response
-             *      - Receive the response.
-             *      - Check whether the packet is at least 20 bytes.
-             *      - Check whether the transaction ID is equal to the one you chose.
-             *      - Check whether the action is announce.
-             *      - Check whether the interval is not zero.
-             *      - Check whether the leechers and seeders are not negative.
-             *      - Check whether the number of peers is a multiple of 6.
-             *      - Check whether the number of peers is not greater than 50.
-             *      - Store the peers.
-             */
-            {
-                std::vector<std::uint8_t> result;
-                constexpr std::size_t RECEIVE_BUFFER_SIZE = 0xFFFF;
-                result.reserve(RECEIVE_BUFFER_SIZE);
-                const int received = socket_.Receive(result.data(), RECEIVE_BUFFER_SIZE, timeout_);
-                if (received == -1 || received < ANNOUNCE_RESPONSE_MINIMUM_SIZE)
-                {
-                    LOG("UDPTrackerConnection", "Failed to receive announce response.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                LOG("UDPTrackerConnection", "Server accepted announce request");
-
-                const std::uint8_t *packet = result.data();
-                const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
-                const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
-
-                if (received_transaction_id != transaction_id)
-                {
-                    LOG("UDPTrackerConnection", "Transaction ID mismatch.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                if (action != static_cast<std::uint32_t>(Action::Announce))
-                {
-                    LOG("UDPTrackerConnection", "Invalid action.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                std::shared_ptr<AnnounceResponse> response = ParseResponse(packet, received, socket_.GetInternetProtocol());
-                if (!response)
-                {
-                    LOG("UDPTrackerConnection", "Failed to parse announce response.");
-                    result_callback_(Result::Failure, nullptr);
-                    return;
-                }
-
-                result_callback_(Result::Success, response);
-                return;
-            }
+            result_ = Result{false, {}};
+            state_ = State::Idle;
+            return false;
         }
+
+        current_buffer_position_ += length;
+        if (current_buffer_position_ < buffer_.size())
+            return false;
+
+        timeout_time_ = GetTimeoutTime(nr_timeouts_);
+        return true;
+    }
+
+    UDPTrackerConnection::ReceiveResult UDPTrackerConnection::Receive()
+    {
+        if (std::chrono::steady_clock::now() >= timeout_time_)
+        {
+            if (nr_timeouts_ == MAX_TIMEOUTS)
+            {
+                result_ = Result{false, {}};
+                state_ = State::Idle;
+                return ReceiveResult::Error;
+            }
+
+            ++nr_timeouts_;
+            return ReceiveResult::Timeout;
+        }
+
+        int length = static_cast<int>(buffer_.size());
+        const Socket::Result result = socket_.Receive(buffer_.data(), length);
+        if (result == Socket::Result::Error)
+        {
+            result_ = Result{false, {}};
+            state_ = State::Idle;
+            return ReceiveResult::Error;
+        }
+
+        if (length == 0)
+            return ReceiveResult::Unfinished;
+
+        // We are using UDP so we receive the whole packet at once
+        nr_timeouts_ = 0;
+        current_buffer_position_ = length;
+        return ReceiveResult::Finished;
+    }
+
+    void UDPTrackerConnection::ResizeBuffer(std::size_t size)
+    {
+        buffer_.resize(size);
+        current_buffer_position_ = 0;
     }
 }

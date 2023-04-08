@@ -4,8 +4,6 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "../http/exception.hpp"
-#include "../http/request.hpp"
 #include "../log.hpp"
 #include "http_tracker_connection.hpp"
 #include "udp_tracker_connection.hpp"
@@ -56,8 +54,33 @@ namespace tortoise
 
     bool TrackerManager::Update()
     {
-        if (request_pending_)
-            return false;
+        if (request_)
+        {
+            if (!request_->Process())
+                return false; // Request not finished yet
+
+            TrackerConnection::Result result = request_->GetLastResult();
+            if (result.success)
+            {
+                assert(result.response.has_value());
+
+                LOG("TrackerManager", "Request succeeded");
+                LOG("TrackerManager", "Peers:");
+                for (const auto &peer : result.response->peers)
+                {
+                    LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
+                }
+                tracker_interval_seconds_ = result.response->min_interval ? result.response->min_interval.value() : result.response->interval;
+                last_tracker_contact_ = std::chrono::steady_clock::now();
+            }
+            else
+            {
+                LOG("TrackerManager", "Request failed");
+                SelectNextTracker();
+            }
+
+            request_.reset();
+        }
 
         auto now = std::chrono::steady_clock::now();
         if (tracker_interval_seconds_ == 0 || (last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now))
@@ -85,32 +108,19 @@ namespace tortoise
         assert(current_tracker_ != nullptr);
         try
         {
-            request_ = CreateTrackerConnection(current_tracker_->url);
-
-            request_->Announce(
-                parameters, [this](TrackerConnection::Result result, std::shared_ptr<AnnounceResponse> response)
-                {
-                    if (result == TrackerConnection::Result::Success)
-                    {
-                        LOG("TrackerManager", "Request succeeded");
-                        LOG("TrackerManager", "Peers:");
-						for (const auto& peer : response->peers)
-						{
-							LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
-						}
-                    }
-                    else {
-                        LOG("TrackerManager", "Request failed");
-                    } },
-                10000);
             LOG("TrackerManager", "Requesting tracker update from %s", current_tracker_->url.ToString().c_str());
+
+            request_ = CreateTrackerConnection(current_tracker_->url);
+            const bool started = request_->Announce(parameters);
+            assert(started);
+            // TODO if not started??
         }
         catch (UnsupportedProtocolException &e)
         {
             LOG("TrackerManager", "Unsupported protocol: %s", e.what());
 
             request_pending_ = false;
-            // TODO remove this tracker from the list
+            // TODO remove this tracker from the list we can never use it
             SelectNextTracker();
             return;
         }

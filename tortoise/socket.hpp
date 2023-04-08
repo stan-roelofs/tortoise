@@ -104,7 +104,7 @@ namespace tortoise
 
     private:
         bool SetBlocking(bool blocking);
-        bool Select(bool read, bool write, unsigned int timeout_ms);
+        bool Select(bool read, bool write, unsigned int timeout_us) const;
 
 #ifdef _WIN32
         using socket_t = SOCKET;

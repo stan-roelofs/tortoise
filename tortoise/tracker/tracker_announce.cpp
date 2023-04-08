@@ -22,7 +22,6 @@ namespace tortoise
 
     AnnounceResponse::AnnounceResponse()
         : interval(0),
-          min_interval(0),
           complete(0),
           incomplete(0)
     {

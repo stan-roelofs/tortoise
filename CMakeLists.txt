@@ -23,9 +23,6 @@ set (HEADERS
   include/tortoise/version.hpp
 
   tortoise/bencode.hpp
-  tortoise/http/exception.hpp
-  tortoise/http/request.hpp
-  tortoise/http/response.hpp
   tortoise/ip_address.hpp
   tortoise/peer_id.hpp
   tortoise/tracker/http_tracker_connection.hpp
@@ -41,8 +38,6 @@ set (HEADERS
 
 set(SOURCES
   tortoise/bencode.cpp
-  tortoise/http/request.cpp
-  tortoise/http/response.cpp
   tortoise/ip_address.cpp
   tortoise/load_torrent.cpp
   tortoise/peer_id.cpp

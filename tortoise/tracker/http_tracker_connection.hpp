@@ -2,7 +2,7 @@
 #define TORTOISE_HTTP_TRACKER_CONNECTION_HPP
 
 #include "tracker_connection.hpp"
-#include "../http/request.hpp"
+#include "../socket.hpp"
 
 namespace tortoise
 {
@@ -25,12 +25,26 @@ namespace tortoise
         HTTPTrackerConnection(HTTPTrackerConnection &&) = delete;
         HTTPTrackerConnection &operator=(HTTPTrackerConnection &&) = delete;
 
-        bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) override;
+        bool Announce(const AnnounceParameters &parameters) override;
+        bool Process() override;
+        Result GetLastResult() const override;
+        void Cancel() override;
 
     private:
-        std::shared_ptr<AnnounceResponse> ParseResponse(const std::string &response_string);
+        enum class State
+        {
+            Idle,
+            Connect,
+            SendRequest,
+            ReceiveResponse
+        };
 
-        std::unique_ptr<http::AsyncRequest> request_;
+        Socket socket_;
+        Result result_;
+        State state_;
+        bool verified_;
+        std::vector<std::uint8_t> buffer_;
+        std::size_t current_buffer_position_;
     };
 } // namespace tortoise
 

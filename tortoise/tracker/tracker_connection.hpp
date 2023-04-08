@@ -11,23 +11,31 @@ namespace tortoise
     class TrackerConnection
     {
     public:
-        enum class Result
+        struct Result
         {
-            Success,
-            Failure
+            bool success;
+            std::optional<AnnounceResponse> response;
         };
 
         TrackerConnection(const URL &url);
         virtual ~TrackerConnection();
 
-        /**
-         * \brief Asynchronously sends an announce request to the tracker.
-         * \param parameters The parameters to send to the tracker.
-         * \param result_callback The callback to call when the response is received.
-         * \param timeout The timeout for each socket operation in milliseconds.
-         * \returns True if the request was sent successfully.
+        /*! \brief Starts an announce request.
+         *  \param parameters The parameters to send to the tracker.
+         *  \returns True if successful. False if a request is already pending.
          */
-        virtual bool Announce(const AnnounceParameters &parameters, std::function<void(Result, std::shared_ptr<AnnounceResponse> response)> result_callback, unsigned int timeout) = 0;
+        virtual bool Announce(const AnnounceParameters &parameters) = 0;
+
+        /*! \brief Processes the current request without blocking. This should be called repeatedly until it returns true.
+         *  \returns True if the request is complete.
+         */
+        virtual bool Process() = 0;
+
+        //! \brief Returns the result of the last request.
+        virtual Result GetLastResult() const = 0;
+
+        //! \brief Cancels the current request.
+        virtual void Cancel() = 0;
 
     protected:
         const URL url_;

@@ -41,6 +41,14 @@ namespace tortoise
 
     bool Socket::Connect(const std::string &host, const std::string &port)
     {
+        if (host.empty() || port.empty())
+        {
+            LOG("Socket", "host or port is empty");
+            return false;
+        }
+
+        LOG("Socket", "Connecting to %s:%s", host.c_str(), port.c_str());
+
         struct addrinfo *result = nullptr, hints;
 
         memset(&hints, 0, sizeof(hints));
@@ -60,17 +68,26 @@ namespace tortoise
 
         int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
         if (iResult != 0)
+        {
+            LOG("Socket", "getaddrinfo failed: %d", iResult);
             return false;
+        }
 
         addrinfo *ptr;
         for (ptr = result; ptr != nullptr; ptr = ptr->ai_next)
         {
             socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
             if (socket_ == INVALID_SOCKET_VALUE)
+            {
+                LOG("Socket", "Failed to create socket");
                 continue;
+            }
 
             if (!SetBlocking(false))
+            {
+                LOG("Socket", "Failed to set socket to non-blocking mode");
                 return false;
+            }
 
             if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
                 break;
@@ -89,9 +106,9 @@ namespace tortoise
 
         freeaddrinfo(result);
 
-        if (socket_ != INVALID_SOCKET_VALUE && ptr != nullptr)
+        if (socket_ != INVALID_SOCKET_VALUE && ptr != nullptr && ptr->ai_addr != nullptr)
         {
-            switch (ptr->ai_family)
+            switch (ptr->ai_addr->sa_family)
             {
             case AF_INET:
                 internet_protocol_ = InternetProtocol::IPv4;
@@ -167,6 +184,9 @@ namespace tortoise
         if (socket_ == INVALID_SOCKET_VALUE)
             return false;
 
+        if (!Select(false, true, 1))
+            return false;
+
         int error = 0;
         socklen_t len = sizeof(error);
         if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, (char *)&error, &len) < 0)
@@ -185,7 +205,7 @@ namespace tortoise
         return internet_protocol_;
     }
 
-    bool Socket::Select(bool read, bool write, unsigned int timeout_ms)
+    bool Socket::Select(bool read, bool write, unsigned int timeout_us) const
     {
         assert(read || write);
 
@@ -194,8 +214,8 @@ namespace tortoise
         FD_SET(socket_, &fds);
 
         timeval tv;
-        tv.tv_sec = timeout_ms / 1000;
-        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        tv.tv_sec = timeout_us / 1000000;
+        tv.tv_usec = (timeout_us % 1000000);
 
 #ifdef _WIN32
         return select(0, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv) > 0;
