@@ -9,6 +9,7 @@
 
 #include "tracker_announce.hpp"
 #include "tracker_connection.hpp"
+#include "tracker_list.hpp"
 #include "../url.hpp"
 
 namespace tortoise
@@ -31,20 +32,14 @@ namespace tortoise
 
     private:
         void RequestTrackerUpdate();
-        void OnTrackerResponse(const AnnounceResponse &response);
         void SelectNextTracker();
+        bool HandleTrackerResult(const TrackerConnection::Result &result);
 
         std::chrono::steady_clock::time_point last_tracker_contact_;
         std::uint64_t tracker_interval_seconds_;
         std::function<AnnounceParameters()> request_callback_;
 
-        struct Tracker
-        {
-            URL url;
-            std::string tracker_id;
-        };
-        std::vector<std::list<Tracker>> trackers_;
-        Tracker *current_tracker_;
+        TrackerList tracker_list_;
         std::unique_ptr<TrackerConnection> request_;
     };
 }

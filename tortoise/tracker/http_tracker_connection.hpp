@@ -38,7 +38,6 @@ namespace tortoise
         Socket socket_;
         Result result_;
         State state_;
-        bool verified_;
         std::vector<std::uint8_t> buffer_;
         std::size_t current_buffer_position_;
     };

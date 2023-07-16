@@ -28,6 +28,7 @@ set (HEADERS
   tortoise/tracker/http_tracker_connection.hpp
   tortoise/tracker/tracker_announce.hpp
   tortoise/tracker/tracker_connection.hpp
+  tortoise/tracker/tracker_list.hpp
   tortoise/tracker/tracker_manager.hpp
   tortoise/tracker/udp_tracker_connection.hpp
   tortoise/sha1.hpp
@@ -49,6 +50,7 @@ set(SOURCES
   tortoise/tracker/http_tracker_connection.cpp
   tortoise/tracker/tracker_announce.cpp
   tortoise/tracker/tracker_connection.cpp
+  tortoise/tracker/tracker_list.cpp
   tortoise/tracker/tracker_manager.cpp
   tortoise/tracker/udp_tracker_connection.cpp
   tortoise/url.cpp

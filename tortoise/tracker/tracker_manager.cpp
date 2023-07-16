@@ -33,20 +33,8 @@ namespace tortoise
     TrackerManager::TrackerManager(const std::vector<std::vector<std::string>> &trackers, std::function<AnnounceParameters()> request_callback)
         : tracker_interval_seconds_(0),
           request_callback_(request_callback),
-          current_tracker_(nullptr)
+          tracker_list_(trackers)
     {
-        if (trackers.empty() || trackers[0].empty())
-            throw InvalidArgumentException("trackers list is empty");
-
-        for (const auto &tier : trackers)
-        {
-            std::list<Tracker> tier_trackers;
-            for (const auto &url : tier)
-                tier_trackers.push_back({url, ""});
-            trackers_.push_back(tier_trackers);
-        }
-
-        current_tracker_ = &trackers_.front().front();
     }
 
     TrackerManager::~TrackerManager() = default;
@@ -61,30 +49,15 @@ namespace tortoise
             TrackerConnection::Result result = request_->GetLastResult();
             request_.reset();
 
-            if (result.success)
+            if (HandleTrackerResult(result))
             {
-                assert(result.response.has_value());
-
-                LOG("TrackerManager", "Request succeeded");
-                LOG("TrackerManager", "Peers:");
-                for (const auto &peer : result.response->peers)
-                    LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
-
-                tracker_interval_seconds_ = result.response->min_interval ? result.response->min_interval.value() : result.response->interval;
-
-                if (result.response->tracker_id.has_value())
-                    current_tracker_->tracker_id = *result.response->tracker_id;
-
-                LOG("TrackerManager", "Tracker interval: %llu seconds", tracker_interval_seconds_);
-
-                last_tracker_contact_ = std::chrono::steady_clock::now();
-                return true;
+                tracker_list_.PromoteCurrentTracker();
+                tracker_list_.SelectFirstTracker();
+                return true; // Request done
             }
-            else
-            {
-                LOG("TrackerManager", "Request failed, trying next tracker");
-                SelectNextTracker();
-            }
+
+            // If the request failed, try the next tracker
+            SelectNextTracker();
         }
 
         auto now = std::chrono::steady_clock::now();
@@ -96,8 +69,9 @@ namespace tortoise
 
     void TrackerManager::SelectNextTracker()
     {
-        // TODO
-        // assert(false);
+        tracker_interval_seconds_ = 0;
+        last_tracker_contact_ = {};
+        tracker_list_.SelectNextTracker();
     }
 
     void TrackerManager::RequestTrackerUpdate()
@@ -108,13 +82,13 @@ namespace tortoise
         parameters.event = AnnounceParameters::Event::Started;
         parameters.numwant = 10;
 
-        assert(current_tracker_ != nullptr);
+        const URL current_tracker{tracker_list_.GetCurrentTracker()};
         try
         {
-            LOG("TrackerManager", "Requesting tracker update from %s", current_tracker_->url.ToString().c_str());
+            LOG("TrackerManager", "Requesting tracker update from %s", current_tracker.ToString().c_str());
 
-            request_ = CreateTrackerConnection(current_tracker_->url.GetProtocol());
-            const bool started = request_->Announce(current_tracker_->url, parameters);
+            request_ = CreateTrackerConnection(current_tracker.GetProtocol());
+            const bool started = request_->Announce(current_tracker, parameters);
             assert(started);
             // TODO if not started??
         }
@@ -127,15 +101,28 @@ namespace tortoise
         }
     }
 
-    void TrackerManager::OnTrackerResponse(const AnnounceResponse &)
+    bool TrackerManager::HandleTrackerResult(const TrackerConnection::Result &result)
     {
-        // if (response.Failure())
-        // {
-        //     SelectNextTracker();
-        //     return;
-        // }
+        if (!result.success)
+            return false;
 
-        // last_tracker_contact_ = std::chrono::steady_clock::now();
-        // tracker_interval_seconds_ = response.min_interval ? *response.min_interval : response.interval;
+        assert(result.response.has_value());
+
+        LOG("TrackerManager", "Request succeeded");
+        LOG("TrackerManager", "Peers:");
+        for (const auto &peer : result.response->peers)
+            LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
+
+        tracker_interval_seconds_ = result.response->min_interval ? result.response->min_interval.value() : result.response->interval;
+
+        if (result.response->tracker_id.has_value())
+        {
+            // TODO
+        }
+
+        LOG("TrackerManager", "Tracker interval: %llu seconds", tracker_interval_seconds_);
+
+        last_tracker_contact_ = std::chrono::steady_clock::now();
+        return true;
     }
 }

@@ -129,6 +129,7 @@ namespace tortoise
         const int bytes_sent = send(socket_, static_cast<const char *>(data), length, 0);
         if (bytes_sent >= 0)
         {
+            assert(bytes_sent == length);
             length = bytes_sent;
             return Result::Ok;
         }
