@@ -137,16 +137,13 @@ namespace tortoise
         }
     }
 
-    UDPTrackerConnection::UDPTrackerConnection(const URL &url) : TrackerConnection(url),
-                                                                 result_({false, {}}),
-                                                                 state_(State::Idle),
-                                                                 socket_(Socket::TransportProtocol::UDP),
-                                                                 transaction_id_(0),
-                                                                 current_buffer_position_(0u),
-                                                                 nr_timeouts_(0u)
+    UDPTrackerConnection::UDPTrackerConnection() : result_({false, {}}),
+                                                   state_(State::Idle),
+                                                   socket_(Socket::TransportProtocol::UDP),
+                                                   transaction_id_(0),
+                                                   current_buffer_position_(0u),
+                                                   nr_timeouts_(0u)
     {
-        if (url.GetProtocol() != "udp")
-            throw UnsupportedProtocolException(url.GetProtocol());
     }
 
     UDPTrackerConnection::~UDPTrackerConnection()
@@ -154,22 +151,22 @@ namespace tortoise
         // TODO send a "stopped" event
     }
 
-    bool UDPTrackerConnection::Announce(const AnnounceParameters &parameters)
+    bool UDPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters)
     {
         if (state_ != State::Idle)
             return false;
 
         parameters_ = std::make_unique<AnnounceParameters>(parameters);
-        if (!socket_.Connect(url_.GetHost(), url_.GetPort()))
+        if (!socket_.Connect(url.GetHost(), url.GetPort()))
         {
-            LOG("UDPTrackerConnection", "failed to connect to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
+            LOG("UDPTrackerConnection", "failed to connect to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
             return false;
         }
 
         CreateConnectRequest();
         state_ = State::SendConnectRequest;
 
-        LOG("UDPTrackerConnection", "connected to %s:%s", url_.GetHost().c_str(), url_.GetPort().c_str());
+        LOG("UDPTrackerConnection", "connected to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
         return true;
     }
 

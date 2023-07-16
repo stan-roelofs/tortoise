@@ -11,20 +11,20 @@
 namespace
 {
     /*! \brief Creates a tracker connection for the specified URL.
-     *  \param url The URL of the tracker.
+     *  \param protocol The protocol to use, e.g. http, https, udp.
      *  \returns A tracker connection object.
      *  \throws UnsupportedProtocolException If the protocol is not supported.
      */
-    std::unique_ptr<tortoise::TrackerConnection> CreateTrackerConnection(const tortoise::URL &url)
+    std::unique_ptr<tortoise::TrackerConnection> CreateTrackerConnection(const std::string &protocol)
     {
         using namespace tortoise;
 
-        if (url.GetProtocol() == "http")
-            return std::make_unique<HTTPTrackerConnection>(url);
-        else if (url.GetProtocol() == "udp")
-            return std::make_unique<UDPTrackerConnection>(url);
+        if (protocol == "http")
+            return std::make_unique<HTTPTrackerConnection>();
+        else if (protocol == "udp")
+            return std::make_unique<UDPTrackerConnection>();
         else
-            throw UnsupportedProtocolException(url.GetProtocol());
+            throw UnsupportedProtocolException(protocol);
     }
 }
 
@@ -32,7 +32,6 @@ namespace tortoise
 {
     TrackerManager::TrackerManager(const std::vector<std::vector<std::string>> &trackers, std::function<AnnounceParameters()> request_callback)
         : tracker_interval_seconds_(0),
-          request_pending_(false),
           request_callback_(request_callback),
           current_tracker_(nullptr)
     {
@@ -60,6 +59,8 @@ namespace tortoise
                 return false; // Request not finished yet
 
             TrackerConnection::Result result = request_->GetLastResult();
+            request_.reset();
+
             if (result.success)
             {
                 assert(result.response.has_value());
@@ -67,19 +68,23 @@ namespace tortoise
                 LOG("TrackerManager", "Request succeeded");
                 LOG("TrackerManager", "Peers:");
                 for (const auto &peer : result.response->peers)
-                {
                     LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
-                }
+
                 tracker_interval_seconds_ = result.response->min_interval ? result.response->min_interval.value() : result.response->interval;
+
+                if (result.response->tracker_id.has_value())
+                    current_tracker_->tracker_id = *result.response->tracker_id;
+
+                LOG("TrackerManager", "Tracker interval: %llu seconds", tracker_interval_seconds_);
+
                 last_tracker_contact_ = std::chrono::steady_clock::now();
+                return true;
             }
             else
             {
-                LOG("TrackerManager", "Request failed");
+                LOG("TrackerManager", "Request failed, trying next tracker");
                 SelectNextTracker();
             }
-
-            request_.reset();
         }
 
         auto now = std::chrono::steady_clock::now();
@@ -97,8 +102,6 @@ namespace tortoise
 
     void TrackerManager::RequestTrackerUpdate()
     {
-        request_pending_ = true;
-
         AnnounceParameters parameters = request_callback_();
         parameters.compact = true;
         parameters.no_peer_id = true;
@@ -110,16 +113,14 @@ namespace tortoise
         {
             LOG("TrackerManager", "Requesting tracker update from %s", current_tracker_->url.ToString().c_str());
 
-            request_ = CreateTrackerConnection(current_tracker_->url);
-            const bool started = request_->Announce(parameters);
+            request_ = CreateTrackerConnection(current_tracker_->url.GetProtocol());
+            const bool started = request_->Announce(current_tracker_->url, parameters);
             assert(started);
             // TODO if not started??
         }
         catch (UnsupportedProtocolException &e)
         {
             LOG("TrackerManager", "Unsupported protocol: %s", e.what());
-
-            request_pending_ = false;
             // TODO remove this tracker from the list we can never use it
             SelectNextTracker();
             return;
@@ -128,8 +129,6 @@ namespace tortoise
 
     void TrackerManager::OnTrackerResponse(const AnnounceResponse &)
     {
-        // request_pending_ = false;
-
         // if (response.Failure())
         // {
         //     SelectNextTracker();

@@ -4,7 +4,6 @@
 
 namespace tortoise
 {
-    TrackerConnection::TrackerConnection(const URL &url) : url_(url) {}
-
+    TrackerConnection::TrackerConnection() = default;
     TrackerConnection::~TrackerConnection() = default;
 } // namespace tortoise

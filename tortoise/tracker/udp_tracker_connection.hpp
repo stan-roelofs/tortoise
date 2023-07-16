@@ -13,14 +13,10 @@ namespace tortoise
     class UDPTrackerConnection : public TrackerConnection
     {
     public:
-        /* \brief Creates a new UDP tracker connection.
-         *  \param url The URL of the tracker.
-         *  \throws UnsupportedProtocolException If the protocol is not supported.
-         */
-        UDPTrackerConnection(const URL &url);
+        UDPTrackerConnection();
         ~UDPTrackerConnection() override;
 
-        bool Announce(const AnnounceParameters &parameters) override;
+        bool Announce(const URL &url, const AnnounceParameters &parameters) override;
         bool Process() override;
         Result GetLastResult() const override;
         void Cancel() override;

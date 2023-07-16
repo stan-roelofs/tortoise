@@ -10,11 +10,7 @@ namespace tortoise
     class HTTPTrackerConnection : public TrackerConnection
     {
     public:
-        /*! \brief Creates a new HTTP tracker connection.
-         *  \param url The URL of the tracker.
-         *  \throws UnsupportedProtocolException If the protocol is not supported.
-         */
-        HTTPTrackerConnection(const URL &url);
+        HTTPTrackerConnection();
 
         /*! \brief Destroys the HTTP tracker connection. This may block
          */
@@ -25,7 +21,7 @@ namespace tortoise
         HTTPTrackerConnection(HTTPTrackerConnection &&) = delete;
         HTTPTrackerConnection &operator=(HTTPTrackerConnection &&) = delete;
 
-        bool Announce(const AnnounceParameters &parameters) override;
+        bool Announce(const URL &url, const AnnounceParameters &parameters) override;
         bool Process() override;
         Result GetLastResult() const override;
         void Cancel() override;

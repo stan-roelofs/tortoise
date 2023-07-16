@@ -36,7 +36,6 @@ namespace tortoise
 
         std::chrono::steady_clock::time_point last_tracker_contact_;
         std::uint64_t tracker_interval_seconds_;
-        bool request_pending_;
         std::function<AnnounceParameters()> request_callback_;
 
         struct Tracker

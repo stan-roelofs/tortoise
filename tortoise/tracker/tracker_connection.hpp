@@ -17,14 +17,21 @@ namespace tortoise
             std::optional<AnnounceResponse> response;
         };
 
-        TrackerConnection(const URL &url);
+        TrackerConnection();
+
+        TrackerConnection(const TrackerConnection &) = delete;
+        TrackerConnection &operator=(const TrackerConnection &) = delete;
+        TrackerConnection(TrackerConnection &&) = delete;
+        TrackerConnection &operator=(TrackerConnection &&) = delete;
+
         virtual ~TrackerConnection();
 
         /*! \brief Starts an announce request.
+         *  \param url The URL of the tracker.
          *  \param parameters The parameters to send to the tracker.
          *  \returns True if successful. False if a request is already pending.
          */
-        virtual bool Announce(const AnnounceParameters &parameters) = 0;
+        virtual bool Announce(const URL &url, const AnnounceParameters &parameters) = 0;
 
         /*! \brief Processes the current request without blocking. This should be called repeatedly until it returns true.
          *  \returns True if the request is complete.
@@ -36,9 +43,6 @@ namespace tortoise
 
         //! \brief Cancels the current request.
         virtual void Cancel() = 0;
-
-    protected:
-        const URL url_;
     };
 } // namespace tortoise
 

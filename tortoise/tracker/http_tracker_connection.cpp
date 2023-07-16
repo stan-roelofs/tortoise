@@ -340,14 +340,10 @@ namespace
 namespace tortoise
 {
 
-    HTTPTrackerConnection::HTTPTrackerConnection(const URL &url)
-        : TrackerConnection(url),
-          socket_(Socket::TransportProtocol::TCP),
-          state_(State::Idle),
-          current_buffer_position_(0)
+    HTTPTrackerConnection::HTTPTrackerConnection() : socket_(Socket::TransportProtocol::TCP),
+                                                     state_(State::Idle),
+                                                     current_buffer_position_(0)
     {
-        if (url.GetProtocol() != "http")
-            throw UnsupportedProtocolException(url.GetProtocol());
     }
 
     HTTPTrackerConnection::~HTTPTrackerConnection()
@@ -355,7 +351,7 @@ namespace tortoise
         // TODO
     }
 
-    bool HTTPTrackerConnection::Announce(const AnnounceParameters &parameters)
+    bool HTTPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters)
     {
         if (state_ != State::Idle)
         {
@@ -363,13 +359,13 @@ namespace tortoise
             return false;
         }
 
-        if (!socket_.Connect(url_.GetHost(), url_.GetPort().empty() ? "80" : url_.GetPort()))
+        if (!socket_.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort()))
         {
             LOG("HTTPTrackerConnection", "Failed to connect to tracker");
             return false;
         }
 
-        std::string request = CreateRequest(url_, parameters);
+        std::string request = CreateRequest(url, parameters);
         buffer_.resize(request.size());
         std::copy(request.begin(), request.end(), buffer_.begin());
 
