@@ -59,6 +59,14 @@ int main(int argc, const char *argv[])
     return EXIT_FAILURE;
   }
 
+  std::cout << "Torrent added" << std::endl;
+  std::cout << "  Name: " << metainfo->name << std::endl;
+  std::cout << "  Creation date: " << metainfo->creation_date << std::endl;
+  std::cout << "  Comment: " << metainfo->comment << std::endl;
+  std::cout << "  Created by: " << metainfo->created_by << std::endl;
+  std::cout << "  Encoding: " << metainfo->encoding << std::endl;
+  std::cout << "  Piece length: " << metainfo->piece_length << std::endl;
+
   while (true)
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

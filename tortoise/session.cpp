@@ -13,6 +13,11 @@ namespace tortoise
                 Start();
         }
 
+        ~Implementation()
+        {
+            Stop();
+        }
+
         TorrentHandle AddTorrent(const TorrentParameters &parameters)
         {
             // if (params.save_path.empty())
