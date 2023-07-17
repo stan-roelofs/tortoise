@@ -2,21 +2,59 @@
 
 #include <cassert>
 
+namespace
+{
+    constexpr std::size_t DESIRED_PEERS = 20;
+}
+
 namespace tortoise
 {
-    Torrent::Torrent(const TorrentParameters &parameters) : parameters_(parameters), tracker_manager_(parameters_.metainfo.announce_list, std::bind(&Torrent::GetTrackerRequest, this))
+    Torrent::Torrent(const TorrentParameters &parameters) : parameters_(parameters),
+                                                            tracker_manager_(parameters_.metainfo.announce_list, std::bind(&Torrent::GetTrackerRequest, this)),
+                                                            piece_manager_(parameters_.metainfo.pieces.size())
     {
         if (parameters.save_path.empty())
             throw TorrentException("save_path is empty"); // TODO set a default save path somewhere
+
+        //
     }
 
-    Torrent::~Torrent() = default; // TODO
+    Torrent::~Torrent() = default;
 
     void Torrent::Process()
     {
         if (tracker_manager_.Update())
         {
-            // TODO we got new data from the tracker
+            const auto new_peers = tracker_manager_.GetPeers();
+            for (const auto &peer : new_peers)
+                peer_queue_.push_front(peer);
+        }
+
+        ProcessPeers();
+    }
+
+    void Torrent::ProcessPeers()
+    {
+        // Add new peers if we don't have enough and there are still peers in the queue
+        while (peers_.size() < DESIRED_PEERS && !peer_queue_.empty())
+        {
+            PeerInfo peer_info = peer_queue_.front();
+            peer_queue_.pop_front();
+
+            peers_.emplace_back(peer_info);
+        }
+
+        auto it = peers_.begin();
+        while (it != peers_.end())
+        {
+            if (it->Finished())
+            {
+                it = peers_.erase(it);
+                continue;
+            }
+
+            it->Process();
+            ++it;
         }
     }
 

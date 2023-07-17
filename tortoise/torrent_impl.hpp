@@ -3,8 +3,12 @@
 
 #include <tortoise/torrent.hpp>
 
+#include "peer.hpp"
 #include "peer_id.hpp"
-#include "tracker/tracker_manager.hpp"
+#include "piece_manager.hpp"
+#include "tracker_manager.hpp"
+
+#include <list>
 
 namespace tortoise
 {
@@ -18,10 +22,16 @@ namespace tortoise
         void Process();
 
     private:
+        void ProcessPeers();
+
         AnnounceParameters GetTrackerRequest();
         TorrentParameters parameters_;
         const PeerId peer_id_;
         TrackerManager tracker_manager_;
+        PieceManager piece_manager_;
+
+        std::list<PeerInfo> peer_queue_;
+        std::list<Peer> peers_;
     };
 }
 
