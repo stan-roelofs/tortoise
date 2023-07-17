@@ -381,10 +381,18 @@ namespace tortoise
             return true;
         case State::Connect:
         {
-            if (!socket_.Connected())
-                return false;
-
-            state_ = State::SendRequest;
+            switch (socket_.GetConnectionStatus())
+            {
+            case Socket::Status::Pending:
+                return false;                
+			case Socket::Status::Connected:
+				state_ = State::SendRequest;
+				break;
+            case Socket::Status::Error:
+                result_ = { false, {} };
+				state_ = State::Idle;
+                return true;
+			}
         }
             [[fallthrough]];
         case State::SendRequest:

@@ -180,20 +180,33 @@ namespace tortoise
 #endif
     }
 
-    bool Socket::Connected() const
+    Socket::Status Socket::GetConnectionStatus() const
     {
         if (socket_ == INVALID_SOCKET_VALUE)
-            return false;
-
-        if (!Select(false, true, 1))
-            return false;
+            return Status::Error;
 
         int error = 0;
         socklen_t len = sizeof(error);
         if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, (char *)&error, &len) < 0)
-            return false;
+        {
+            const int code =
+#ifdef _WIN32
+                WSAGetLastError();
+#else
+                code;
+#endif
+            (void)code;
+            LOG("Socket", "getsockopt failed: %i", code);
+            return Status::Error;
+        }
 
-        return error == 0;
+        if (error != 0)
+            LOG("Socket", "Socket error: %i", error);
+
+        if (!Select(false, true, 1))
+            return Status::Pending;
+
+        return (error == 0) ? Status::Connected : Status::Error;
     }
 
     Socket::TransportProtocol Socket::GetTransportProtocol() const

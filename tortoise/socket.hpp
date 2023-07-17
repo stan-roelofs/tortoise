@@ -32,6 +32,13 @@ namespace tortoise
             Error,
         };
 
+        enum class Status
+        {
+            Connected,
+            Pending,
+            Error
+        };
+
         enum class TransportProtocol
         {
             TCP,
@@ -56,6 +63,10 @@ namespace tortoise
          *  \throws SocketException if the socket could not be created.
          */
         Socket(TransportProtocol protocol);
+        Socket(const Socket &) = delete;
+        Socket(Socket &&) = delete;
+        Socket &operator=(const Socket &) = delete;
+        Socket &operator=(Socket &&) = delete;
         ~Socket();
 
         /*! \brief Connects to a host. If a connectionless protocol is used, this will merely set the default host and port for future send/receive calls.
@@ -86,8 +97,8 @@ namespace tortoise
          */
         Result Receive(void *buffer, int &length);
 
-        //! \returns True if the socket is connected, false otherwise.
-        bool Connected() const;
+        //! \returns The connection status
+        Status GetConnectionStatus() const;
 
         //! \returns The transport protocol used by the socket.
         TransportProtocol GetTransportProtocol() const;
