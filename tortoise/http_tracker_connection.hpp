@@ -2,7 +2,7 @@
 #define TORTOISE_HTTP_TRACKER_CONNECTION_HPP
 
 #include "tracker_connection.hpp"
-#include "../socket.hpp"
+#include "socket.hpp"
 
 namespace tortoise
 {

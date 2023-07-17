@@ -10,7 +10,7 @@
 #include "tracker_announce.hpp"
 #include "tracker_connection.hpp"
 #include "tracker_list.hpp"
-#include "../url.hpp"
+#include "url.hpp"
 
 namespace tortoise
 {
@@ -30,6 +30,8 @@ namespace tortoise
          */
         bool Update();
 
+        std::list<PeerInfo> GetPeers() const;
+
     private:
         void RequestTrackerUpdate();
         void SelectNextTracker();
@@ -41,6 +43,7 @@ namespace tortoise
 
         TrackerList tracker_list_;
         std::unique_ptr<TrackerConnection> request_;
+        std::list<PeerInfo> peers_;
     };
 }
 

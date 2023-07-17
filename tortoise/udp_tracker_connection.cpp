@@ -8,7 +8,7 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "../log.hpp"
+#include "log.hpp"
 
 namespace tortoise
 {
@@ -100,7 +100,7 @@ namespace tortoise
                 {
                     const IPAddress ip_address(IPAddress::ipv4_address_t{peer_start[0], peer_start[1], peer_start[2], peer_start[3]});
                     const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[2]);
-                    result.peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
+                    result.peers.emplace_back(PeerInfo{ip_address.ToString(), port});
                 }
                 else if (stride_size == 18)
                 {
@@ -110,7 +110,7 @@ namespace tortoise
                         peer_start[8], peer_start[9], peer_start[10], peer_start[11],
                         peer_start[12], peer_start[13], peer_start[14], peer_start[15]});
                     const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[8]);
-                    result.peers.push_back(AnnounceResponse::PeerInfo{ip_address.ToString(), port});
+                    result.peers.emplace_back(PeerInfo{ip_address.ToString(), port});
                 }
             }
 

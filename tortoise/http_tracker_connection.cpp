@@ -8,9 +8,9 @@
 #include <tortoise/exceptions.hpp>
 #include <tortoise/sha1_hash.hpp>
 
-#include "../bencode.hpp"
-#include "../log.hpp"
-#include "../url.hpp"
+#include "bencode.hpp"
+#include "log.hpp"
+#include "url.hpp"
 
 namespace
 {
@@ -272,7 +272,7 @@ namespace
                         return {};
                     }
 
-                    AnnounceResponse::PeerInfo info(ip, static_cast<std::uint16_t>(port));
+                    PeerInfo info(ip, static_cast<std::uint16_t>(port));
                     info.peer_id = peer_id;
                     response.peers.emplace_back(info);
                 }
@@ -293,7 +293,7 @@ namespace
 
                     const IPAddress ip = IPAddress(IPAddress::ipv4_address_t{peer[0], peer[1], peer[2], peer[3]});
                     auto port = static_cast<std::uint16_t>((peer[4] << 8) | peer[5]);
-                    AnnounceResponse::PeerInfo info(ip.ToString(), port);
+                    PeerInfo info(ip.ToString(), port);
                     response.peers.emplace_back(info);
                 }
             }
@@ -328,7 +328,7 @@ namespace
                     peer[9], peer[10], peer[11], peer[12], peer[13], peer[14], peer[15]});
 
                 auto port = static_cast<std::uint16_t>((peer[16] << 8) | peer[17]);
-                AnnounceResponse::PeerInfo info(ip.ToString(), port);
+                PeerInfo info(ip.ToString(), port);
                 response.peers.emplace_back(info);
             }
         }

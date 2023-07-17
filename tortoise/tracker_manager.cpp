@@ -4,8 +4,8 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "../log.hpp"
 #include "http_tracker_connection.hpp"
+#include "log.hpp"
 #include "udp_tracker_connection.hpp"
 
 namespace
@@ -113,6 +113,8 @@ namespace tortoise
         for (const auto &peer : result.response->peers)
             LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
 
+        peers_ = result.response->peers;
+
         tracker_interval_seconds_ = result.response->min_interval ? result.response->min_interval.value() : result.response->interval;
 
         if (result.response->tracker_id.has_value())
@@ -124,5 +126,10 @@ namespace tortoise
 
         last_tracker_contact_ = std::chrono::steady_clock::now();
         return true;
+    }
+
+    std::list<PeerInfo> TrackerManager::GetPeers() const
+    {
+        return peers_;
     }
 }

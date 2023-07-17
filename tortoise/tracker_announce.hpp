@@ -2,13 +2,14 @@
 #define TORTOISE_ANNOUNCE_PARAMETERS_HPP
 
 #include <optional>
-#include <vector>
+#include <list>
 
 #include <tortoise/sha1_hash.hpp>
 
-#include "../ip_address.hpp"
-#include "../peer_id.hpp"
-#include "../url.hpp"
+#include "ip_address.hpp"
+#include "peer_id.hpp"
+#include "peer_info.hpp"
+#include "url.hpp"
 
 namespace tortoise
 {
@@ -96,16 +97,8 @@ namespace tortoise
         //! \brief The number of non-seeder peers, aka "leechers".
         std::uint64_t incomplete;
 
-        struct PeerInfo
-        {
-            PeerInfo(const std::string &ip, std::uint16_t port) : ip(ip), port(port) {}
-            std::optional<std::string> peer_id; // The 20-byte self-selected peer id of the peer.
-            std::string ip;                     // The peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name (string).
-            std::uint16_t port;
-        };
-
         //! \brief A list of peers.
-        std::vector<PeerInfo> peers;
+        std::list<PeerInfo> peers;
     };
 } // namespace tortoise
 
