@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 project(Tortoise VERSION 0.1.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
-option(TORTOISE_ENABLE_LOGGING "Enable logging" OFF)
+option(TORTOISE_ENABLE_LOGGING "Enable logging" ON)
 option(TORTOISE_BUILD_APP "Build application" ON)
 option(TORTOISE_BUILD_TESTS "Build tests" ON)
 

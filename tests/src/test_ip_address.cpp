@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../tortoise/ip_address.hpp"
+#include "ip_address.hpp"
 
 TEST(IPAddress, parse_ipv4_address)
 {

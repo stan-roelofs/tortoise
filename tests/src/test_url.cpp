@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../tortoise/url.hpp"
+#include "url.hpp"
 
 TEST(URL, parse)
 {

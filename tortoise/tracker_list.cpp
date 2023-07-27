@@ -42,11 +42,11 @@ namespace tortoise
         ++current_tracker_;
         if (current_tracker_ == current_tier_->end())
         {
-			++current_tier_;
-			if (current_tier_ == trackers_.end())
-				SelectFirstTracker();
-            else 
-			    current_tracker_ = current_tier_->begin();
+            ++current_tier_;
+            if (current_tier_ == trackers_.end())
+                SelectFirstTracker();
+            else
+                current_tracker_ = current_tier_->begin();
         }
 
         return *current_tracker_;
@@ -54,13 +54,7 @@ namespace tortoise
 
     void TrackerList::PromoteCurrentTracker()
     {
-        if (current_tier_ == trackers_.end())
-            return;
-
-        if (current_tracker_ == current_tier_->end())
-            return;
-
-        if (current_tracker_ == current_tier_->begin())
+        if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end() || current_tracker_ == current_tier_->begin())
             return;
 
         std::iter_swap(current_tracker_, current_tracker_ - 1);

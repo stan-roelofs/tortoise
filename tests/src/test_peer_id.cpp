@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../tortoise/peer_id.hpp"
+#include "peer_id.hpp"
 
 using namespace tortoise;
 
