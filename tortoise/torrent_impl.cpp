@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "log.hpp"
+
 namespace
 {
     constexpr std::size_t DESIRED_PEERS = 20;
@@ -41,7 +43,8 @@ namespace tortoise
             PeerInfo peer_info = peer_queue_.front();
             peer_queue_.pop_front();
 
-            peers_.emplace_back(peer_info);
+            LOG("Torrent", "Adding peer %s %u", peer_info.ip.c_str(), peer_info.port);
+			peers_.emplace_back(peer_info, parameters_.metainfo.info_hash, peer_id_);
         }
 
         auto it = peers_.begin();
@@ -49,6 +52,9 @@ namespace tortoise
         {
             if (it->Finished())
             {
+                const auto &info = it->GetInfo();
+                LOG("Torrent", "Peer %s %u finished", info.ip.c_str(), info.port);
+
                 it = peers_.erase(it);
                 continue;
             }

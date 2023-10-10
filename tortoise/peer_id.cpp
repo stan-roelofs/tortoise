@@ -3,6 +3,7 @@
 #include <random>
 #include <limits>
 
+#include <tortoise/exceptions.hpp>
 #include <tortoise/version.hpp>
 
 namespace tortoise
@@ -31,7 +32,19 @@ namespace tortoise
         return peer_id;
     }
 
+    PeerId PeerId::FromString(const std::string &peer_id)
+    {
+        if (peer_id.size() != 20)
+            throw InvalidArgumentException("Peer id must be 20 bytes long.");
+
+        return PeerId(peer_id);
+    }
+
     PeerId::PeerId() : peer_id_(GeneratePeerID())
+    {
+    }
+
+    PeerId::PeerId(const std::string &peer_id) : peer_id_(peer_id)
     {
     }
 
@@ -41,4 +54,14 @@ namespace tortoise
     {
         return peer_id_;
     }
+
+	bool PeerId::operator==(const PeerId& other) const
+	{
+		return peer_id_ == other.peer_id_;
+	}
+
+	bool PeerId::operator!=(const PeerId& other) const
+	{
+		return !(*this == other);
+	}
 }

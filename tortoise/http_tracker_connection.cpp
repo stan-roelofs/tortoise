@@ -273,7 +273,14 @@ namespace
                     }
 
                     PeerInfo info(ip, static_cast<std::uint16_t>(port));
-                    info.peer_id = peer_id;
+                    try
+                    {
+                        info.peer_id = PeerId::FromString(peer_id);
+                    }
+                    catch (const InvalidArgumentException &)
+                    {
+                        LOG("HTTPTrackerConnection", "Ignored invalid peer id: %s", peer_id.c_str());
+                    }
                     response.peers.emplace_back(info);
                 }
             }
