@@ -3,6 +3,7 @@
 
 #include "tracker_connection.hpp"
 #include "socket.hpp"
+#include "util.hpp"
 
 namespace tortoise
 {
@@ -38,8 +39,7 @@ namespace tortoise
         Socket socket_;
         Result result_;
         State state_;
-        std::vector<std::uint8_t> buffer_;
-        std::size_t current_buffer_position_;
+        ByteVector buffer_;
     };
 } // namespace tortoise
 

@@ -348,8 +348,7 @@ namespace tortoise
 {
 
     HTTPTrackerConnection::HTTPTrackerConnection() : socket_(Socket::TransportProtocol::TCP),
-                                                     state_(State::Idle),
-                                                     current_buffer_position_(0)
+                                                     state_(State::Idle)
     {
     }
 
@@ -391,67 +390,76 @@ namespace tortoise
             switch (socket_.GetConnectionStatus())
             {
             case Socket::Status::Pending:
-                return false;                
-			case Socket::Status::Connected:
-				state_ = State::SendRequest;
-				break;
+                return false;
+            case Socket::Status::Connected:
+                state_ = State::SendRequest;
+                break;
             case Socket::Status::Error:
-                result_ = { false, {} };
-				state_ = State::Idle;
+                result_ = {false, {}};
+                state_ = State::Idle;
                 return true;
-			}
+            }
         }
             [[fallthrough]];
         case State::SendRequest:
         {
-            int length = (int)(buffer_.size() - current_buffer_position_);
-            const auto result = socket_.Send(buffer_.data() + current_buffer_position_, length);
-            if (result == Socket::Result::Error)
+            int length = (int)std::min(buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
+            switch (socket_.Send(buffer_.data(), length))
+            {
+            case Socket::Result::Ok:
+            {
+                if (length != 0)
+                    buffer_.erase(buffer_.begin(), buffer_.begin() + length);
+
+                if (buffer_.empty())
+                {
+                    LOG("HTTPTrackerConnection", "Request sent");
+                    state_ = State::ReceiveResponse;
+                }
+                break;
+            }
+            case Socket::Result::WouldBlock:
+                break;
+            case Socket::Result::Error:
             {
                 state_ = State::Idle;
                 result_ = {false, {}};
-                return true;
+                break;
             }
-
-            if (result == Socket::Result::WouldBlock)
-                return false;
-
-            current_buffer_position_ += length;
-            if (current_buffer_position_ < buffer_.size())
-                return false;
-
-            buffer_.clear();
-            state_ = State::ReceiveResponse;
-            return false;
+            }
+            break;
         }
         case State::ReceiveResponse:
         {
-            std::uint8_t temp[1024];
-            int length = sizeof(temp);
-            const auto result = socket_.Receive(temp, length);
-            if (result == Socket::Result::Error)
+            while (true)
             {
-                state_ = State::Idle;
-                result_ = {false, {}};
-                return true;
+                std::uint8_t temp[1024];
+                int length = sizeof(temp);
+                const auto result = socket_.Receive(temp, length);
+                if (result == Socket::Result::Error)
+                {
+                    state_ = State::Idle;
+                    result_ = {false, {}};
+                    return true;
+                }
+
+                if (result == Socket::Result::WouldBlock)
+                    return false;
+
+                std::copy(temp, temp + length, std::back_inserter(buffer_));
+
+                if (length == 0)
+                {
+                    state_ = State::Idle;
+                    const auto response = ParseAnnounceResponse(std::string(buffer_.begin(), buffer_.end()));
+                    result_ = {response.has_value(), response};
+                    return true;
+                }
             }
-
-            if (result == Socket::Result::WouldBlock)
-                return false;
-
-            std::copy(temp, temp + length, std::back_inserter(buffer_));
-
-            if (length == 0)
-            {
-                state_ = State::Idle;
-                const auto response = ParseAnnounceResponse(std::string(buffer_.begin(), buffer_.end()));
-                result_ = {response.has_value(), response};
-            }
-            return false;
         }
         }
 
-        return false;
+        return state_ == State::Idle;
     }
 
     TrackerConnection::Result HTTPTrackerConnection::GetLastResult() const

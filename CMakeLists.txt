@@ -8,10 +8,6 @@ option(TORTOISE_ENABLE_LOGGING "Enable logging" ON)
 option(TORTOISE_BUILD_APP "Build application" ON)
 option(TORTOISE_BUILD_TESTS "Build tests" ON)
 
-if (TORTOISE_ENABLE_LOGGING)
-  add_definitions(-DTORTOISE_ENABLE_LOGGING)
-endif()
-
 set (HEADERS
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
@@ -37,6 +33,7 @@ set (HEADERS
   tortoise/socket.hpp
   tortoise/torrent_impl.hpp
   tortoise/url.hpp
+  tortoise/util.hpp
 )
 
 set(SOURCES
@@ -61,6 +58,7 @@ set(SOURCES
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
+
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
@@ -70,7 +68,11 @@ if (WIN32)
   target_link_libraries(tortoise PRIVATE ws2_32)
 endif()
 
+if (TORTOISE_ENABLE_LOGGING)
+  target_compile_definitions(tortoise PRIVATE -DTORTOISE_ENABLE_LOGGING)
+endif()
 if(MSVC)
+  target_compile_definitions(tortoise PRIVATE NOMINMAX)
   target_compile_options(tortoise PRIVATE /W4 /WX)
 else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)

@@ -136,7 +136,6 @@ namespace tortoise
 
         length = 0;
 
-        // Check whether
 #ifdef _WIN32
         const int error = WSAGetLastError();
         if (error == WSAEWOULDBLOCK)

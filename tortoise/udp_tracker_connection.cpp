@@ -34,31 +34,30 @@ namespace tortoise
         void CreateUDPAnnounceRequest(std::vector<std::uint8_t> &buffer, const AnnounceParameters &parameters,
                                       std::uint32_t transaction_id, std::uint64_t connection_id)
         {
-            buffer.resize(ANNOUNCE_REQUEST_SIZE);
-            std::uint8_t *packet = buffer.data();
-            *(std::uint64_t *)(packet + 0) = Socket::ToNetworkByteOrder(connection_id);
-            *(std::uint32_t *)(packet + 8) = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Announce));
-            *(std::uint32_t *)(packet + 12) = Socket::ToNetworkByteOrder(transaction_id);
-            std::memcpy(packet + 16, parameters.info_hash.GetBytes().data(), 20);
-            std::memcpy(packet + 36, parameters.peer_id.Get().data(), 20);
-            *(std::uint64_t *)(packet + 56) = Socket::ToNetworkByteOrder(parameters.downloaded);
-            *(std::uint64_t *)(packet + 64) = Socket::ToNetworkByteOrder(parameters.left);
-            *(std::uint64_t *)(packet + 72) = Socket::ToNetworkByteOrder(parameters.uploaded);
-            *(std::uint32_t *)(packet + 80) = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(parameters.event));
+            util::Write(buffer, Socket::ToNetworkByteOrder(connection_id));
+            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Announce)));
+            util::Write(buffer, Socket::ToNetworkByteOrder(transaction_id));
+			const auto hash = parameters.info_hash.GetBytes();
+            util::Write(buffer, hash.data(), hash.size());
+			const auto peer = parameters.peer_id.Get();
+            util::Write(buffer, peer.data(), peer.size());
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.downloaded));
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.left));
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.uploaded));
+            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(parameters.event)));
             if (!parameters.ip || parameters.ip->IsIPv6()) // the IP address field in the request remains 32bits wide which makes this field not usable under IPv6.
-            {
-                *(std::uint32_t *)(packet + 84) = 0;
-            }
+                util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(0)));
             else
             {
                 const auto ip_address = parameters.ip->ToVector();
                 assert(ip_address.size() == 4);
-                *(std::uint32_t *)(packet + 84) = Socket::ToNetworkByteOrder(*(std::uint32_t *)ip_address.data());
+                util::Write(buffer, Socket::ToNetworkByteOrder(*(std::uint32_t *)ip_address.data()));
             }
-            *(std::uint32_t *)(packet + 88) = parameters.key ? Socket::ToNetworkByteOrder(parameters.key.value()) : 0;
-            *(std::uint32_t *)(packet + 92) = parameters.numwant ? Socket::ToNetworkByteOrder(parameters.numwant.value()) : 0;
-            *(std::uint16_t *)(packet + 96) = Socket::ToNetworkByteOrder(parameters.port);
-            *(std::uint16_t *)(packet + 98) = Socket::ToNetworkByteOrder((uint16_t)0); // extensions
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.key.value_or(0)));
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.numwant.value_or(0)));
+            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.port));
+            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint16_t>(0))); // extensions
+            assert(buffer.size() == ANNOUNCE_REQUEST_SIZE);
         }
 
         std::optional<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, Socket::InternetProtocol protocol)

@@ -6,6 +6,7 @@
 
 #include "tracker_connection.hpp"
 #include "socket.hpp"
+#include "util.hpp"
 
 namespace tortoise
 {
@@ -73,7 +74,7 @@ namespace tortoise
         Socket socket_;
         ConnectionId connection_id_;
         std::uint32_t transaction_id_;
-        std::vector<std::uint8_t> buffer_;
+        ByteVector buffer_;
         std::size_t current_buffer_position_;
         std::chrono::steady_clock::time_point timeout_time_;
         unsigned nr_timeouts_;
