@@ -34,33 +34,34 @@ namespace tortoise
         void CreateUDPAnnounceRequest(std::vector<std::uint8_t> &buffer, const AnnounceParameters &parameters,
                                       std::uint32_t transaction_id, std::uint64_t connection_id)
         {
-            util::Write(buffer, Socket::ToNetworkByteOrder(connection_id));
-            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Announce)));
-            util::Write(buffer, Socket::ToNetworkByteOrder(transaction_id));
-			const auto hash = parameters.info_hash.GetBytes();
-            util::Write(buffer, hash.data(), hash.size());
-			const auto peer = parameters.peer_id.Get();
-            util::Write(buffer, peer.data(), peer.size());
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.downloaded));
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.left));
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.uploaded));
-            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(parameters.event)));
+            buffer.resize(ANNOUNCE_REQUEST_SIZE);
+            std::uint8_t *packet = buffer.data();
+            *(std::uint64_t *)(packet + 0) = network::HostToNetwork(connection_id);
+            *(std::uint32_t *)(packet + 8) = network::HostToNetwork(static_cast<std::uint32_t>(Action::Announce));
+            *(std::uint32_t *)(packet + 12) = network::HostToNetwork(transaction_id);
+            std::memcpy(packet + 16, parameters.info_hash.GetBytes().data(), 20);
+            std::memcpy(packet + 36, parameters.peer_id.Get().data(), 20);
+            *(std::uint64_t *)(packet + 56) = network::HostToNetwork(parameters.downloaded);
+            *(std::uint64_t *)(packet + 64) = network::HostToNetwork(parameters.left);
+            *(std::uint64_t *)(packet + 72) = network::HostToNetwork(parameters.uploaded);
+            *(std::uint32_t *)(packet + 80) = network::HostToNetwork(static_cast<std::uint32_t>(parameters.event));
             if (!parameters.ip || parameters.ip->IsIPv6()) // the IP address field in the request remains 32bits wide which makes this field not usable under IPv6.
-                util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(0)));
+            {
+                *(std::uint32_t *)(packet + 84) = 0;
+            }
             else
             {
                 const auto ip_address = parameters.ip->ToVector();
                 assert(ip_address.size() == 4);
-                util::Write(buffer, Socket::ToNetworkByteOrder(*(std::uint32_t *)ip_address.data()));
+                *(std::uint32_t *)(packet + 84) = network::HostToNetwork(*(std::uint32_t *)ip_address.data());
             }
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.key.value_or(0)));
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.numwant.value_or(0)));
-            util::Write(buffer, Socket::ToNetworkByteOrder(parameters.port));
-            util::Write(buffer, Socket::ToNetworkByteOrder(static_cast<std::uint16_t>(0))); // extensions
-            assert(buffer.size() == ANNOUNCE_REQUEST_SIZE);
+            *(std::uint32_t *)(packet + 88) = parameters.key ? network::HostToNetwork(parameters.key.value()) : 0;
+            *(std::uint32_t *)(packet + 92) = parameters.numwant ? network::HostToNetwork(parameters.numwant.value()) : 0;
+            *(std::uint16_t *)(packet + 96) = network::HostToNetwork(parameters.port);
+            *(std::uint16_t *)(packet + 98) = network::HostToNetwork((uint16_t)0); // extensions
         }
 
-        std::optional<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, Socket::InternetProtocol protocol)
+        std::optional<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, network::InternetProtocol protocol)
         {
             if (packet_size < ANNOUNCE_RESPONSE_MINIMUM_SIZE)
             {
@@ -69,9 +70,9 @@ namespace tortoise
             }
 
             int stride_size = 0;
-            if (protocol == Socket::InternetProtocol::IPv4)
+            if (protocol == network::InternetProtocol::IPv4)
                 stride_size = 6;
-            else if (protocol == Socket::InternetProtocol::IPv6)
+            else if (protocol == network::InternetProtocol::IPv6)
                 stride_size = 18;
             else
             {
@@ -87,9 +88,9 @@ namespace tortoise
 
             AnnounceResponse result;
 
-            result.interval = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[2]);
-            result.incomplete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[3]);
-            result.complete = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[4]);
+            result.interval = network::HostToNetwork(((std::uint32_t *)packet)[2]);
+            result.incomplete = network::HostToNetwork(((std::uint32_t *)packet)[3]);
+            result.complete = network::HostToNetwork(((std::uint32_t *)packet)[4]);
 
             const int nr_peers = (packet_size - ANNOUNCE_RESPONSE_MINIMUM_SIZE) / stride_size;
             for (int i = 0; i < nr_peers; i++)
@@ -98,7 +99,7 @@ namespace tortoise
                 if (stride_size == 6)
                 {
                     const IPAddress ip_address(IPAddress::ipv4_address_t{peer_start[0], peer_start[1], peer_start[2], peer_start[3]});
-                    const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[2]);
+                    const std::uint16_t port = network::HostToNetwork(((std::uint16_t *)peer_start)[2]);
                     result.peers.emplace_back(PeerInfo{ip_address.ToString(), port});
                 }
                 else if (stride_size == 18)
@@ -108,7 +109,7 @@ namespace tortoise
                         peer_start[4], peer_start[5], peer_start[6], peer_start[7],
                         peer_start[8], peer_start[9], peer_start[10], peer_start[11],
                         peer_start[12], peer_start[13], peer_start[14], peer_start[15]});
-                    const std::uint16_t port = Socket::FromNetworkByteOrder(((std::uint16_t *)peer_start)[8]);
+                    const std::uint16_t port = network::HostToNetwork(((std::uint16_t *)peer_start)[8]);
                     result.peers.emplace_back(PeerInfo{ip_address.ToString(), port});
                 }
             }
@@ -138,7 +139,7 @@ namespace tortoise
 
     UDPTrackerConnection::UDPTrackerConnection() : result_({false, {}}),
                                                    state_(State::Idle),
-                                                   socket_(Socket::TransportProtocol::UDP),
+                                                   socket_(network::TransportProtocol::UDP),
                                                    transaction_id_(0),
                                                    current_buffer_position_(0u),
                                                    nr_timeouts_(0u)
@@ -213,9 +214,9 @@ namespace tortoise
             }
 
             const std::uint8_t *packet = buffer_.data();
-            const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
-            const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
-            std::uint64_t connection_id = Socket::FromNetworkByteOrder(((std::uint64_t *)packet)[1]);
+            const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
+            const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
+            std::uint64_t connection_id = network::HostToNetwork(((std::uint64_t *)packet)[1]);
 
             if (received_transaction_id != transaction_id_)
             {
@@ -270,8 +271,8 @@ namespace tortoise
             }
 
             const std::uint8_t *packet = buffer_.data();
-            const std::uint32_t action = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[0]);
-            const std::uint32_t received_transaction_id = Socket::FromNetworkByteOrder(((std::uint32_t *)packet)[1]);
+            const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
+            const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
 
             if (received_transaction_id != transaction_id_)
             {
@@ -307,15 +308,15 @@ namespace tortoise
         ResizeBuffer(CONNECT_REQUEST_SIZE);
 
         std::uint8_t *packet = buffer_.data();
-        ((std::uint64_t *)packet)[0] = Socket::ToNetworkByteOrder(MAGIC_PROTOCOL_CONSTANT);                     // Offset 0 : 64-bit magic constant
-        ((std::uint32_t *)packet)[2] = Socket::ToNetworkByteOrder(static_cast<std::uint32_t>(Action::Connect)); // Offset 8 : 32-bit action
-        ((std::uint32_t *)packet)[3] = Socket::ToNetworkByteOrder(transaction_id_);                             // Offset 12 : 32-bit transaction ID
+        ((std::uint64_t *)packet)[0] = network::HostToNetwork(MAGIC_PROTOCOL_CONSTANT);                     // Offset 0 : 64-bit magic constant
+        ((std::uint32_t *)packet)[2] = network::HostToNetwork(static_cast<std::uint32_t>(Action::Connect)); // Offset 8 : 32-bit action
+        ((std::uint32_t *)packet)[3] = network::HostToNetwork(transaction_id_);                             // Offset 12 : 32-bit transaction ID
     }
 
     void UDPTrackerConnection::CreateAnnounceRequest()
     {
         transaction_id_ = GenerateTransactionId();
-        current_buffer_position_ = 0;
+        ResizeBuffer(ANNOUNCE_REQUEST_SIZE);
 
         CreateUDPAnnounceRequest(buffer_, *parameters_, transaction_id_, connection_id_.GetId());
     }
