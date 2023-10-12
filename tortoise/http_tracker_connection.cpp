@@ -1,6 +1,7 @@
 #include "http_tracker_connection.hpp"
 
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -347,7 +348,7 @@ namespace
 namespace tortoise
 {
 
-    HTTPTrackerConnection::HTTPTrackerConnection() : socket_(Socket::TransportProtocol::TCP),
+    HTTPTrackerConnection::HTTPTrackerConnection() : socket_(network::TransportProtocol::TCP),
                                                      state_(State::Idle)
     {
     }

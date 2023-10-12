@@ -1,5 +1,7 @@
 #include <tortoise/sha1_hash.hpp>
 
+#include <algorithm>
+
 namespace tortoise
 {
     SHA1Hash::SHA1Hash() : bytes_{0}

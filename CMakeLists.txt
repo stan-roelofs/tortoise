@@ -23,6 +23,7 @@ set (HEADERS
   tortoise/peer.hpp
   tortoise/peer_id.hpp
   tortoise/http_tracker_connection.hpp
+  tortoise/network.hpp
   tortoise/piece_manager.hpp
   tortoise/tracker_announce.hpp
   tortoise/tracker_connection.hpp

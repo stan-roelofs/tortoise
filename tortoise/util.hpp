@@ -24,10 +24,9 @@ namespace tortoise
         }
 
         template <typename T>
-        inline void Read(const ByteVector &buffer, std::size_t &index, T &value)
+        inline T Read(const ByteVector &buffer, std::size_t index)
         {
-            value = *reinterpret_cast<const T *>(&buffer[index]);
-            index += sizeof(T);
+            return *reinterpret_cast<const T *>(&buffer[index]);
         }
     }
 }

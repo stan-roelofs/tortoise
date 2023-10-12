@@ -19,6 +19,8 @@
 
 #include <tortoise/exception.hpp>
 
+#include "network.hpp"
+
 namespace tortoise
 {
     //! \brief A platform independent socket class. All sockets are non-blocking!
@@ -39,19 +41,6 @@ namespace tortoise
             Error
         };
 
-        enum class TransportProtocol
-        {
-            TCP,
-            UDP
-        };
-
-        enum class InternetProtocol
-        {
-            Unknown,
-            IPv4,
-            IPv6
-        };
-
         class SocketException : public Exception
         {
         public:
@@ -62,7 +51,7 @@ namespace tortoise
          *  \param protocol The transport protocol to use.
          *  \throws SocketException if the socket could not be created.
          */
-        Socket(TransportProtocol protocol);
+        Socket(network::TransportProtocol protocol);
         Socket(const Socket &) = delete;
         Socket(Socket &&) = delete;
         Socket &operator=(const Socket &) = delete;
@@ -101,10 +90,10 @@ namespace tortoise
         Status GetConnectionStatus() const;
 
         //! \returns The transport protocol used by the socket.
-        TransportProtocol GetTransportProtocol() const;
+        network::TransportProtocol GetTransportProtocol() const;
 
         //! \returns The internet protocol used by the socket.
-        InternetProtocol GetInternetProtocol() const;
+        network::InternetProtocol GetInternetProtocol() const;
 
         static std::uint64_t ToNetworkByteOrder(std::uint64_t value);
         static std::uint64_t FromNetworkByteOrder(std::uint64_t value);
@@ -125,8 +114,8 @@ namespace tortoise
         static constexpr socket_t INVALID_SOCKET_VALUE = -1;
 #endif
 
-        TransportProtocol protocol_;
-        InternetProtocol internet_protocol_;
+        network::TransportProtocol protocol_;
+        network::InternetProtocol internet_protocol_;
         socket_t socket_;
     };
 } // namespace tortoise

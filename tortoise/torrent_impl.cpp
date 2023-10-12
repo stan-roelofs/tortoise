@@ -50,7 +50,7 @@ namespace tortoise
         auto it = peers_.begin();
         while (it != peers_.end())
         {
-            if (it->Finished())
+            if (!it->Process())
             {
                 const auto &info = it->GetInfo();
                 LOG("Torrent", "Peer %s %u finished", info.ip.c_str(), info.port);
@@ -59,7 +59,6 @@ namespace tortoise
                 continue;
             }
 
-            it->Process();
             ++it;
         }
     }

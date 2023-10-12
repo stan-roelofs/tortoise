@@ -122,8 +122,6 @@ namespace tortoise
             // TODO
         }
 
-        LOG("TrackerManager", "Tracker interval: %llu seconds", tracker_interval_seconds_);
-
         last_tracker_contact_ = std::chrono::steady_clock::now();
         return true;
     }

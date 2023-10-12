@@ -10,7 +10,7 @@
 
 namespace tortoise
 {
-    Socket::Socket(TransportProtocol protocol) : protocol_(protocol), internet_protocol_(InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE)
+    Socket::Socket(network::TransportProtocol protocol) : protocol_(protocol), internet_protocol_(network::InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE)
     {
 #ifdef _WIN32
         WSADATA wsaData;
@@ -56,10 +56,10 @@ namespace tortoise
 
         switch (protocol_)
         {
-        case TransportProtocol::TCP:
+        case network::TransportProtocol::TCP:
             hints.ai_socktype = SOCK_STREAM;
             break;
-        case TransportProtocol::UDP:
+        case network::TransportProtocol::UDP:
             hints.ai_socktype = SOCK_DGRAM;
             break;
         }
@@ -111,17 +111,17 @@ namespace tortoise
             switch (ptr->ai_addr->sa_family)
             {
             case AF_INET:
-                internet_protocol_ = InternetProtocol::IPv4;
+                internet_protocol_ = network::InternetProtocol::IPv4;
                 break;
             case AF_INET6:
-                internet_protocol_ = InternetProtocol::IPv6;
+                internet_protocol_ = network::InternetProtocol::IPv6;
                 break;
             default:
-                internet_protocol_ = InternetProtocol::Unknown;
+                internet_protocol_ = network::InternetProtocol::Unknown;
             }
         }
 
-        return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != InternetProtocol::Unknown;
+        return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != network::InternetProtocol::Unknown;
     }
 
     Socket::Result Socket::Send(const void *data, int &length)
@@ -192,7 +192,7 @@ namespace tortoise
 #ifdef _WIN32
                 WSAGetLastError();
 #else
-                code;
+                errno;
 #endif
             (void)code;
             LOG("Socket", "getsockopt failed: %i", code);
@@ -208,12 +208,12 @@ namespace tortoise
         return (error == 0) ? Status::Connected : Status::Error;
     }
 
-    Socket::TransportProtocol Socket::GetTransportProtocol() const
+    network::TransportProtocol Socket::GetTransportProtocol() const
     {
         return protocol_;
     }
 
-    Socket::InternetProtocol Socket::GetInternetProtocol() const
+    network::InternetProtocol Socket::GetInternetProtocol() const
     {
         return internet_protocol_;
     }
@@ -262,40 +262,4 @@ namespace tortoise
         return fcntl(socket_, F_SETFL, flags) == 0;
 #endif
     }
-
-#define htonll(x) ((1 == htonl(1)) ? (x) : ((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
-#define ntohll(x) ((1 == ntohl(1)) ? (x) : ((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
-
-    std::uint64_t Socket::ToNetworkByteOrder(std::uint64_t value)
-    {
-        return htonll(value);
-    }
-
-    std::uint64_t Socket::FromNetworkByteOrder(std::uint64_t value)
-    {
-        return ntohll(value);
-    }
-
-    std::uint32_t Socket::ToNetworkByteOrder(std::uint32_t value)
-    {
-        return htonl(value);
-    }
-
-    std::uint32_t Socket::FromNetworkByteOrder(std::uint32_t value)
-    {
-        return ntohl(value);
-    }
-
-    std::uint16_t Socket::ToNetworkByteOrder(std::uint16_t value)
-    {
-        return htons(value);
-    }
-
-    std::uint16_t Socket::FromNetworkByteOrder(std::uint16_t value)
-    {
-        return ntohs(value);
-    }
-
-#undef htonll
-#undef ntohll
 } // namespace tortoise
