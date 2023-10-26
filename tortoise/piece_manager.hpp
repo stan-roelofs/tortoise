@@ -13,6 +13,8 @@ namespace tortoise
         PieceManager(std::size_t piece_count);
         ~PieceManager();
 
+        std::uint32_t GetNextPiece();
+
     private:
         struct Piece
         {

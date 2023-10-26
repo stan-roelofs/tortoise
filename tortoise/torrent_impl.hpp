@@ -22,14 +22,14 @@ namespace tortoise
         void Process();
 
     private:
+        bool AddPeer(const PeerInfo &peer_info);
         void ProcessPeers();
-
         AnnounceParameters GetTrackerRequest();
-        TorrentParameters parameters_;
+
+        std::shared_ptr<Metainfo> metainfo_;
         const PeerId peer_id_;
         TrackerManager tracker_manager_;
         PieceManager piece_manager_;
-
         std::list<PeerInfo> peer_queue_;
         std::list<Peer> peers_;
     };
