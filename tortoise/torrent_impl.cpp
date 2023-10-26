@@ -67,6 +67,7 @@ namespace tortoise
             if (!it->Process())
             {
                 const auto &info = it->GetPeerInfo();
+                (void)info;
                 LOG("Torrent", "Peer %s %u finished", info.ip.c_str(), info.port);
 
                 it = peers_.erase(it);

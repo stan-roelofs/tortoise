@@ -97,14 +97,14 @@ namespace tortoise
     Peer::Peer(const PeerInfo &peer_info, std::shared_ptr<Metainfo> metainfo, PeerId peer_id, Callbacks callbacks) : peer_info_(peer_info),
                                                                                                                      metainfo_(std::move(metainfo)),
                                                                                                                      own_peer_id_(std::move(peer_id)),
-                                                                                                                     state_(State::Connecting),
-                                                                                                                     socket_(network::TransportProtocol::TCP),
                                                                                                                      callbacks_(callbacks),
                                                                                                                      am_choking_(true),
                                                                                                                      am_interested_(false),
                                                                                                                      peer_choking_(false),
                                                                                                                      peer_interested_(false),
-                                                                                                                     can_receive_bitfield_(true)
+                                                                                                                     can_receive_bitfield_(true),
+                                                                                                                     state_(State::Connecting),
+                                                                                                                     socket_(network::TransportProtocol::TCP)
 
     {
         if (!metainfo_)
@@ -270,6 +270,7 @@ namespace tortoise
     void Peer::Error(const std::string &reason)
     {
         LOG("Peer", "%s", reason.c_str());
+        (void)reason;
         state_ = State::Finished;
     }
 

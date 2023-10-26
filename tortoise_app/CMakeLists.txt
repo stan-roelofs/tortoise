@@ -12,3 +12,10 @@ set(SOURCES
 
 add_executable(tortoise_app ${HEADERS} ${SOURCES})
 target_link_libraries(tortoise_app PRIVATE tortoise)
+
+if (WIN32)
+  target_link_libraries(tortoise_app PRIVATE PDCurses)
+else()
+  find_package(Curses REQUIRED)
+  target_link_libraries(tortoise_app PRIVATE ncurses)
+endif()

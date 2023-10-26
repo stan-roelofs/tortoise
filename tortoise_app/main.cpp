@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <curses.h>
+
 #include <tortoise/load_torrent.hpp>
 #include <tortoise/metainfo.hpp>
 #include <tortoise/session.hpp>
@@ -59,18 +61,49 @@ int main(int argc, const char *argv[])
     return EXIT_FAILURE;
   }
 
-  std::cout << "Torrent added" << std::endl;
-  std::cout << "  Name: " << metainfo->name << std::endl;
-  std::cout << "  Creation date: " << metainfo->creation_date << std::endl;
-  std::cout << "  Comment: " << metainfo->comment << std::endl;
-  std::cout << "  Created by: " << metainfo->created_by << std::endl;
-  std::cout << "  Encoding: " << metainfo->encoding << std::endl;
-  std::cout << "  Piece length: " << metainfo->piece_length << std::endl;
+  initscr();
+  cbreak();
+  noecho();
+  nodelay(stdscr, TRUE);
+  keypad(stdscr, TRUE);
 
-  while (true)
+  waddstr(stdscr, "Torrent added\n");
+  waddstr(stdscr, "  Name: ");
+  waddstr(stdscr, metainfo->name.c_str());
+  waddstr(stdscr, "\n");
+  waddstr(stdscr, "  Creation date: ");
+  waddstr(stdscr, std::to_string(metainfo->creation_date).c_str());
+  waddstr(stdscr, "\n");
+  waddstr(stdscr, "  Comment: ");
+  waddstr(stdscr, metainfo->comment.c_str());
+  waddstr(stdscr, "\n");
+  waddstr(stdscr, "  Created by: ");
+  waddstr(stdscr, metainfo->created_by.c_str());
+  waddstr(stdscr, "\n");
+  waddstr(stdscr, "  Encoding: ");
+  waddstr(stdscr, metainfo->encoding.c_str());
+  waddstr(stdscr, "\n");
+  waddstr(stdscr, "  Piece length: ");
+  waddstr(stdscr, std::to_string(metainfo->piece_length).c_str());
+  wrefresh(stdscr);
+
+  int ch;
+  bool quit = false;
+  while (!quit)
   {
+    if ((ch = getch()) != ERR)
+    {
+      switch (ch)
+      {
+      case 'q':
+        quit = true;
+        break;
+      }
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+
+  endwin();
 
   return EXIT_SUCCESS;
 }

@@ -111,7 +111,10 @@ namespace tortoise
         LOG("TrackerManager", "Request succeeded");
         LOG("TrackerManager", "Peers:");
         for (const auto &peer : result.response->peers)
+        {
+            (void)peer;
             LOG("TrackerManager", "  %s:%d", peer.ip.c_str(), peer.port);
+        }
 
         peers_ = result.response->peers;
 

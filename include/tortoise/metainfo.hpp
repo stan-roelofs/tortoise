@@ -1,6 +1,7 @@
 #ifndef TORTOISE_METADATA_HPP
 #define TORTOISE_METADATA_HPP
 
+#include <string>
 #include <vector>
 
 #include "sha1_hash.hpp"
