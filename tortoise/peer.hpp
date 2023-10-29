@@ -19,6 +19,7 @@ namespace tortoise
     public:
         struct Callbacks
         {
+            std::function<void(Peer &)> on_connect;                                                                  // Called when the peer connects.
             std::function<void(Peer &)> on_choke;                                                                    // Called when the peer chokes this client.
             std::function<void(Peer &)> on_unchoke;                                                                  // Called when the peer unchokes this client.
             std::function<void(Peer &)> on_interested;                                                               // Called when the peer is interested in this client.

@@ -9,6 +9,7 @@ option(TORTOISE_BUILD_APP "Build application" ON)
 option(TORTOISE_BUILD_TESTS "Build tests" ON)
 
 set (HEADERS
+  include/tortoise/event.hpp
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/load_torrent.hpp
@@ -19,11 +20,13 @@ set (HEADERS
   include/tortoise/version.hpp
 
   tortoise/bencode.hpp
+  tortoise/event_queue.hpp
   tortoise/ip_address.hpp
   tortoise/peer.hpp
   tortoise/peer_id.hpp
   tortoise/http_tracker_connection.hpp
   tortoise/network.hpp
+  tortoise/peer_info.hpp
   tortoise/piece_manager.hpp
   tortoise/tracker_announce.hpp
   tortoise/tracker_connection.hpp
@@ -39,6 +42,7 @@ set (HEADERS
 
 set(SOURCES
   tortoise/bencode.cpp
+  tortoise/event_queue.cpp
   tortoise/ip_address.cpp
   tortoise/load_torrent.cpp
   tortoise/peer.cpp

@@ -44,6 +44,8 @@ int main(int argc, const char *argv[])
   }
 
   tortoise::Session::Parameters params;
+  params.event_mask.set(); // Set all events
+
   tortoise::Session session(params);
   auto metainfo = tortoise::LoadTorrent(argv[arg]);
   if (!metainfo)
@@ -67,25 +69,26 @@ int main(int argc, const char *argv[])
   nodelay(stdscr, TRUE);
   keypad(stdscr, TRUE);
 
-  waddstr(stdscr, "Torrent added\n");
-  waddstr(stdscr, "  Name: ");
-  waddstr(stdscr, metainfo->name.c_str());
-  waddstr(stdscr, "\n");
-  waddstr(stdscr, "  Creation date: ");
-  waddstr(stdscr, std::to_string(metainfo->creation_date).c_str());
-  waddstr(stdscr, "\n");
-  waddstr(stdscr, "  Comment: ");
-  waddstr(stdscr, metainfo->comment.c_str());
-  waddstr(stdscr, "\n");
-  waddstr(stdscr, "  Created by: ");
-  waddstr(stdscr, metainfo->created_by.c_str());
-  waddstr(stdscr, "\n");
-  waddstr(stdscr, "  Encoding: ");
-  waddstr(stdscr, metainfo->encoding.c_str());
-  waddstr(stdscr, "\n");
-  waddstr(stdscr, "  Piece length: ");
-  waddstr(stdscr, std::to_string(metainfo->piece_length).c_str());
-  wrefresh(stdscr);
+  tortoise::EventCallbacks callbacks;
+  callbacks.torrent_added = [](tortoise::TorrentHandle torrent)
+  {
+    waddstr(stdscr, "Torrent added\n");
+  };
+  callbacks.peer_status_changed = [](tortoise::TorrentHandle torrent, const std::string &ip, std::uint16_t port, tortoise::PeerStatus status)
+  {
+    switch (status)
+    {
+    case tortoise::PeerStatus::Connecting:
+      waddstr(stdscr, std::string("Peer connecting: " + ip + ":" + std::to_string(port) + "\n").c_str());
+      break;
+    case tortoise::PeerStatus::Connected:
+      waddstr(stdscr, std::string("Peer connected: " + ip + ":" + std::to_string(port) + "\n").c_str());
+      break;
+    case tortoise::PeerStatus::Disconnected:
+      waddstr(stdscr, std::string("Peer disconnected: " + ip + ":" + std::to_string(port) + "\n").c_str());
+      break;
+    }
+  };
 
   int ch;
   bool quit = false;
@@ -100,6 +103,10 @@ int main(int argc, const char *argv[])
         break;
       }
     }
+
+    session.PopEvents(callbacks);
+    wrefresh(stdscr);
+
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 

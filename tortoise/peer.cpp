@@ -179,6 +179,8 @@ namespace tortoise
             LOG("Peer", "Successfully handshaked with peer %s", peer_info_.ip.c_str());
 
             ShiftBuffer(protocol::handshake_size);
+            if (callbacks_.on_connect)
+                callbacks_.on_connect(*this);
             state_ = State::Connected;
         }
 

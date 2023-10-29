@@ -1,5 +1,6 @@
 #include <tortoise/session.hpp>
 
+#include "event_queue.hpp"
 #include "torrent_impl.hpp"
 
 namespace tortoise
@@ -7,7 +8,7 @@ namespace tortoise
     class Session::Implementation
     {
     public:
-        Implementation(Parameters &parameters) : running_(false)
+        Implementation(Parameters &parameters) : running_(false), event_queue_(parameters.event_mask)
         {
             if (parameters.start)
                 Start();
@@ -23,12 +24,19 @@ namespace tortoise
             // if (params.save_path.empty())
             //  TODO get default path from settings
 
-            auto torrent = std::make_shared<Torrent>(parameters);
+            // TODO check if torrent already exists
+
+            auto torrent = std::make_shared<Torrent>(parameters, event_queue_);
             {
                 std::lock_guard lock(mutex_);
                 torrents_.push_back(torrent);
             }
-            return TorrentHandle(torrent);
+
+            TorrentHandle handle(torrent);
+            if (event_queue_.EventEnabled(EventType::TorrentAdded))
+                event_queue_.PushEvent(std::make_unique<TorrentAddedEvent>(handle));
+
+            return handle;
         }
 
         void RemoveTorrent(TorrentHandle handle)
@@ -66,6 +74,28 @@ namespace tortoise
                 thread_.join();
         }
 
+        void PopEvents(const EventCallbacks &callbacks)
+        {
+            auto events = event_queue_.PopEvents();
+
+            for (auto &event : events)
+            {
+                Event *e = event.get();
+
+                // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
+                if (auto *added_event = dynamic_cast<TorrentAddedEvent *>(e))
+                {
+                    if (callbacks.torrent_added)
+                        callbacks.torrent_added(added_event->torrent);
+                }
+                else if (auto *peer_status_event = dynamic_cast<PeerStatusChangedEvent *>(e))
+                {
+                    if (callbacks.peer_status_changed)
+                        callbacks.peer_status_changed(peer_status_event->torrent, peer_status_event->ip, peer_status_event->port, peer_status_event->status);
+                }
+            }
+        }
+
     private:
         static void ThreadFunc(Implementation &session)
         {
@@ -89,6 +119,7 @@ namespace tortoise
         std::vector<std::shared_ptr<Torrent>> torrents_;
         std::thread thread_;
         std::mutex mutex_;
+        EventQueue event_queue_;
     };
 
     Session::Session(Parameters parameters) : implementation_(std::make_unique<Implementation>(parameters))
@@ -115,5 +146,10 @@ namespace tortoise
     void Session::Stop()
     {
         implementation_->Stop();
+    }
+
+    void Session::PopEvents(const EventCallbacks &callbacks)
+    {
+        implementation_->PopEvents(callbacks);
     }
 }

@@ -6,6 +6,7 @@
 #include <thread>
 #include <vector>
 
+#include "event.hpp"
 #include "torrent.hpp"
 
 namespace tortoise
@@ -21,7 +22,8 @@ namespace tortoise
     public:
         struct Parameters
         {
-            bool start = true; // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
+            bool start = true;       // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
+            event_bitset event_mask; // Determines which events will be generated.
         };
 
         Session(Parameters parameters);
@@ -43,6 +45,11 @@ namespace tortoise
 
         //! \brief Stops the session.
         void Stop();
+
+        /*! \brief Pop all events and process them using the given callbacks. Note that only events that are enabled in the session will be generated.
+         *  \param callbacks A struct containing callbacks for each event.
+         */
+        void PopEvents(const EventCallbacks &callbacks);
 
         // Disable copy and move.
         Session(const Session &) = delete;
