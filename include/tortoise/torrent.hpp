@@ -17,25 +17,12 @@ namespace tortoise
     public:
         TorrentHandle(const std::shared_ptr<const Torrent> &ptr) : ptr_(ptr) {}
 
-        bool IsValid() const
-        {
-            return !ptr_.expired();
-        }
+        Metainfo GetMetainfo() const;
 
-        operator bool() const
-        {
-            return IsValid();
-        }
-
-        bool operator==(const TorrentHandle &other) const
-        {
-            return ptr_.lock() == other.ptr_.lock();
-        }
-
-        bool operator!=(const TorrentHandle &other) const
-        {
-            return !(*this == other);
-        }
+        bool IsValid() const;
+        operator bool() const;
+        bool operator==(const TorrentHandle &other) const;
+        bool operator!=(const TorrentHandle &other) const;
 
     private:
         std::weak_ptr<const Torrent> ptr_;

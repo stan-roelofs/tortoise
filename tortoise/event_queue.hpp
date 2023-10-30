@@ -9,6 +9,12 @@
 
 namespace tortoise
 {
+    enum class EventType
+    {
+        TorrentAdded,
+        PeerStatusChanged,
+    };
+
     class Event
     {
     public:
@@ -37,17 +43,19 @@ namespace tortoise
     class EventQueue
     {
     public:
-        EventQueue(event_bitset enabled_events);
+        EventQueue(const EventCallbacks &callbacks);
         ~EventQueue();
 
         bool EventEnabled(EventType type) const;
+
         void PushEvent(std::unique_ptr<Event> event);
-        std::vector<std::unique_ptr<Event>> PopEvents();
+
+        void HandleEvents();
 
     private:
         std::mutex mutex_;
         std::vector<std::unique_ptr<Event>> events_;
-        event_bitset enabled_events_;
+        EventCallbacks callbacks_;
     };
 }
 

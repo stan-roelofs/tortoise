@@ -3,12 +3,17 @@
 #include "event_queue.hpp"
 #include "torrent_impl.hpp"
 
+namespace
+{
+
+}
+
 namespace tortoise
 {
     class Session::Implementation
     {
     public:
-        Implementation(Parameters &parameters) : running_(false), event_queue_(parameters.event_mask)
+        Implementation(Parameters &parameters) : running_(false), event_queue_(parameters.callbacks)
         {
             if (parameters.start)
                 Start();
@@ -74,26 +79,9 @@ namespace tortoise
                 thread_.join();
         }
 
-        void PopEvents(const EventCallbacks &callbacks)
+        void HandleEvents()
         {
-            auto events = event_queue_.PopEvents();
-
-            for (auto &event : events)
-            {
-                Event *e = event.get();
-
-                // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
-                if (auto *added_event = dynamic_cast<TorrentAddedEvent *>(e))
-                {
-                    if (callbacks.torrent_added)
-                        callbacks.torrent_added(added_event->torrent);
-                }
-                else if (auto *peer_status_event = dynamic_cast<PeerStatusChangedEvent *>(e))
-                {
-                    if (callbacks.peer_status_changed)
-                        callbacks.peer_status_changed(peer_status_event->torrent, peer_status_event->ip, peer_status_event->port, peer_status_event->status);
-                }
-            }
+            event_queue_.HandleEvents();
         }
 
     private:
@@ -148,8 +136,8 @@ namespace tortoise
         implementation_->Stop();
     }
 
-    void Session::PopEvents(const EventCallbacks &callbacks)
+    void Session::HandleEvents()
     {
-        implementation_->PopEvents(callbacks);
+        implementation_->HandleEvents();
     }
 }

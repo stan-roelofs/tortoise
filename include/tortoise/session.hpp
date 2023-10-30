@@ -22,8 +22,8 @@ namespace tortoise
     public:
         struct Parameters
         {
-            bool start = true;       // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
-            event_bitset event_mask; // Determines which events will be generated.
+            bool start = true;        // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
+            EventCallbacks callbacks; // Callbacks to be executed when handling events.
         };
 
         Session(Parameters parameters);
@@ -46,10 +46,10 @@ namespace tortoise
         //! \brief Stops the session.
         void Stop();
 
-        /*! \brief Pop all events and process them using the given callbacks. Note that only events that are enabled in the session will be generated.
-         *  \param callbacks A struct containing callbacks for each event.
+        /*! \brief Pop all events and process them using the given callbacks, this function is expected to be called regularly.
+         *  Note that only events that are enabled in the session will be generated.
          */
-        void PopEvents(const EventCallbacks &callbacks);
+        void HandleEvents();
 
         // Disable copy and move.
         Session(const Session &) = delete;

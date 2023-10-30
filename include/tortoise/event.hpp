@@ -10,14 +10,6 @@
 
 namespace tortoise
 {
-    using event_bitset = std::bitset<64>;
-
-    enum class EventType
-    {
-        TorrentAdded,
-        PeerStatusChanged,
-    };
-
     enum class PeerStatus
     {
         Connecting,
@@ -28,7 +20,6 @@ namespace tortoise
     struct EventCallbacks
     {
         std::function<void(TorrentHandle torrent)> torrent_added;
-
         std::function<void(TorrentHandle torrent, const std::string &ip, uint16_t port, PeerStatus status)> peer_status_changed;
     };
 

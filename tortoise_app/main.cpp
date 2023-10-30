@@ -3,12 +3,7 @@
 #include <string>
 #include <vector>
 
-#include <curses.h>
-
-#include <tortoise/load_torrent.hpp>
-#include <tortoise/metainfo.hpp>
-#include <tortoise/session.hpp>
-#include <tortoise/torrent.hpp>
+#include "app.hpp"
 
 static int usage(const char *argv[])
 {
@@ -43,74 +38,14 @@ int main(int argc, const char *argv[])
     return usage(argv);
   }
 
-  tortoise::Session::Parameters params;
-  params.event_mask.set(); // Set all events
+  Application::CommandLineArguments args;
+  args.torrent_file = argv[arg];
 
-  tortoise::Session session(params);
-  auto metainfo = tortoise::LoadTorrent(argv[arg]);
-  if (!metainfo)
+  int result = 0;
   {
-    std::cout << "Failed to load torrent file: " << argv[arg] << std::endl;
-    return EXIT_FAILURE;
+    auto app = std::make_unique<Application>(args);
+    result = app->Run();
   }
 
-  tortoise::TorrentParameters torrent_params(*metainfo);
-  torrent_params.save_path = ".";
-  auto handle = session.AddTorrent(torrent_params);
-  if (!handle)
-  {
-    std::cout << "Failed to add torrent" << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  initscr();
-  cbreak();
-  noecho();
-  nodelay(stdscr, TRUE);
-  keypad(stdscr, TRUE);
-
-  tortoise::EventCallbacks callbacks;
-  callbacks.torrent_added = [](tortoise::TorrentHandle torrent)
-  {
-    waddstr(stdscr, "Torrent added\n");
-  };
-  callbacks.peer_status_changed = [](tortoise::TorrentHandle torrent, const std::string &ip, std::uint16_t port, tortoise::PeerStatus status)
-  {
-    switch (status)
-    {
-    case tortoise::PeerStatus::Connecting:
-      waddstr(stdscr, std::string("Peer connecting: " + ip + ":" + std::to_string(port) + "\n").c_str());
-      break;
-    case tortoise::PeerStatus::Connected:
-      waddstr(stdscr, std::string("Peer connected: " + ip + ":" + std::to_string(port) + "\n").c_str());
-      break;
-    case tortoise::PeerStatus::Disconnected:
-      waddstr(stdscr, std::string("Peer disconnected: " + ip + ":" + std::to_string(port) + "\n").c_str());
-      break;
-    }
-  };
-
-  int ch;
-  bool quit = false;
-  while (!quit)
-  {
-    if ((ch = getch()) != ERR)
-    {
-      switch (ch)
-      {
-      case 'q':
-        quit = true;
-        break;
-      }
-    }
-
-    session.PopEvents(callbacks);
-    wrefresh(stdscr);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-
-  endwin();
-
-  return EXIT_SUCCESS;
+  return result;
 }

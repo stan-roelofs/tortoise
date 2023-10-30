@@ -4,9 +4,11 @@ set(CMAKE_CXX_STANDARD 17)
 project(tortoise)
 
 set(HEADERS
+  app.hpp
 )
 
 set(SOURCES
+  app.cpp
   main.cpp
 )
 

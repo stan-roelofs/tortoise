@@ -11,6 +11,34 @@ namespace
 
 namespace tortoise
 {
+    bool TorrentHandle::IsValid() const
+    {
+        return !ptr_.expired();
+    }
+
+    Metainfo TorrentHandle::GetMetainfo() const
+    {
+        if (!IsValid())
+            throw TorrentException("TorrentHandle is not valid");
+
+        return *ptr_.lock()->GetMetainfo();
+    }
+
+    TorrentHandle::operator bool() const
+    {
+        return IsValid();
+    }
+
+    bool TorrentHandle::operator==(const TorrentHandle &other) const
+    {
+        return ptr_.lock() == other.ptr_.lock();
+    }
+
+    bool TorrentHandle::operator!=(const TorrentHandle &other) const
+    {
+        return !(*this == other);
+    }
+
     Torrent::Torrent(const TorrentParameters &parameters, EventQueue &event_queue) : event_queue_(event_queue), metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
                                                                                      tracker_manager_(metainfo_->announce_list, std::bind(&Torrent::GetTrackerRequest, this)),
                                                                                      piece_manager_(metainfo_->pieces.size())
@@ -34,6 +62,11 @@ namespace tortoise
         }
 
         ProcessPeers();
+    }
+
+    std::shared_ptr<const Metainfo> Torrent::GetMetainfo() const
+    {
+        return metainfo_;
     }
 
     bool Torrent::AddPeer(const PeerInfo &peer_info)

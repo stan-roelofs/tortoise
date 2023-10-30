@@ -22,6 +22,8 @@ namespace tortoise
         //! \brief Handles all of the torrent's logic. Should be called periodically.
         void Process();
 
+        std::shared_ptr<const Metainfo> GetMetainfo() const;
+
     private:
         bool AddPeer(const PeerInfo &peer_info);
         void ProcessPeers();
