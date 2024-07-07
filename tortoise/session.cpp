@@ -1,20 +1,14 @@
 #include <tortoise/session.hpp>
 
-#include "event_queue.hpp"
-#include "torrent_impl.hpp"
+#include "torrent/torrent_impl.hpp"
 #include "tracker/tracker_manager.hpp"
-
-namespace
-{
-
-}
 
 namespace tortoise
 {
     class Session::Implementation
     {
     public:
-        Implementation(EventCallbacks callbacks) : event_queue_(callbacks)
+        Implementation(EventCallbacks callbacks) : callbacks_(callbacks)
         {
         }
 
@@ -29,17 +23,16 @@ namespace tortoise
 
             // TODO check if torrent already exists
 
-            auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
+            TorrentData new_torrent;
+            new_torrent.event_queue = std::make_unique<EventQueue>(callbacks_);
+            auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, *new_torrent.event_queue);
+            new_torrent.torrent = torrent;
             {
                 std::lock_guard lock(mutex_);
-                torrents_.push_back(torrent);
+                torrents_.push_back(std::move(new_torrent));
             }
 
-            TorrentHandle handle(torrent);
-            if (event_queue_.EventEnabled(EventType::TorrentAdded))
-                event_queue_.PushEvent(std::make_unique<TorrentAddedEvent>(handle));
-
-            return handle;
+            return torrent;
         }
 
         void RemoveTorrent(TorrentHandle handle)
@@ -48,22 +41,46 @@ namespace tortoise
                 return;
 
             std::lock_guard lock(mutex_);
-            auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const std::shared_ptr<Torrent> &torrent)
-                                   { return TorrentHandle(torrent) == handle; });
+            auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const TorrentData &torrent)
+                                   { return TorrentHandle(torrent.torrent) == handle; });
             if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
                 torrents_.erase(it);
         }
 
         void HandleEvents()
         {
-            event_queue_.HandleEvents();
+            std::lock_guard guard(mutex_);
+            for (auto &torrent : torrents_)
+            {
+                std::vector<std::unique_ptr<Event>> events = torrent.event_queue->PopEvents();
+
+                for (auto &event : events)
+                {
+                    Event *e = event.get();
+
+                    // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
+                    if (auto *added_event = dynamic_cast<TorrentAddedEvent *>(e))
+                    {
+                        callbacks_.torrent_added(torrent.torrent);
+                    }
+                    else if (auto *peer_status_event = dynamic_cast<PeerStatusChangedEvent *>(e))
+                    {
+                        callbacks_.peer_status_changed(torrent.torrent, peer_status_event->ip, peer_status_event->port, peer_status_event->status);
+                    }
+                }
+            }
         }
 
     private:
-        std::vector<std::shared_ptr<Torrent>> torrents_;
-        TrackerManager tracker_manager_;
+        struct TorrentData
+        {
+            std::unique_ptr<EventQueue> event_queue;
+            std::shared_ptr<Torrent> torrent;
+        };
+        std::vector<TorrentData> torrents_;
+        tracker::Manager tracker_manager_;
         std::mutex mutex_;
-        EventQueue event_queue_;
+        EventCallbacks callbacks_;
     };
 
     Session::Session(EventCallbacks callbacks) : implementation_(std::make_unique<Implementation>(callbacks))

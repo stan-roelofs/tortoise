@@ -1,10 +1,9 @@
 #ifndef TORTOISE_METADATA_HPP
 #define TORTOISE_METADATA_HPP
 
+#include <array>
 #include <string>
 #include <vector>
-
-#include "sha1_hash.hpp"
 
 namespace tortoise
 {
@@ -16,7 +15,7 @@ namespace tortoise
         std::vector<std::vector<std::string>> announce_list;
 
         //! \brief The SHA1 hash of the bencoded value of the info key.
-        SHA1Hash info_hash;
+        std::array<std::uint8_t, 20> info_hash;
 
         //! \brief (optional) The creation time of the torrent, in standard UNIX epoch format.
         uint64_t creation_date;

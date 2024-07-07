@@ -1,4 +1,4 @@
-#include "peer.hpp"
+#include "peer_connection.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -7,9 +7,8 @@
 
 #include <tortoise/exceptions.hpp>
 #include <tortoise/metainfo.hpp>
-#include <tortoise/sha1_hash.hpp>
 
-#include "log.hpp"
+#include "../util/log.hpp"
 #include "peer_id.hpp"
 
 namespace
@@ -55,7 +54,7 @@ namespace tortoise
         return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
     }
 
-    static void CreateHandshake(ByteVector &buffer, SHA1Hash info_hash, PeerId peer_id)
+    static void CreateHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
     {
         // handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
         const auto start_size = buffer.size();
@@ -63,33 +62,31 @@ namespace tortoise
         util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
         constexpr std::uint8_t reserved[8] = {0};
         util::Write(buffer, reserved, 8);
-        const auto hash = info_hash.GetBytes();
-        assert(hash.size() == 20);
-        util::Write(buffer, hash.data(), hash.size());
+        util::Write(buffer, info_hash.data(), info_hash.size());
         const auto peer = peer_id.Get();
         assert(peer.size() == 20);
         util::Write(buffer, peer.data(), peer.size());
         assert(buffer.size() - start_size == protocol::handshake_size);
     }
 
-    static bool ParseHandshake(ByteVector &buffer, SHA1Hash &info_hash, PeerId &peer_id)
+    static bool ParseHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> &info_hash, PeerId &peer_id)
     {
         if (buffer.size() < protocol::handshake_size)
             return false;
 
         if (buffer[0] != protocol::protocol_string_size)
         {
-            LOG("Peer", "Invalid protocol string size: %d", buffer[0]);
+            LOG("PeerConnection", "Invalid protocol string size: %d", buffer[0]);
             return false;
         }
 
         if (memcmp(&buffer[1], protocol::protocol_string, protocol::protocol_string_size) != 0)
         {
-            LOG("Peer", "Invalid protocol string");
+            LOG("PeerConnection", "Invalid protocol string");
             return false;
         }
 
-        info_hash = SHA1Hash(&buffer[28]);
+        std::copy(&buffer[28], &buffer[28] + 20, info_hash.begin());
         std::string peer_id_str(&buffer[48], &buffer[48] + 20);
         peer_id = PeerId::FromString(peer_id_str);
         return true;
@@ -97,47 +94,97 @@ namespace tortoise
 
     // TODO: while handshaking make sure we don't connect to ourselves!
 
-    Peer::Peer(PieceManager &piece_manager, const PeerInfo &peer_info, std::shared_ptr<Metainfo> metainfo, PeerId peer_id) : piece_manager_(piece_manager),
-                                                                                                                             peer_info_(peer_info),
-                                                                                                                             metainfo_(std::move(metainfo)),
-                                                                                                                             own_peer_id_(std::move(peer_id)),
-                                                                                                                             nr_blocks_requested_(0),
-                                                                                                                             am_choking_(true),
-                                                                                                                             am_interested_(false),
-                                                                                                                             peer_choking_(false),
-                                                                                                                             peer_interested_(false),
-                                                                                                                             can_receive_bitfield_(true),
-                                                                                                                             state_(State::Connecting),
-                                                                                                                             socket_(network::TransportProtocol::TCP)
-
+    PeerConnection::PeerConnection(const PeerInfo &peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, EventQueue &event_queue)
+        : peer_info_(peer_info),
+          metainfo_(std::move(metainfo)),
+          own_peer_id_(std::move(peer_id)),
+          event_queue_(event_queue),
+          nr_blocks_requested_(0),
+          am_choking_(true),
+          am_interested_(false),
+          peer_choking_(false),
+          peer_interested_(false),
+          can_receive_bitfield_(true),
+          status_(Status::Finished),
+          socket_(network::TransportProtocol::TCP)
     {
         if (!metainfo_)
             throw InvalidArgumentException("Metainfo is null.");
 
-        if (!socket_.Connect(peer_info_.ip, std::to_string(peer_info_.port)))
-            state_ = State::Finished;
+        thread_ = std::thread(&PeerConnection::Run, std::ref(*this));
 
         SetTimeout(connect_timeout);
     }
 
-    Peer::~Peer()
+    PeerConnection::~PeerConnection()
     {
-        LOG("Peer", "Peer %s destroyed", peer_info_.ip.c_str());
+        LOG("PeerConnection", "PeerConnection %s destroyed", peer_info_.ip.c_str());
+
+        {
+            std::lock_guard guard(mutex_);
+            SetStatus(Status::Finished);
+        }
+
+        if (thread_.joinable())
+            thread_.join();
     }
 
-    bool Peer::Process()
+    void PeerConnection::SetStatus(PeerConnection::Status status)
     {
-        if (state_ == State::Finished)
+        std::lock_guard guard(mutex_);
+
+        if (status_ != status)
+        {
+            status_ = status;
+            if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
+            {
+                switch (status_)
+                {
+                case Status::Connecting:
+                    event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info_.ip, peer_info_.port, PeerStatus::Connecting));
+                    break;
+                case Status::Connected:
+                    event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info_.ip, peer_info_.port, PeerStatus::Connected));
+                    break;
+                case Status::Finished:
+                    event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info_.ip, peer_info_.port, PeerStatus::Disconnected));
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    void PeerConnection::Run()
+    {
+        SetStatus(Status::Connecting);
+
+        LOG("PeerConnection", "Connecting to peer %s:%d", peer_info_.ip.c_str(), peer_info_.port);
+        if (!socket_.Connect(peer_info_.ip, std::to_string(peer_info_.port)))
+        {
+            LOG("PeerConnection", "Error connecting to peer %s:%d", peer_info_.ip.c_str(), peer_info_.port);
+            SetStatus(Status::Finished);
+            return;
+        }
+
+        while (GetStatus() != Status::Finished)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            Process();
+        }
+    }
+
+    bool PeerConnection::Process()
+    {
+        if (status_ == Status::Finished)
             return false; // We are done
 
         if (CheckTimeout())
             return false;
 
-        if (state_ == State::Connecting && !Connect())
+        if (status_ == Status::Connecting && !Connect())
             return true; // We are still connecting
-
-        if (state_ == State::Connected)
-            MakeRequests();
 
         if (!Send())
         {
@@ -153,46 +200,27 @@ namespace tortoise
         return HandleMessages();
     }
 
-    const PeerInfo &Peer::GetPeerInfo() const
+    PeerConnection::Status PeerConnection::GetStatus() const
     {
+        std::lock_guard guard(mutex_);
+        return status_;
+    }
+
+    const PeerInfo &PeerConnection::GetPeerInfo() const
+    {
+        std::lock_guard guard(mutex_);
         return peer_info_;
     }
 
-    void Peer::MakeRequests()
-    {
-        while (nr_blocks_requested_ < DESIRED_REQUESTS && !potential_blocks_to_request_.empty())
-        {
-            static std::random_device rd;
-            static std::mt19937 gen(rd());
-            std::uniform_int_distribution<std::size_t> dis(0, potential_blocks_to_request_.size());
-            auto index = dis(gen);
-
-            //const PieceBlock &block = potential_blocks_to_request_.at(index);
-            //if (piece_manager_.Needed(block))
-            //{
-             //   ++nr_blocks_requested_;
-                // TODO send request
-            //}
-
-            potential_blocks_to_request_.erase(potential_blocks_to_request_.begin() + index);
-        }
-
-       // if (!am_interested_ && nr_blocks_requested_ > 0)
-         //   SendInterested();
-
-        //if (am_interested_ && potential_blocks_to_request_.empty())
-         //   SendNotInterested();
-    }
-
     // Message handlers
-    bool Peer::HandleMessages()
+    bool PeerConnection::HandleMessages()
     {
-        if (state_ == State::Handshaking)
+        if (status_ == Status::Handshaking)
         {
             if (receive_buffer_.size() < protocol::handshake_size)
                 return true; // Not enough data, wait...
 
-            SHA1Hash info_hash;
+            std::array<std::uint8_t, 20> info_hash;
             PeerId peer_id;
             if (!ParseHandshake(receive_buffer_, info_hash, peer_id))
             {
@@ -209,14 +237,13 @@ namespace tortoise
                 Error(std::string("Received invalid peer id from peer ") + peer_info_.ip);
                 return false;
             }
-            LOG("Peer", "Successfully handshaked with peer %s", peer_info_.ip.c_str());
+            LOG("PeerConnection", "Successfully handshaked with peer %s", peer_info_.ip.c_str());
 
             ShiftBuffer(protocol::handshake_size);
-            state_ = State::Connected;
+            SetStatus(Status::Connected);
         }
 
-        assert(state_ == State::Connected);
-        if (state_ != State::Connected)
+        if (status_ != Status::Connected)
             return false;
 
         // Handle messages as long as there is a complete message in the buffer
@@ -292,7 +319,7 @@ namespace tortoise
         return true;
     }
 
-    void Peer::ShiftBuffer(std::size_t amount)
+    void PeerConnection::ShiftBuffer(std::size_t amount)
     {
         assert(amount <= receive_buffer_.size());
         if (amount > receive_buffer_.size())
@@ -300,17 +327,17 @@ namespace tortoise
         receive_buffer_.erase(receive_buffer_.begin(), receive_buffer_.begin() + amount);
     }
 
-    void Peer::Error(const std::string &reason)
+    void PeerConnection::Error(const std::string &reason)
     {
-        LOG("Peer", "%s", reason.c_str());
+        LOG("PeerConnection", "%s", reason.c_str());
         (void)reason;
-        state_ = State::Finished;
+        SetStatus(Status::Finished);
     }
 
-    bool Peer::Connect()
+    bool PeerConnection::Connect()
     {
-        assert(state_ == State::Connecting);
-        if (state_ != State::Connecting)
+        assert(status_ == Status::Connecting);
+        if (status_ != Status::Connecting)
             return false;
 
         switch (socket_.GetConnectionStatus())
@@ -320,9 +347,9 @@ namespace tortoise
         case Socket::Status::Connected:
         {
             SetTimeout(handshake_timeout);
-            state_ = State::Handshaking;
+            SetStatus(Status::Handshaking);
             CreateHandshake(send_buffer_, metainfo_->info_hash, own_peer_id_);
-            LOG("Peer", "Connected to peer %s", peer_info_.ip.c_str());
+            LOG("PeerConnection", "Connected to peer %s", peer_info_.ip.c_str());
             return true;
         }
         case Socket::Status::Error:
@@ -335,22 +362,22 @@ namespace tortoise
         return false; // Not reached
     }
 
-    void Peer::SetTimeout(std::chrono::seconds timeout)
+    void PeerConnection::SetTimeout(std::chrono::seconds timeout)
     {
         timeout_ = std::chrono::steady_clock::now() + timeout;
     }
 
-    bool Peer::CheckTimeout()
+    bool PeerConnection::CheckTimeout()
     {
         if (std::chrono::steady_clock::now() <= timeout_)
             return false;
 
-        LOG("Peer", "Peer %s timed out", peer_info_.ip.c_str());
-        state_ = State::Finished;
+        LOG("PeerConnection", "Peer %s timed out", peer_info_.ip.c_str());
+        SetStatus(Status::Finished);
         return true;
     }
 
-    bool Peer::Send()
+    bool PeerConnection::Send()
     {
         if (send_buffer_.empty())
             return true;
@@ -359,7 +386,7 @@ namespace tortoise
         switch (socket_.Send(send_buffer_.data(), length))
         {
         case Socket::Result::Ok:
-            LOG("Peer", "Sent %d bytes to peer %s", length, peer_info_.ip.c_str());
+            LOG("PeerConnection", "Sent %d bytes to peer %s", length, peer_info_.ip.c_str());
             send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
             return true;
         case Socket::Result::WouldBlock:
@@ -372,10 +399,7 @@ namespace tortoise
         return true;
     }
 
-    /*! \brief Receives data from the peer into the receive buffer.
-     * \returns Whether receiving was successful.
-     */
-    bool Peer::Receive()
+    bool PeerConnection::Receive()
     {
         int length = 1024;
         std::uint8_t chunk[1024];
@@ -384,7 +408,7 @@ namespace tortoise
         case Socket::Result::Ok:
             if (length != 0)
             {
-                LOG("Peer", "Received %d bytes from peer %s", length, peer_info_.ip.c_str());
+                LOG("PeerConnection", "Received %d bytes from peer %s", length, peer_info_.ip.c_str());
 
                 SetTimeout(keep_alive_timeout);
                 receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
@@ -399,31 +423,31 @@ namespace tortoise
         return true;
     }
 
-    void Peer::OnMessageChoke()
+    void PeerConnection::OnMessageChoke()
     {
-        LOG("Peer", "Peer %s choked us", peer_info_.ip.c_str());
+        LOG("PeerConnection", "Peer %s choked us", peer_info_.ip.c_str());
         peer_choking_ = true;
     }
 
-    void Peer::OnMessageUnchoke()
+    void PeerConnection::OnMessageUnchoke()
     {
-        LOG("Peer", "Peer %s unchoked us", peer_info_.ip.c_str());
+        LOG("PeerConnection", "Peer %s unchoked us", peer_info_.ip.c_str());
         peer_choking_ = false;
     }
 
-    void Peer::OnMessageInterested()
+    void PeerConnection::OnMessageInterested()
     {
-        LOG("Peer", "Peer %s is interested", peer_info_.ip.c_str());
+        LOG("PeerConnection", "Peer %s is interested", peer_info_.ip.c_str());
         peer_interested_ = true;
     }
 
-    void Peer::OnMessageNotInterested()
+    void PeerConnection::OnMessageNotInterested()
     {
-        LOG("Peer", "Peer %s is not interested", peer_info_.ip.c_str());
+        LOG("PeerConnection", "Peer %s is not interested", peer_info_.ip.c_str());
         peer_interested_ = false;
     }
 
-    void Peer::ScheduleBlocks(std::uint32_t)
+    void PeerConnection::ScheduleBlocks(std::uint32_t)
     {
         /*
         const std::uint32_t nr_blocks = PieceManager::NumberOfBlocksInPiece(*metainfo_, piece_index);
@@ -436,13 +460,13 @@ namespace tortoise
         }*/
     }
 
-    void Peer::OnMessageHave(std::uint32_t piece_index)
+    void PeerConnection::OnMessageHave(std::uint32_t piece_index)
     {
-        LOG("Peer", "Peer %s has piece %d", peer_info_.ip.c_str(), piece_index);
+        LOG("PeerConnection", "Peer %s has piece %d", peer_info_.ip.c_str(), piece_index);
         ScheduleBlocks(piece_index);
     }
 
-    void Peer::OnMessageBitfield(const ByteVector &bitfield)
+    void PeerConnection::OnMessageBitfield(const ByteVector &bitfield)
     {
         if (!can_receive_bitfield_)
             return;
@@ -454,7 +478,7 @@ namespace tortoise
             return;
         }
 
-        LOG("Peer", "Peer %s sent bitfield", peer_info_.ip.c_str());
+        LOG("PeerConnection", "Peer %s sent bitfield", peer_info_.ip.c_str());
 
         for (std::uint32_t byte = 0; byte < bitfield.size(); ++byte)
         {
@@ -469,23 +493,23 @@ namespace tortoise
         }
     }
 
-    void Peer::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
+    void PeerConnection::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
     {
-        LOG("Peer", "Peer %s requested piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
+        LOG("PeerConnection", "Peer %s requested piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
     }
 
-    void Peer::OnMessagePiece(std::uint32_t index, std::uint32_t begin, const ByteVector &piece)
+    void PeerConnection::OnMessagePiece(std::uint32_t index, std::uint32_t begin, const ByteVector &piece)
     {
-        LOG("Peer", "Peer %s sent piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, (uint32_t)piece.size());
+        LOG("PeerConnection", "Peer %s sent piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, (uint32_t)piece.size());
     }
 
-    void Peer::OnMessageCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
+    void PeerConnection::OnMessageCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
     {
-        LOG("Peer", "Peer %s cancelled request for piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
+        LOG("PeerConnection", "Peer %s cancelled request for piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
     }
 
-    void Peer::OnMessagePort(std::uint16_t port)
+    void PeerConnection::OnMessagePort(std::uint16_t port)
     {
-        LOG("Peer", "Peer %s sent port %d", peer_info_.ip.c_str(), port);
+        LOG("PeerConnection", "Peer %s sent port %d", peer_info_.ip.c_str(), port);
     }
 }

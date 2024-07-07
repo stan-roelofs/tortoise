@@ -1,42 +1,49 @@
-#ifndef TORTOISE_PEER_HPP
-#define TORTOISE_PEER_HPP
+#ifndef TORTOISE_PEER_CONNECTION_HPP
+#define TORTOISE_PEER_CONNECTION_HPP
 
 #include <chrono>
+#include <deque>
 #include <functional>
 #include <memory>
-#include <deque>
+#include <thread>
 
 #include <tortoise/metainfo.hpp>
 
 #include "peer_info.hpp"
 #include "piece_manager.hpp"
-#include "socket.hpp"
-#include "util.hpp"
+
+#include "event_queue.hpp"
+#include "../network/socket.hpp"
+#include "../util/util.hpp"
 
 namespace tortoise
 {
-    class Peer
+    class PeerConnection
     {
     public:
+        enum class Status
+        {
+            Connecting,
+            Connected,
+            Handshaking,
+            Finished
+        };
+
         /*!
          * \brief Creates a new peer.
-         * \param piece_manager Piece administration.
          * \param peer_info The peer info.
          * \param info_hash The info hash of the torrent, used for the handshake.
          * \param peer_id The peer id of this client, used for the handshake.
-         * \param callbacks The callbacks to be called on certain events.
+         * \param event_queue The event queue to send events to.
          */
-        Peer(PieceManager &piece_manager, const PeerInfo &peer_info, std::shared_ptr<Metainfo> metainfo, PeerId peer_id);
-        ~Peer();
+        PeerConnection(const PeerInfo &peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, EventQueue &event_queue);
+        ~PeerConnection();
 
-        /*! \brief Handles all of the peer's logic. Should be called periodically.
-         *  \return True if the peer is trying to connect or connected, false otherwise.
-         */
-        bool Process();
-
+        Status GetStatus() const;
         const PeerInfo &GetPeerInfo() const;
 
     private:
+        bool Process();
         bool HandleMessages();
         void ShiftBuffer(std::size_t amount);
         void Error(const std::string &reason);
@@ -58,12 +65,13 @@ namespace tortoise
         void OnMessagePort(std::uint16_t port);
 
         void ScheduleBlocks(std::uint32_t piece_index);
-        void MakeRequests();
 
-        PieceManager &piece_manager_;
+        void SetStatus(Status status);
+
         PeerInfo peer_info_;
-        std::shared_ptr<Metainfo> metainfo_;
+        std::shared_ptr<const Metainfo> metainfo_;
         PeerId own_peer_id_;
+        EventQueue &event_queue_;
 
         unsigned nr_blocks_requested_;
         std::deque<PieceBlock> potential_blocks_to_request_; // Stores the blocks
@@ -74,19 +82,16 @@ namespace tortoise
         bool peer_interested_; // PeerConnection is interested in this client
         bool can_receive_bitfield_;
 
-        enum class State
-        {
-            Connecting,
-            Connected,
-            Handshaking,
-            Finished
-        };
-
-        State state_;
+        Status status_;
         std::chrono::steady_clock::time_point timeout_;
         Socket socket_;
         ByteVector send_buffer_;
         ByteVector receive_buffer_;
+
+        void Run();
+        static void RunWrapper(PeerConnection &peer) { peer.Run(); }
+        std::thread thread_;
+        mutable std::recursive_mutex mutex_;
     };
 
 }

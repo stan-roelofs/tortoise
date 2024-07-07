@@ -14,9 +14,7 @@ namespace tortoise
     {
     }
 
-    EventQueue::~EventQueue()
-    {
-    }
+    EventQueue::~EventQueue() = default;
 
     bool EventQueue::EventEnabled(EventType type) const
     {
@@ -36,30 +34,15 @@ namespace tortoise
     {
         std::lock_guard lock(mutex_);
         events_.push_back(std::move(event));
+
+        // TODO if size > something, throw away old events
     }
 
-    void EventQueue::HandleEvents()
+    std::vector<std::unique_ptr<Event>> EventQueue::PopEvents()
     {
-        mutex_.lock();
+        std::lock_guard lock(mutex_);
         std::vector<std::unique_ptr<Event>> events;
         events.swap(events_);
-        mutex_.unlock();
-
-        for (auto &event : events)
-        {
-            Event *e = event.get();
-
-            // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
-            if (auto *added_event = dynamic_cast<TorrentAddedEvent *>(e))
-            {
-                assert(callbacks_.torrent_added);
-                callbacks_.torrent_added(added_event->torrent);
-            }
-            else if (auto *peer_status_event = dynamic_cast<PeerStatusChangedEvent *>(e))
-            {
-                assert(callbacks_.peer_status_changed);
-                callbacks_.peer_status_changed(peer_status_event->torrent, peer_status_event->ip, peer_status_event->port, peer_status_event->status);
-            }
-        }
+        return events;
     }
 }

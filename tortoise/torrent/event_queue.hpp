@@ -27,14 +27,12 @@ namespace tortoise
 
     struct TorrentAddedEvent : Event
     {
-        TorrentAddedEvent(TorrentHandle torrent) : Event(EventType::TorrentAdded), torrent(torrent) {}
-        TorrentHandle torrent;
+        TorrentAddedEvent() : Event(EventType::TorrentAdded) {}
     };
 
     struct PeerStatusChangedEvent : Event
     {
-        PeerStatusChangedEvent(TorrentHandle torrent, const std::string &ip, std::uint16_t port, PeerStatus status) : Event(EventType::PeerStatusChanged), torrent(torrent), ip(ip), port(port), status(status) {}
-        TorrentHandle torrent;
+        PeerStatusChangedEvent(const std::string &ip, std::uint16_t port, PeerStatus status) : Event(EventType::PeerStatusChanged), ip(ip), port(port), status(status) {}
         const std::string ip;
         const std::uint16_t port;
         PeerStatus status;
@@ -44,18 +42,17 @@ namespace tortoise
     {
     public:
         EventQueue(const EventCallbacks &callbacks);
-        ~EventQueue();
+        virtual ~EventQueue();
 
         bool EventEnabled(EventType type) const;
-
         void PushEvent(std::unique_ptr<Event> event);
 
-        void HandleEvents();
+        std::vector<std::unique_ptr<Event>> PopEvents();
 
     private:
         std::mutex mutex_;
         std::vector<std::unique_ptr<Event>> events_;
-        EventCallbacks callbacks_;
+        const EventCallbacks callbacks_;
     };
 }
 

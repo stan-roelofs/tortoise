@@ -12,52 +12,59 @@ set (HEADERS
   include/tortoise/event.hpp
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
-  include/tortoise/ip_address.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
   include/tortoise/session.hpp
-  include/tortoise/sha1_hash.hpp
   include/tortoise/torrent.hpp
   include/tortoise/version.hpp
 
-  tortoise/bencode.hpp
-  tortoise/event_queue.hpp
-  tortoise/log.hpp
-  tortoise/network.hpp
-  tortoise/peer.hpp
-  tortoise/peer_id.hpp
-  tortoise/peer_info.hpp
-  tortoise/piece_manager.hpp
+  tortoise/bencode/bencode.hpp
+
+  tortoise/torrent/event_queue.hpp
+  tortoise/torrent/peer_connection.hpp
+  tortoise/torrent/peer_id.hpp
+  tortoise/torrent/peer_info.hpp
+  tortoise/torrent/piece_manager.hpp
+  tortoise/torrent/torrent_impl.hpp
+
   tortoise/tracker/tracker_announce.hpp
   tortoise/tracker/tracker_connection.hpp
   tortoise/tracker/tracker_list.hpp
   tortoise/tracker/tracker_manager.hpp
-  tortoise/sha1.hpp
-  tortoise/socket.hpp
-  tortoise/torrent_impl.hpp
-  tortoise/url.hpp
-  tortoise/util.hpp
+
+  tortoise/network/ip_address.hpp
+  tortoise/network/socket.hpp
+  tortoise/network/network.hpp
+  tortoise/network/url.hpp
+
+  tortoise/util/log.hpp
+  tortoise/util/hash.hpp
+  tortoise/util/util.hpp
 )
 
 set(SOURCES
-  tortoise/bencode.cpp
-  tortoise/event_queue.cpp
-  tortoise/ip_address.cpp
-  tortoise/load_torrent.cpp
-  tortoise/peer.cpp
-  tortoise/peer_id.cpp
-  tortoise/piece_manager.cpp
-  tortoise/sha1_hash.cpp
-  tortoise/sha1.cpp
   tortoise/session.cpp
-  tortoise/socket.cpp
-  tortoise/torrent_impl.cpp
+
+  tortoise/bencode/bencode.cpp
+
+  tortoise/network/ip_address.cpp
+  tortoise/network/socket.cpp
+  tortoise/network/url.cpp
+
+  tortoise/torrent/event_queue.cpp
+  tortoise/torrent/load_torrent.cpp
+  tortoise/torrent/peer_connection.cpp
+  tortoise/torrent/peer_id.cpp
+  tortoise/torrent/piece_manager.cpp
+  tortoise/torrent/torrent_impl.cpp
+
   tortoise/tracker/http_tracker_connection.cpp
   tortoise/tracker/tracker_announce.cpp
   tortoise/tracker/tracker_list.cpp
   tortoise/tracker/tracker_manager.cpp
   tortoise/tracker/udp_tracker_connection.cpp
-  tortoise/url.cpp
+
+  tortoise/util/hash.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
@@ -77,12 +84,12 @@ if (TORTOISE_ENABLE_LOGGING)
 endif()
 if(MSVC)
   target_compile_definitions(tortoise PRIVATE NOMINMAX)
-  #target_compile_options(tortoise PRIVATE /W4 /WX)
+  target_compile_options(tortoise PRIVATE /W4 /WX /wd4100 /wd4101)
 else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tortoise)
+target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(TORTOISE_BUILD_TESTS)
   enable_testing()

@@ -8,9 +8,9 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "log.hpp"
-#include "socket.hpp"
-#include "util.hpp"
+#include "../network/socket.hpp"
+#include "../util/log.hpp"
+#include "../util/util.hpp"
 
 namespace tortoise
 {
@@ -34,7 +34,7 @@ namespace tortoise
             Error = 3
         };
 
-        void CreateUDPAnnounceRequest(std::vector<std::uint8_t> &buffer, const AnnounceParameters &parameters,
+        void CreateUDPAnnounceRequest(std::vector<std::uint8_t> &buffer, const tracker::AnnounceParameters &parameters,
                                       std::uint32_t transaction_id, std::uint64_t connection_id)
         {
             buffer.resize(ANNOUNCE_REQUEST_SIZE);
@@ -42,7 +42,7 @@ namespace tortoise
             *(std::uint64_t *)(packet + 0) = network::HostToNetwork(connection_id);
             *(std::uint32_t *)(packet + 8) = network::HostToNetwork(static_cast<std::uint32_t>(Action::Announce));
             *(std::uint32_t *)(packet + 12) = network::HostToNetwork(transaction_id);
-            std::memcpy(packet + 16, parameters.info_hash.GetBytes().data(), 20);
+            std::memcpy(packet + 16, parameters.info_hash.data(), 20);
             std::memcpy(packet + 36, parameters.peer_id.Get().data(), 20);
             *(std::uint64_t *)(packet + 56) = network::HostToNetwork(parameters.downloaded);
             *(std::uint64_t *)(packet + 64) = network::HostToNetwork(parameters.left);
@@ -64,7 +64,7 @@ namespace tortoise
             *(std::uint16_t *)(packet + 98) = network::HostToNetwork((uint16_t)0); // extensions
         }
 
-        std::optional<AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, network::InternetProtocol protocol)
+        std::optional<tracker::AnnounceResponse> ParseResponse(const std::uint8_t *packet, const int packet_size, network::InternetProtocol protocol)
         {
             if (packet_size < ANNOUNCE_RESPONSE_MINIMUM_SIZE)
             {
@@ -89,7 +89,7 @@ namespace tortoise
                 return {};
             }
 
-            AnnounceResponse result;
+            tracker::AnnounceResponse result;
 
             result.interval = network::HostToNetwork(((std::uint32_t *)packet)[2]);
             result.incomplete = network::HostToNetwork(((std::uint32_t *)packet)[3]);
@@ -101,13 +101,13 @@ namespace tortoise
                 const std::uint8_t *peer_start = packet + ANNOUNCE_RESPONSE_MINIMUM_SIZE + i * stride_size;
                 if (stride_size == 6)
                 {
-                    const IPAddress ip_address(IPAddress::ipv4_address_t{peer_start[0], peer_start[1], peer_start[2], peer_start[3]});
+                    const network::IPAddress ip_address(network::IPAddress::ipv4_address_t{peer_start[0], peer_start[1], peer_start[2], peer_start[3]});
                     const std::uint16_t port = network::HostToNetwork(((std::uint16_t *)peer_start)[2]);
                     result.peers.emplace_back(PeerInfo{ip_address.ToString(), port});
                 }
                 else if (stride_size == 18)
                 {
-                    const IPAddress ip_address(IPAddress::ipv6_address_t{
+                    const network::IPAddress  ip_address(network::IPAddress::ipv6_address_t{
                         peer_start[0], peer_start[1], peer_start[2], peer_start[3],
                         peer_start[4], peer_start[5], peer_start[6], peer_start[7],
                         peer_start[8], peer_start[9], peer_start[10], peer_start[11],
@@ -146,7 +146,7 @@ namespace tortoise
         UDPTrackerConnection();
         ~UDPTrackerConnection();
 
-        std::optional<AnnounceResponse> Announce(const URL &url, const AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel);
+        std::optional<tracker::AnnounceResponse> Announce(const URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel);
 
     private:
         enum class SendResult
@@ -201,7 +201,7 @@ namespace tortoise
         };
 
         std::shared_ptr<std::atomic_bool> cancel_;
-        std::unique_ptr<AnnounceParameters> parameters_;
+        std::unique_ptr<tracker::AnnounceParameters> parameters_;
         State state_;
         Socket socket_;
         ConnectionId connection_id_;
@@ -225,10 +225,10 @@ namespace tortoise
         // TODO send a "stopped" event
     }
 
-    std::optional<AnnounceResponse> UDPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> UDPTrackerConnection::Announce(const URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         cancel_ = cancel;
-        parameters_ = std::make_unique<AnnounceParameters>(parameters);
+        parameters_ = std::make_unique<tracker::AnnounceParameters>(parameters);
         if (!socket_.Connect(url.GetHost(), url.GetPort()))
         {
             LOG("UDPTrackerConnection", "failed to connect to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
@@ -437,7 +437,7 @@ namespace tortoise
         current_buffer_position_ = 0;
     }
 
-    std::optional<AnnounceResponse> tracker::udp::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> tracker::udp::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         UDPTrackerConnection connection;
         return connection.Announce(url, *parameters, cancel);

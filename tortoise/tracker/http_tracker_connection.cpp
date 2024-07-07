@@ -7,14 +7,13 @@
 #include <sstream>
 
 #include <tortoise/exceptions.hpp>
-#include <tortoise/sha1_hash.hpp>
 
 #include "tracker_announce.hpp"
-#include "bencode.hpp"
-#include "log.hpp"
-#include "socket.hpp"
-#include "url.hpp"
-#include "util.hpp"
+#include "../bencode/bencode.hpp"
+#include "../util/log.hpp"
+#include "../network/socket.hpp"
+#include "../network/url.hpp"
+#include "../util/util.hpp"
 
 namespace
 {
@@ -44,7 +43,7 @@ namespace
         return escaped.str();
     }
 
-    std::string CreateRequest(const tortoise::URL &url, const tortoise::AnnounceParameters &parameters)
+    std::string CreateRequest(const tortoise::URL &url, const tortoise::tracker::AnnounceParameters &parameters)
     {
         std::string request;
 
@@ -54,7 +53,7 @@ namespace
             path = "/";
 
         std::map<std::string, std::string> params;
-        params["info_hash"] = std::string((const char *)parameters.info_hash.GetBytes().data(), parameters.info_hash.GetBytes().size());
+        params["info_hash"] = std::string((const char *)parameters.info_hash.data(), parameters.info_hash.size());
         params["peer_id"] = parameters.peer_id.Get();
         params["port"] = std::to_string(parameters.port);
         params["uploaded"] = std::to_string(parameters.uploaded);
@@ -66,16 +65,16 @@ namespace
             params["no_peer_id"] = parameters.no_peer_id.value() ? "1" : "0";
         switch (parameters.event)
         {
-        case tortoise::AnnounceParameters::Event::Started:
+        case tortoise::tracker::AnnounceParameters::Event::Started:
             params["event"] = "started";
             break;
-        case tortoise::AnnounceParameters::Event::Stopped:
+        case tortoise::tracker::AnnounceParameters::Event::Stopped:
             params["event"] = "stopped";
             break;
-        case tortoise::AnnounceParameters::Event::Completed:
+        case tortoise::tracker::AnnounceParameters::Event::Completed:
             params["event"] = "completed";
             break;
-        case tortoise::AnnounceParameters::Event::None:
+        case tortoise::tracker::AnnounceParameters::Event::None:
             break;
         }
 
@@ -156,7 +155,7 @@ namespace
         return result;
     }
 
-    std::optional<tortoise::AnnounceResponse> ParseAnnounceResponse(const std::string &response_string)
+    std::optional<tortoise::tracker::AnnounceResponse> ParseAnnounceResponse(const std::string &response_string)
     {
         const auto http_response = ParseResponse(response_string);
         if (!http_response)
@@ -165,7 +164,7 @@ namespace
         using namespace tortoise;
         using namespace bencode;
 
-        AnnounceResponse response;
+        tracker::AnnounceResponse response;
         std::unique_ptr<Data> data;
         std::istringstream iss(http_response->body);
         try
@@ -302,7 +301,7 @@ namespace
                 {
                     const std::uint8_t *peer = (const uint8_t *)(peers.data() + i);
 
-                    const IPAddress ip = IPAddress(IPAddress::ipv4_address_t{peer[0], peer[1], peer[2], peer[3]});
+                    const network::IPAddress ip = network::IPAddress(network::IPAddress::ipv4_address_t{peer[0], peer[1], peer[2], peer[3]});
                     auto port = static_cast<std::uint16_t>((peer[4] << 8) | peer[5]);
                     PeerInfo info(ip.ToString(), port);
                     response.peers.emplace_back(info);
@@ -334,7 +333,7 @@ namespace
             {
                 const std::uint8_t *peer = (const uint8_t *)(peers.data() + i);
 
-                const IPAddress ip = IPAddress(IPAddress::ipv6_address_t{
+                const network::IPAddress ip = network::IPAddress(network::IPAddress::ipv6_address_t{
                     peer[0], peer[1], peer[2], peer[3], peer[4], peer[5], peer[6], peer[7], peer[8],
                     peer[9], peer[10], peer[11], peer[12], peer[13], peer[14], peer[15]});
 
@@ -350,7 +349,7 @@ namespace
 
 namespace tortoise
 {
-    std::optional<AnnounceResponse> tracker::http::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> tracker::http::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         LOG("tracker::http::Announce", "Announce (%s)", url.ToString().c_str());
 

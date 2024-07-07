@@ -3,8 +3,8 @@
 #include <filesystem>
 #include <fstream>
 
-#include "bencode.hpp"
-#include "sha1.hpp"
+#include "../bencode/bencode.hpp"
+#include "../util/hash.hpp"
 
 namespace tortoise
 {
@@ -20,10 +20,9 @@ namespace tortoise
             try
             {
                 const bencode::string_t &info_str = dct.at("info")->Encode();
-                SHA1 sha1(info_str.c_str(), info_str.length());
-                metainfo->info_hash = sha1.GetHash();
+                metainfo->info_hash = hash::CreateSHA1(info_str.c_str(), info_str.length());
             }
-            catch (SHA1::HashException &)
+            catch (hash::Exception &)
             {
                 return nullptr;
             }
