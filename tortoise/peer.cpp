@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <random>
 #include <vector>
 
 #include <tortoise/exceptions.hpp>
@@ -17,6 +18,8 @@ namespace
     constexpr std::chrono::seconds keep_alive_timeout(120);
     constexpr std::chrono::seconds connect_timeout(30);
     constexpr std::chrono::seconds handshake_timeout(30);
+
+    constexpr unsigned DESIRED_REQUESTS = 5;
 }
 
 namespace tortoise
@@ -94,17 +97,18 @@ namespace tortoise
 
     // TODO: while handshaking make sure we don't connect to ourselves!
 
-    Peer::Peer(const PeerInfo &peer_info, std::shared_ptr<Metainfo> metainfo, PeerId peer_id, Callbacks callbacks) : peer_info_(peer_info),
-                                                                                                                     metainfo_(std::move(metainfo)),
-                                                                                                                     own_peer_id_(std::move(peer_id)),
-                                                                                                                     callbacks_(callbacks),
-                                                                                                                     am_choking_(true),
-                                                                                                                     am_interested_(false),
-                                                                                                                     peer_choking_(false),
-                                                                                                                     peer_interested_(false),
-                                                                                                                     can_receive_bitfield_(true),
-                                                                                                                     state_(State::Connecting),
-                                                                                                                     socket_(network::TransportProtocol::TCP)
+    Peer::Peer(PieceManager &piece_manager, const PeerInfo &peer_info, std::shared_ptr<Metainfo> metainfo, PeerId peer_id) : piece_manager_(piece_manager),
+                                                                                                                             peer_info_(peer_info),
+                                                                                                                             metainfo_(std::move(metainfo)),
+                                                                                                                             own_peer_id_(std::move(peer_id)),
+                                                                                                                             nr_blocks_requested_(0),
+                                                                                                                             am_choking_(true),
+                                                                                                                             am_interested_(false),
+                                                                                                                             peer_choking_(false),
+                                                                                                                             peer_interested_(false),
+                                                                                                                             can_receive_bitfield_(true),
+                                                                                                                             state_(State::Connecting),
+                                                                                                                             socket_(network::TransportProtocol::TCP)
 
     {
         if (!metainfo_)
@@ -132,6 +136,9 @@ namespace tortoise
         if (state_ == State::Connecting && !Connect())
             return true; // We are still connecting
 
+        if (state_ == State::Connected)
+            MakeRequests();
+
         if (!Send())
         {
             Error(std::string("Error while sending data to peer ") + peer_info_.ip);
@@ -149,6 +156,32 @@ namespace tortoise
     const PeerInfo &Peer::GetPeerInfo() const
     {
         return peer_info_;
+    }
+
+    void Peer::MakeRequests()
+    {
+        while (nr_blocks_requested_ < DESIRED_REQUESTS && !potential_blocks_to_request_.empty())
+        {
+            static std::random_device rd;
+            static std::mt19937 gen(rd());
+            std::uniform_int_distribution<std::size_t> dis(0, potential_blocks_to_request_.size());
+            auto index = dis(gen);
+
+            //const PieceBlock &block = potential_blocks_to_request_.at(index);
+            //if (piece_manager_.Needed(block))
+            //{
+             //   ++nr_blocks_requested_;
+                // TODO send request
+            //}
+
+            potential_blocks_to_request_.erase(potential_blocks_to_request_.begin() + index);
+        }
+
+       // if (!am_interested_ && nr_blocks_requested_ > 0)
+         //   SendInterested();
+
+        //if (am_interested_ && potential_blocks_to_request_.empty())
+         //   SendNotInterested();
     }
 
     // Message handlers
@@ -179,8 +212,6 @@ namespace tortoise
             LOG("Peer", "Successfully handshaked with peer %s", peer_info_.ip.c_str());
 
             ShiftBuffer(protocol::handshake_size);
-            if (callbacks_.on_connect)
-                callbacks_.on_connect(*this);
             state_ = State::Connected;
         }
 
@@ -371,46 +402,44 @@ namespace tortoise
     void Peer::OnMessageChoke()
     {
         LOG("Peer", "Peer %s choked us", peer_info_.ip.c_str());
-        bool was_choking = peer_choking_;
         peer_choking_ = true;
-        if (!was_choking && callbacks_.on_choke)
-            callbacks_.on_choke(*this);
     }
 
     void Peer::OnMessageUnchoke()
     {
         LOG("Peer", "Peer %s unchoked us", peer_info_.ip.c_str());
-        bool was_choking = peer_choking_;
         peer_choking_ = false;
-        if (was_choking && callbacks_.on_unchoke)
-            callbacks_.on_unchoke(*this);
     }
 
     void Peer::OnMessageInterested()
     {
         LOG("Peer", "Peer %s is interested", peer_info_.ip.c_str());
-        bool was_interested = peer_interested_;
         peer_interested_ = true;
-        if (!was_interested && callbacks_.on_interested)
-            callbacks_.on_interested(*this);
     }
 
     void Peer::OnMessageNotInterested()
     {
         LOG("Peer", "Peer %s is not interested", peer_info_.ip.c_str());
-        bool was_interested = peer_interested_;
         peer_interested_ = false;
-        if (was_interested && callbacks_.on_not_interested)
-            callbacks_.on_not_interested(*this);
+    }
+
+    void Peer::ScheduleBlocks(std::uint32_t)
+    {
+        /*
+        const std::uint32_t nr_blocks = PieceManager::NumberOfBlocksInPiece(*metainfo_, piece_index);
+
+        for (std::uint32_t i = 0; i < nr_blocks; ++i)
+        {
+            PieceBlock block{piece_index, i * PieceManager::BLOCK_SIZE, PieceManager::BlockLength(*metainfo_, piece_index, i)};
+            if (piece_manager_.Needed(block))
+                potential_blocks_to_request_.push_back(block);
+        }*/
     }
 
     void Peer::OnMessageHave(std::uint32_t piece_index)
     {
         LOG("Peer", "Peer %s has piece %d", peer_info_.ip.c_str(), piece_index);
-        const bool inserted = has_pieces_.insert(piece_index).second;
-
-        if (inserted && callbacks_.on_new_have)
-            callbacks_.on_new_have(*this, {piece_index});
+        ScheduleBlocks(piece_index);
     }
 
     void Peer::OnMessageBitfield(const ByteVector &bitfield)
@@ -427,7 +456,6 @@ namespace tortoise
 
         LOG("Peer", "Peer %s sent bitfield", peer_info_.ip.c_str());
 
-        std::set<std::uint32_t> new_pieces;
         for (std::uint32_t byte = 0; byte < bitfield.size(); ++byte)
         {
             for (std::uint32_t bit = 0; bit < 8; ++bit)
@@ -435,42 +463,29 @@ namespace tortoise
                 if (bitfield[byte] & (1 << (7 - bit)))
                 {
                     const std::uint32_t piece_index = (byte * 8) + bit;
-                    const bool inserted = has_pieces_.insert(piece_index).second;
-                    if (inserted)
-                        new_pieces.insert(piece_index);
+                    ScheduleBlocks(piece_index);
                 }
             }
         }
-
-        if (!new_pieces.empty() && callbacks_.on_new_have)
-            callbacks_.on_new_have(*this, new_pieces);
     }
 
     void Peer::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
     {
         LOG("Peer", "Peer %s requested piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
-        if (callbacks_.on_request)
-            callbacks_.on_request(*this, index, begin, length);
     }
 
     void Peer::OnMessagePiece(std::uint32_t index, std::uint32_t begin, const ByteVector &piece)
     {
         LOG("Peer", "Peer %s sent piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, (uint32_t)piece.size());
-        if (callbacks_.on_piece)
-            callbacks_.on_piece(*this, index, begin, piece);
     }
 
     void Peer::OnMessageCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
     {
         LOG("Peer", "Peer %s cancelled request for piece %d, begin %d, length %d", peer_info_.ip.c_str(), index, begin, length);
-        if (callbacks_.on_cancel)
-            callbacks_.on_cancel(*this, index, begin, length);
     }
 
     void Peer::OnMessagePort(std::uint16_t port)
     {
         LOG("Peer", "Peer %s sent port %d", peer_info_.ip.c_str(), port);
-        if (callbacks_.on_port)
-            callbacks_.on_port(*this, port);
     }
 }

@@ -4,9 +4,9 @@
 #include <optional>
 #include <list>
 
+#include <tortoise/ip_address.hpp>
 #include <tortoise/sha1_hash.hpp>
 
-#include "ip_address.hpp"
 #include "peer_id.hpp"
 #include "peer_info.hpp"
 #include "url.hpp"

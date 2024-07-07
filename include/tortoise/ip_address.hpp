@@ -2,6 +2,7 @@
 #define TORTOISE_IP_ADDRESS_HPP
 
 #include <array>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -13,19 +14,14 @@ namespace tortoise
     class IPAddress
     {
     public:
-        class ParseException : public Exception
-        {
-        public:
-            ParseException(const std::string &message) : Exception(message) {}
-        };
-
         using ipv4_address_t = std::array<std::uint8_t, 4>;
         using ipv6_address_t = std::array<std::uint8_t, 16>;
 
-        /*! \brief Creates an instance of IPAddress from a dotted quad or rfc3513 hexed formatted string.
-         *  \throws ParseException if the string is not a valid IP address.
+        /*! \brief Creates an instance of IPAddress from a string.
+         *  \param address A dotted quad or rfc3513 hexed formatted string.
+         *  \returns An IPAddress object if the string is a valid IP address, or an empty optional if it is not.
          */
-        IPAddress(const std::string &address);
+        static std::optional<IPAddress> FromString(const std::string &address);
 
         //! \brief Creates an instance of IPAddress from an IPv4 address.
         IPAddress(const ipv4_address_t &address);
@@ -42,7 +38,7 @@ namespace tortoise
         //! \returns the IP address as a string. If the IP address is an IPv4 address, it will be returned in dotted quad format. If the IP address is an IPv6 address, it will be returned in rfc3513 hexed format.
         std::string ToString() const;
 
-		//! \returns the IP address as a vector of bytes. For IPv4 the length will be 4, for IPv6 the length will be 16.
+        //! \returns the IP address as a vector of bytes. For IPv4 the length will be 4, for IPv6 the length will be 16.
         std::vector<std::uint8_t> ToVector() const;
 
     private:

@@ -7,7 +7,7 @@
 #include "peer.hpp"
 #include "peer_id.hpp"
 #include "piece_manager.hpp"
-#include "tracker_manager.hpp"
+#include "tracker/tracker_manager.hpp"
 
 #include <list>
 
@@ -28,17 +28,6 @@ namespace tortoise
         bool AddPeer(const PeerInfo &peer_info);
         void ProcessPeers();
         AnnounceParameters GetTrackerRequest();
-
-        void OnConnect(Peer &peer);
-        void OnChoked(Peer &peer);
-        void OnUnchoked(Peer &peer);
-        void OnInterested(Peer &peer);
-        void OnNotInterested(Peer &peer);
-        void OnNewHave(Peer &peer, std::set<std::uint32_t> pieces);
-        void OnRequest(Peer &peer, std::uint32_t index, std::uint32_t begin, std::uint32_t length);
-        void OnPiece(Peer &peer, std::uint32_t index, std::uint32_t begin, const ByteVector &piece);
-        void OnCancel(Peer &peer, std::uint32_t index, std::uint32_t begin, std::uint32_t length);
-        void OnPort(Peer &peer, std::uint16_t port);
 
         EventQueue &event_queue_;
         std::shared_ptr<Metainfo> metainfo_;

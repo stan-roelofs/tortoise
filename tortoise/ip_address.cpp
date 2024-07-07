@@ -1,4 +1,4 @@
-#include "ip_address.hpp"
+#include <tortoise/ip_address.hpp>
 
 #include <cassert>
 #include <limits>
@@ -13,7 +13,7 @@
 
 namespace tortoise
 {
-    IPAddress::IPAddress(const std::string &address)
+    std::optional<IPAddress> IPAddress::FromString(const std::string &address)
     {
         const bool is_ipv4 = address.find(':') == std::string::npos;
 
@@ -22,16 +22,17 @@ namespace tortoise
             ipv4_address_t result;
             assert((result.size() * sizeof(result[0])) >= sizeof(in_addr));
             if (inet_pton(AF_INET, address.c_str(), result.data()) != 1)
-                throw ParseException("invalid IPv4 address");
-            address_ = result;
+                return {};
+
+            return IPAddress(result);
         }
         else
         {
             ipv6_address_t result;
             assert((result.size() * sizeof(result[0])) >= sizeof(in_addr));
             if (inet_pton(AF_INET6, address.c_str(), result.data()) != 1)
-                throw ParseException("invalid IPv6 address");
-            address_ = result;
+                return {};
+            return IPAddress(result);
         }
     }
 
@@ -62,16 +63,16 @@ namespace tortoise
             char buffer[INET_ADDRSTRLEN];
             const auto &address = std::get<0>(address_);
             if (inet_ntop(AF_INET, address.data(), buffer, INET_ADDRSTRLEN) == nullptr)
-                throw ParseException("invalid IPv4 address");
-            return buffer;
+                return "";
+            return std::string(buffer);
         }
         else
         {
             const auto &address = std::get<1>(address_);
             char buffer[INET6_ADDRSTRLEN];
             if (inet_ntop(AF_INET6, address.data(), buffer, INET6_ADDRSTRLEN) == nullptr)
-                throw ParseException("invalid IPv6 address");
-            return buffer;
+                return "";
+            return std::string(buffer);
         }
     }
 

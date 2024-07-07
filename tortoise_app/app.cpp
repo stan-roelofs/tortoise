@@ -219,7 +219,7 @@ int Application::RunConsole()
     bool quit = false;
     while (!quit)
     {
-        // session_->HandleEvents();
+        session_->HandleEvents();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

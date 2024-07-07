@@ -12,6 +12,7 @@ set (HEADERS
   include/tortoise/event.hpp
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
+  include/tortoise/ip_address.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/metainfo.hpp
   include/tortoise/session.hpp
@@ -21,18 +22,17 @@ set (HEADERS
 
   tortoise/bencode.hpp
   tortoise/event_queue.hpp
-  tortoise/ip_address.hpp
   tortoise/peer.hpp
   tortoise/peer_id.hpp
-  tortoise/http_tracker_connection.hpp
   tortoise/network.hpp
   tortoise/peer_info.hpp
   tortoise/piece_manager.hpp
-  tortoise/tracker_announce.hpp
-  tortoise/tracker_connection.hpp
-  tortoise/tracker_list.hpp
-  tortoise/tracker_manager.hpp
-  tortoise/udp_tracker_connection.hpp
+  tortoise/tracker/http_tracker_connection.hpp
+  tortoise/tracker/tracker_announce.hpp
+  tortoise/tracker/tracker_connection.hpp
+  tortoise/tracker/tracker_list.hpp
+  tortoise/tracker/tracker_manager.hpp
+  tortoise/tracker/udp_tracker_connection.hpp
   tortoise/sha1.hpp
   tortoise/socket.hpp
   tortoise/torrent_impl.hpp
@@ -53,12 +53,12 @@ set(SOURCES
   tortoise/session.cpp
   tortoise/socket.cpp
   tortoise/torrent_impl.cpp
-  tortoise/http_tracker_connection.cpp
-  tortoise/tracker_announce.cpp
-  tortoise/tracker_connection.cpp
-  tortoise/tracker_list.cpp
-  tortoise/tracker_manager.cpp
-  tortoise/udp_tracker_connection.cpp
+  tortoise/tracker/http_tracker_connection.cpp
+  tortoise/tracker/tracker_announce.cpp
+  tortoise/tracker/tracker_connection.cpp
+  tortoise/tracker/tracker_list.cpp
+  tortoise/tracker/tracker_manager.cpp
+  tortoise/tracker/udp_tracker_connection.cpp
   tortoise/url.cpp
 )
 
@@ -84,7 +84,7 @@ else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tortoise)
 
 if(TORTOISE_BUILD_TESTS)
   enable_testing()
