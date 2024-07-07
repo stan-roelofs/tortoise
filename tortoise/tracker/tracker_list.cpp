@@ -21,12 +21,14 @@ namespace tortoise
             if (tier.empty())
                 continue;
 
-            std::vector<std::string> tier_trackers = tier;
+            std::vector<std::string> tier_trackers(tier.begin(), tier.end());
 
             // URLs within each tier will be processed in a randomly chosen order; in other words, the list will be shuffled when first read.
             if (tier_trackers.size() > 1)
                 std::shuffle(tier_trackers.begin(), tier_trackers.end(), rng);
-            trackers_.emplace_back(tier_trackers);
+
+            std::list<std::string> tier_list(tier_trackers.begin(), tier_trackers.end());
+            trackers_.emplace_back(tier_list);
         }
 
         SelectFirstTracker();
@@ -57,12 +59,20 @@ namespace tortoise
         if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end() || current_tracker_ == current_tier_->begin())
             return;
 
-        std::iter_swap(current_tracker_, current_tracker_ - 1);
+        auto current_tracker_copy = current_tracker_;
+        --current_tracker_;
+        std::swap(*current_tracker_, *(current_tracker_copy));
     }
 
     void TrackerList::SelectFirstTracker()
     {
         current_tier_ = trackers_.begin();
         current_tracker_ = current_tier_->begin();
+    }
+
+    void TrackerList::RemoveCurrentTracker()
+    {
+        if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
+            return;
     }
 }

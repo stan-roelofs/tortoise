@@ -1,4 +1,4 @@
-#include "http_tracker_connection.hpp"
+#include "tracker_connection.hpp"
 
 #include <iomanip>
 #include <limits>
@@ -9,9 +9,12 @@
 #include <tortoise/exceptions.hpp>
 #include <tortoise/sha1_hash.hpp>
 
+#include "tracker_announce.hpp"
 #include "bencode.hpp"
 #include "log.hpp"
+#include "socket.hpp"
 #include "url.hpp"
+#include "util.hpp"
 
 namespace
 {
@@ -347,130 +350,84 @@ namespace
 
 namespace tortoise
 {
-
-    HTTPTrackerConnection::HTTPTrackerConnection() : socket_(network::TransportProtocol::TCP),
-                                                     state_(State::Idle)
+    std::optional<AnnounceResponse> tracker::http::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
-    }
+        LOG("tracker::http::Announce", "Announce (%s)", url.ToString().c_str());
 
-    HTTPTrackerConnection::~HTTPTrackerConnection()
-    {
-        // TODO
-    }
-
-    bool HTTPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters)
-    {
-        if (state_ != State::Idle)
+        Socket socket(network::TransportProtocol::TCP);
+        if (!socket.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort()))
         {
-            LOG("HTTPTrackerConnection", "Announce called while connection is not idle");
-            return false;
+            LOG("tracker::http::Announce", "Failed to connect to tracker (%s)", url.ToString().c_str());
+            return {};
         }
 
-        if (!socket_.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort()))
-        {
-            LOG("HTTPTrackerConnection", "Failed to connect to tracker");
-            return false;
-        }
+        std::string request = CreateRequest(url, *parameters);
+        ByteVector buffer(request.size());
+        std::copy(request.begin(), request.end(), buffer.begin());
 
-        std::string request = CreateRequest(url, parameters);
-        buffer_.resize(request.size());
-        std::copy(request.begin(), request.end(), buffer_.begin());
-
-        state_ = State::Connect;
-        return true;
-    }
-
-    bool HTTPTrackerConnection::Process()
-    {
-        switch (state_)
+        // Connect
         {
-        case State::Idle:
-            return true;
-        case State::Connect:
-        {
-            switch (socket_.GetConnectionStatus())
+            auto status = socket.GetConnectionStatus();
+            while (status != Socket::Status::Connected)
             {
-            case Socket::Status::Pending:
-                return false;
-            case Socket::Status::Connected:
-                state_ = State::SendRequest;
-                break;
-            case Socket::Status::Error:
-                result_ = {false, {}};
-                state_ = State::Idle;
-                return true;
-            }
-        }
-            [[fallthrough]];
-        case State::SendRequest:
-        {
-            int length = (int)std::min(buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
-            switch (socket_.Send(buffer_.data(), length))
-            {
-            case Socket::Result::Ok:
-            {
-                if (length != 0)
-                    buffer_.erase(buffer_.begin(), buffer_.begin() + length);
-
-                if (buffer_.empty())
+                status = socket.GetConnectionStatus();
+                if (status == Socket::Status::Error || *cancel)
                 {
-                    LOG("HTTPTrackerConnection", "Request sent");
-                    state_ = State::ReceiveResponse;
+                    LOG("tracker::http::Announce", "Failed to connect to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                    return {};
                 }
-                break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
-            case Socket::Result::WouldBlock:
-                break;
-            case Socket::Result::Error:
-            {
-                state_ = State::Idle;
-                result_ = {false, {}};
-                break;
-            }
-            }
-            break;
         }
-        case State::ReceiveResponse:
+
+        // Send request
         {
-            while (true)
+            int length = (int)std::min(buffer.size(), (std::size_t)std::numeric_limits<int>::max());
+            size_t bytes_sent = 0;
+            while (bytes_sent < buffer.size())
             {
-                std::uint8_t temp[1024];
-                int length = sizeof(temp);
-                const auto result = socket_.Receive(temp, length);
-                if (result == Socket::Result::Error)
+                const auto result = socket.Send(buffer.data() + bytes_sent, length);
+                if (result == Socket::Result::Error || *cancel)
                 {
-                    state_ = State::Idle;
-                    result_ = {false, {}};
-                    return true;
+                    LOG("tracker::http::Announce", "Failed to send request to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                    return {};
                 }
 
-                if (result == Socket::Result::WouldBlock)
-                    return false;
+                if (result == Socket::Result::Ok)
+                {
+                    bytes_sent += length;
+                    length = (int)std::min(buffer.size() - bytes_sent, (std::size_t)std::numeric_limits<int>::max());
+                    if (length == 0)
+                        break;
+                }
 
-                std::copy(temp, temp + length, std::back_inserter(buffer_));
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+
+        // Receive response
+
+        buffer.clear();
+        while (true)
+        {
+            std::uint8_t temp[1024];
+            int length = sizeof(temp);
+            const auto result = socket.Receive(temp, length);
+            if (result == Socket::Result::Error || *cancel)
+            {
+                LOG("tracker::http::Announce", "Failed to receive response from tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                return {};
+            }
+
+            if (result == Socket::Result::Ok)
+            {
+                std::copy(temp, temp + length, std::back_inserter(buffer));
 
                 if (length == 0)
-                {
-                    state_ = State::Idle;
-                    const auto response = ParseAnnounceResponse(std::string(buffer_.begin(), buffer_.end()));
-                    result_ = {response.has_value(), response};
-                    return true;
-                }
+                    return ParseAnnounceResponse(std::string(buffer.begin(), buffer.end()));
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        }
-
-        return state_ == State::Idle;
-    }
-
-    TrackerConnection::Result HTTPTrackerConnection::GetLastResult() const
-    {
-        return result_;
-    }
-
-    void HTTPTrackerConnection::Cancel()
-    {
-        state_ = State::Idle;
     }
 
 } // namespace tortoise

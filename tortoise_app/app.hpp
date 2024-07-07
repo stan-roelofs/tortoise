@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include <tortoise/session.hpp>
 #include <tortoise/torrent.hpp>
+#include <tortoise/session.hpp>
 
 struct Window;
 

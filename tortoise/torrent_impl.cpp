@@ -19,9 +19,25 @@ namespace tortoise
     Metainfo TorrentHandle::GetMetainfo() const
     {
         if (!IsValid())
-            throw TorrentException("TorrentHandle is not valid");
+            throw InvalidHandleException("TorrentHandle is not valid");
 
         return *ptr_.lock()->GetMetainfo();
+    }
+
+    void TorrentHandle::StartDownload()
+    {
+        if (!IsValid())
+            throw InvalidHandleException("TorrentHandle is not valid");
+
+        ptr_.lock()->Start();
+    }
+
+    void TorrentHandle::StopDownload()
+    {
+        if (!IsValid())
+            throw InvalidHandleException("TorrentHandle is not valid");
+
+        ptr_.lock()->Stop();
     }
 
     TorrentHandle::operator bool() const
@@ -39,29 +55,65 @@ namespace tortoise
         return !(*this == other);
     }
 
-    Torrent::Torrent(const TorrentParameters &parameters, EventQueue &event_queue) : event_queue_(event_queue), metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
-                                                                                     tracker_manager_(metainfo_->announce_list, std::bind(&Torrent::GetTrackerRequest, this)),
-                                                                                     piece_manager_(metainfo_->pieces.size())
+    Torrent::Torrent(const TorrentParameters &parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue) : running_(false),
+                                                                                                                                    peer_info_provider_(peer_info_provider),
+                                                                                                                                    event_queue_(event_queue),
+                                                                                                                                    metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
+                                                                                                                                    piece_manager_(metainfo_->pieces.size())
     {
         if (parameters.save_path.empty())
-            throw TorrentException("save_path is empty"); // TODO set a default save path somewhere
+            throw Exception("save_path is empty"); // TODO set a default save path somewhere
+
+        peer_info_provider_.RequestPeers(*this, std::bind(&Torrent::AddPeer, this, std::placeholders::_1));
 
         //
     }
 
-    Torrent::~Torrent() = default;
-
-    void Torrent::Process()
+    Torrent::~Torrent()
     {
-        // TODO should each torrent have its own thread??
-        if (tracker_manager_.Update())
-        {
-            const auto new_peers = tracker_manager_.GetPeers();
-            for (const auto &peer : new_peers)
-                AddPeer(peer);
-        }
+        peer_info_provider_.CancelRequest(*this);
 
-        ProcessPeers();
+        Stop();
+    }
+
+    void Torrent::Run(Torrent &torrent)
+    {
+        while (true)
+        {
+            {
+                std::lock_guard lock(torrent.mutex_);
+                if (!torrent.running_)
+                    break;
+            }
+
+            torrent.ProcessPeers();
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+
+    void Torrent::Start()
+    {
+        std::lock_guard lock(mutex_);
+
+        if (running_)
+            return;
+
+        running_ = true;
+        thread_ = std::thread(Torrent::Run, std::ref(*this));
+
+        LOG("Torrent", "Torrent started");
+    }
+
+    void Torrent::Stop()
+    {
+        std::lock_guard lock(mutex_);
+
+        running_ = false;
+        if (thread_.joinable())
+            thread_.join();
+
+        LOG("Torrent", "Torrent stopped");
     }
 
     std::shared_ptr<const Metainfo> Torrent::GetMetainfo() const
@@ -69,36 +121,40 @@ namespace tortoise
         return metainfo_;
     }
 
-    bool Torrent::AddPeer(const PeerInfo &peer_info)
+    const PeerId &Torrent::GetPeerId() const
     {
-        if (std::find(peer_queue_.begin(), peer_queue_.end(), peer_info) != peer_queue_.end())
-            return false;
-        if (std::find_if(peers_.begin(), peers_.end(), [&peer_info](const auto &peer)
-                         { return peer.GetPeerInfo() == peer_info; }) != peers_.end())
-            return false;
+        return peer_id_;
+    }
 
-        peer_queue_.push_back(peer_info);
-        return true;
+    void Torrent::AddPeer(const PeerInfo &peer_info)
+    {
+        if (std::find(potential_peers_.begin(), potential_peers_.end(), peer_info) != potential_peers_.end())
+            return;
+        if (std::find_if(current_peers_.begin(), current_peers_.end(), [&peer_info](const auto &peer)
+                         { return peer.GetPeerInfo() == peer_info; }) != current_peers_.end())
+            return;
+
+        potential_peers_.push_back(peer_info);
     }
 
     void Torrent::ProcessPeers()
     {
         // Add new peers if we don't have enough and there are still peers in the queue
         // TODO send a tracker request if we need more peers
-        while (peers_.size() < DESIRED_PEERS && !peer_queue_.empty())
+        while (current_peers_.size() < DESIRED_PEERS && !potential_peers_.empty())
         {
-            PeerInfo peer_info = peer_queue_.front();
-            peer_queue_.pop_front();
+            PeerInfo peer_info = potential_peers_.front();
+            potential_peers_.pop_front();
 
             LOG("Torrent", "Adding peer %s %u", peer_info.ip.c_str(), peer_info.port);
-            peers_.emplace_back(piece_manager_, peer_info, metainfo_, peer_id_);
+            current_peers_.emplace_back(piece_manager_, peer_info, metainfo_, peer_id_);
 
             if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
                 event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(TorrentHandle(shared_from_this()), peer_info.ip, peer_info.port, PeerStatus::Connecting));
         }
 
-        auto it = peers_.begin();
-        while (it != peers_.end())
+        auto it = current_peers_.begin();
+        while (it != current_peers_.end())
         {
             if (!it->Process())
             {
@@ -109,17 +165,11 @@ namespace tortoise
                 if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
                     event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(TorrentHandle(shared_from_this()), info.ip, info.port, PeerStatus::Disconnected));
 
-                it = peers_.erase(it);
+                it = current_peers_.erase(it);
                 continue;
             }
 
             ++it;
         }
-    }
-
-    AnnounceParameters Torrent::GetTrackerRequest()
-    {
-        AnnounceParameters request(metainfo_->info_hash, peer_id_);
-        return request; // TODO
     }
 }

@@ -11,22 +11,11 @@
 
 namespace tortoise
 {
-    /*! \brief A session manages a collection of torrents.
-     *
-     * The session is responsible for managing the network connections,
-     * disk access, and other resources used by the torrents.
-     * The session will spawn a thread that will do all the work.
-     */
+    /// \brief A session manages a collection of torrents.
     class Session
     {
     public:
-        struct Parameters
-        {
-            bool start = true;        // If true, the session will start immediately. Otherwise, the session will be stopped until Start() is called.
-            EventCallbacks callbacks; // Callbacks to be executed when handling events.
-        };
-
-        Session(Parameters parameters);
+        Session(EventCallbacks callbacks);
         ~Session();
 
         /*! \brief Adds a torrent to the session.
@@ -39,12 +28,6 @@ namespace tortoise
          *  \param handle handle to the torrent.
          */
         void RemoveTorrent(TorrentHandle handle);
-
-        //! \brief Starts the session.
-        void Start();
-
-        //! \brief Stops the session.
-        void Stop();
 
         /*! \brief Pop all events and process them using the given callbacks, this function is expected to be called regularly.
          *  Note that only events that are enabled in the session will be generated.

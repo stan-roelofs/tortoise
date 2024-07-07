@@ -22,17 +22,16 @@ set (HEADERS
 
   tortoise/bencode.hpp
   tortoise/event_queue.hpp
+  tortoise/log.hpp
+  tortoise/network.hpp
   tortoise/peer.hpp
   tortoise/peer_id.hpp
-  tortoise/network.hpp
   tortoise/peer_info.hpp
   tortoise/piece_manager.hpp
-  tortoise/tracker/http_tracker_connection.hpp
   tortoise/tracker/tracker_announce.hpp
   tortoise/tracker/tracker_connection.hpp
   tortoise/tracker/tracker_list.hpp
   tortoise/tracker/tracker_manager.hpp
-  tortoise/tracker/udp_tracker_connection.hpp
   tortoise/sha1.hpp
   tortoise/socket.hpp
   tortoise/torrent_impl.hpp
@@ -55,7 +54,6 @@ set(SOURCES
   tortoise/torrent_impl.cpp
   tortoise/tracker/http_tracker_connection.cpp
   tortoise/tracker/tracker_announce.cpp
-  tortoise/tracker/tracker_connection.cpp
   tortoise/tracker/tracker_list.cpp
   tortoise/tracker/tracker_manager.cpp
   tortoise/tracker/udp_tracker_connection.cpp
@@ -79,7 +77,7 @@ if (TORTOISE_ENABLE_LOGGING)
 endif()
 if(MSVC)
   target_compile_definitions(tortoise PRIVATE NOMINMAX)
-  target_compile_options(tortoise PRIVATE /W4 /WX)
+  #target_compile_options(tortoise PRIVATE /W4 /WX)
 else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

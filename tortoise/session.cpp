@@ -2,6 +2,7 @@
 
 #include "event_queue.hpp"
 #include "torrent_impl.hpp"
+#include "tracker/tracker_manager.hpp"
 
 namespace
 {
@@ -13,15 +14,12 @@ namespace tortoise
     class Session::Implementation
     {
     public:
-        Implementation(Parameters &parameters) : running_(false), event_queue_(parameters.callbacks)
+        Implementation(EventCallbacks callbacks) : event_queue_(callbacks)
         {
-            if (parameters.start)
-                Start();
         }
 
         ~Implementation()
         {
-            Stop();
         }
 
         TorrentHandle AddTorrent(const TorrentParameters &parameters)
@@ -31,7 +29,7 @@ namespace tortoise
 
             // TODO check if torrent already exists
 
-            auto torrent = std::make_shared<Torrent>(parameters, event_queue_);
+            auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
             {
                 std::lock_guard lock(mutex_);
                 torrents_.push_back(torrent);
@@ -56,61 +54,19 @@ namespace tortoise
                 torrents_.erase(it);
         }
 
-        void Start()
-        {
-            std::lock_guard lock(mutex_);
-
-            if (running_)
-                return;
-
-            running_ = true;
-            thread_ = std::thread(ThreadFunc, std::ref(*this));
-        }
-
-        void Stop()
-        {
-            std::lock_guard lock(mutex_);
-
-            if (!running_)
-                return;
-
-            running_ = false;
-            if (thread_.joinable())
-                thread_.join();
-        }
-
         void HandleEvents()
         {
             event_queue_.HandleEvents();
         }
 
     private:
-        static void ThreadFunc(Implementation &session)
-        {
-            session.Run();
-        }
-        void Run()
-        {
-            while (running_)
-            {
-                {
-                    std::lock_guard lock(mutex_);
-                    for (auto &torrent : torrents_)
-                        torrent->Process();
-                }
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-        }
-
-        bool running_ = true;
         std::vector<std::shared_ptr<Torrent>> torrents_;
-        std::thread thread_;
+        TrackerManager tracker_manager_;
         std::mutex mutex_;
         EventQueue event_queue_;
     };
 
-    Session::Session(Parameters parameters) : implementation_(std::make_unique<Implementation>(parameters))
+    Session::Session(EventCallbacks callbacks) : implementation_(std::make_unique<Implementation>(callbacks))
     {
     }
 
@@ -124,16 +80,6 @@ namespace tortoise
     void Session::RemoveTorrent(TorrentHandle handle)
     {
         implementation_->RemoveTorrent(handle);
-    }
-
-    void Session::Start()
-    {
-        implementation_->Start();
-    }
-
-    void Session::Stop()
-    {
-        implementation_->Stop();
     }
 
     void Session::HandleEvents()

@@ -7,35 +7,50 @@
 #include "peer.hpp"
 #include "peer_id.hpp"
 #include "piece_manager.hpp"
-#include "tracker/tracker_manager.hpp"
 
 #include <list>
+#include <thread>
 
 namespace tortoise
 {
     class Torrent : public std::enable_shared_from_this<Torrent>
     {
     public:
-        Torrent(const TorrentParameters &params, EventQueue &event_queue);
+        class PeerInfoProvider
+        {
+        public:
+            virtual ~PeerInfoProvider() = default;
+            virtual void RequestPeers(const Torrent &torrent, std::function<void(const PeerInfo &)> callback) = 0;
+            virtual void CancelRequest(const Torrent &torrent) = 0;
+        };
+
+        Torrent(const TorrentParameters &params, PeerInfoProvider &peer_info_provider, EventQueue &event_queue);
         ~Torrent();
 
-        //! \brief Handles all of the torrent's logic. Should be called periodically.
-        void Process();
+        void Start();
+        void Stop();
 
         std::shared_ptr<const Metainfo> GetMetainfo() const;
+        const PeerId &GetPeerId() const;
 
     private:
-        bool AddPeer(const PeerInfo &peer_info);
-        void ProcessPeers();
-        AnnounceParameters GetTrackerRequest();
+        void AddPeer(const PeerInfo &peer_info);
 
+        static void Run(Torrent &torrent);
+
+        void ProcessPeers();
+
+        bool running_;
+        std::mutex mutex_;
+        std::thread thread_;
+
+        PeerInfoProvider &peer_info_provider_;
         EventQueue &event_queue_;
         std::shared_ptr<Metainfo> metainfo_;
         const PeerId peer_id_;
-        TrackerManager tracker_manager_;
         PieceManager piece_manager_;
-        std::list<PeerInfo> peer_queue_;
-        std::list<Peer> peers_;
+        std::list<PeerInfo> potential_peers_;
+        std::list<Peer> current_peers_;
     };
 }
 

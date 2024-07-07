@@ -1,4 +1,4 @@
-#include "udp_tracker_connection.hpp"
+#include "tracker_connection.hpp"
 
 #include <array>
 #include <cassert>
@@ -9,10 +9,13 @@
 #include <tortoise/exceptions.hpp>
 
 #include "log.hpp"
+#include "socket.hpp"
+#include "util.hpp"
 
 namespace tortoise
 {
     // TODO handle errors (action 3)
+    // TODO this code is a complete mess
 
     namespace
     {
@@ -137,8 +140,79 @@ namespace tortoise
         }
     }
 
-    UDPTrackerConnection::UDPTrackerConnection() : result_({false, {}}),
-                                                   state_(State::Idle),
+    class UDPTrackerConnection
+    {
+    public:
+        UDPTrackerConnection();
+        ~UDPTrackerConnection();
+
+        std::optional<AnnounceResponse> Announce(const URL &url, const AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel);
+
+    private:
+        enum class SendResult
+        {
+            Finished,
+            Unfinished,
+            Error
+        };
+
+        enum class ReceiveResult
+        {
+            Finished,
+            Unfinished,
+            Timeout,
+            Error
+        };
+
+        void CreateConnectRequest();
+        void CreateAnnounceRequest();
+        SendResult Send();
+        ReceiveResult Receive();
+        void ResizeBuffer(std::size_t size);
+
+        enum class State
+        {
+            SendConnectRequest,
+            ReceiveConnectResponse,
+            SendAnnounceRequest,
+            ReceiveAnnounceResponse
+        };
+
+        /*! \brief A connection ID is a 64-bit number that is used to identify a connection to a tracker. It is sent by the tracker in response to a connect request.
+         *         A client can use a connection ID until one minute after it has received it.
+         */
+        class ConnectionId
+        {
+        public:
+            ConnectionId() : id(0) {}
+            ConnectionId(std::uint64_t id) : id(id), receive_time(std::chrono::steady_clock::now()) {}
+
+            std::uint64_t GetId() const { return id; }
+            bool IsValid() const
+            {
+                const auto now = std::chrono::steady_clock::now();
+                const auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - receive_time);
+                return duration.count() < 60;
+            }
+
+        private:
+            std::uint64_t id;
+            std::chrono::steady_clock::time_point receive_time;
+        };
+
+        std::shared_ptr<std::atomic_bool> cancel_;
+        std::unique_ptr<AnnounceParameters> parameters_;
+        State state_;
+        Socket socket_;
+        ConnectionId connection_id_;
+        std::uint32_t transaction_id_;
+        ByteVector buffer_;
+        std::size_t current_buffer_position_;
+        std::chrono::steady_clock::time_point timeout_time_;
+        unsigned nr_timeouts_;
+    };
+
+    UDPTrackerConnection::UDPTrackerConnection() : state_(State::SendConnectRequest),
                                                    socket_(network::TransportProtocol::UDP),
                                                    transaction_id_(0),
                                                    current_buffer_position_(0u),
@@ -151,157 +225,151 @@ namespace tortoise
         // TODO send a "stopped" event
     }
 
-    bool UDPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters)
+    std::optional<AnnounceResponse> UDPTrackerConnection::Announce(const URL &url, const AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
-        if (state_ != State::Idle)
-            return false;
-
+        cancel_ = cancel;
         parameters_ = std::make_unique<AnnounceParameters>(parameters);
         if (!socket_.Connect(url.GetHost(), url.GetPort()))
         {
             LOG("UDPTrackerConnection", "failed to connect to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
-            return false;
+            return {};
         }
+
+        LOG("UDPTrackerConnection", "connected to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
 
         CreateConnectRequest();
         state_ = State::SendConnectRequest;
 
-        LOG("UDPTrackerConnection", "connected to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
-        return true;
-    }
-
-    TrackerConnection::Result UDPTrackerConnection::GetLastResult() const
-    {
-        return result_;
-    }
-
-    void UDPTrackerConnection::Cancel()
-    {
-        state_ = State::Idle;
-    }
-
-    bool UDPTrackerConnection::Process()
-    {
-        // TODO handle timeouts
-        switch (state_)
+        while (!*cancel)
         {
-        case State::Idle:
-            return true;
-        case State::SendConnectRequest:
-        {
-            if (!Send())
-                return false;
-
-            LOG("UDPTrackerConnection", "sent connect request");
-            ResizeBuffer(CONNECT_RESPONSE_SIZE);
-            state_ = State::ReceiveConnectResponse;
-            return false;
-        }
-        case State::ReceiveConnectResponse:
-        {
-            const auto receive_result = Receive();
-            switch (receive_result)
+            // TODO handle timeouts
+            switch (state_)
             {
-            case ReceiveResult::Finished:
+            case State::SendConnectRequest:
+            {
+                switch (Send())
+                {
+                case SendResult::Finished:
+                    LOG("UDPTrackerConnection", "sent connect request");
+                    ResizeBuffer(CONNECT_RESPONSE_SIZE);
+                    state_ = State::ReceiveConnectResponse;
+                    break;
+                case SendResult::Unfinished:
+                    break;
+                case SendResult::Error:
+                    LOG("UDPTrackerConnection", "failed to send connect request");
+                    return {};
+                }
                 break;
-            case ReceiveResult::Unfinished:
-            case ReceiveResult::Error:
-                return false;
-            case ReceiveResult::Timeout:
-                CreateConnectRequest();
-                state_ = State::SendConnectRequest;
-                return false;
             }
-
-            const std::uint8_t *packet = buffer_.data();
-            const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
-            const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
-            std::uint64_t connection_id = network::HostToNetwork(((std::uint64_t *)packet)[1]);
-
-            if (received_transaction_id != transaction_id_)
+            case State::ReceiveConnectResponse:
             {
-                LOG("UDPTrackerConnection", "Transaction ID mismatch.");
-                return false;
-            }
+                switch (Receive())
+                {
+                case ReceiveResult::Finished:
+                {
+                    const std::uint8_t *packet = buffer_.data();
+                    const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
+                    const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
+                    std::uint64_t connection_id = network::HostToNetwork(((std::uint64_t *)packet)[1]);
 
-            if (action != static_cast<std::uint32_t>(Action::Connect))
-            {
-                LOG("UDPTrackerConnection", "Invalid action.");
-                return false;
-            }
+                    if (received_transaction_id != transaction_id_)
+                    {
+                        LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                        return {};
+                    }
 
-            connection_id_ = ConnectionId(connection_id);
-            LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id_.GetId());
+                    if (action != static_cast<std::uint32_t>(Action::Connect))
+                    {
+                        LOG("UDPTrackerConnection", "Invalid action.");
+                        return {};
+                    }
 
-            CreateAnnounceRequest();
-            state_ = State::SendAnnounceRequest;
-        }
-            [[fallthrough]];
-        case State::SendAnnounceRequest:
-        {
-            if (!connection_id_.IsValid())
-            {
-                CreateConnectRequest();
-                state_ = State::SendConnectRequest;
-                return false;
-            }
+                    connection_id_ = ConnectionId(connection_id);
+                    LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id_.GetId());
 
-            if (!Send())
-                return false;
-
-            LOG("UDPTrackerConnection", "sent announce request");
-            state_ = State::ReceiveAnnounceResponse;
-            ResizeBuffer(0xFFFF);
-            return false;
-        }
-        case State::ReceiveAnnounceResponse:
-        {
-            const auto receive_result = Receive();
-            switch (receive_result)
-            {
-            case ReceiveResult::Finished:
+                    CreateAnnounceRequest();
+                    state_ = State::SendAnnounceRequest;
+                    break;
+                }
+                case ReceiveResult::Unfinished:
+                    break;
+                case ReceiveResult::Error:
+                    LOG("UDPTrackerConnection", "failed to receive connect response");
+                    return {};
+                case ReceiveResult::Timeout:
+                    CreateConnectRequest();
+                    state_ = State::SendConnectRequest;
+                    break;
+                }
                 break;
-            case ReceiveResult::Unfinished:
-            case ReceiveResult::Error:
-                return false;
-            case ReceiveResult::Timeout:
-                CreateAnnounceRequest();
-                state_ = State::SendAnnounceRequest;
-                return false;
             }
-
-            const std::uint8_t *packet = buffer_.data();
-            const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
-            const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
-
-            if (received_transaction_id != transaction_id_)
+            case State::SendAnnounceRequest:
             {
-                LOG("UDPTrackerConnection", "Transaction ID mismatch.");
-                return false;
-            }
+                if (!connection_id_.IsValid())
+                {
+                    CreateConnectRequest();
+                    state_ = State::SendConnectRequest;
+                    break;
+                }
 
-            if (action != static_cast<std::uint32_t>(Action::Announce))
+                switch (Send())
+                {
+                case SendResult::Finished:
+                    LOG("UDPTrackerConnection", "sent announce request");
+                    ResizeBuffer(0xFFFF);
+                    state_ = State::ReceiveAnnounceResponse;
+                    break;
+                case SendResult::Unfinished:
+                    break;
+                case SendResult::Error:
+                    LOG("UDPTrackerConnection", "failed to send announce request");
+                    return {};
+                }
+
+                break;
+            }
+            case State::ReceiveAnnounceResponse:
             {
-                LOG("UDPTrackerConnection", "Invalid action.");
-                return false;
-            }
+                switch (Receive())
+                {
+                case ReceiveResult::Finished:
+                {
+                    const std::uint8_t *packet = buffer_.data();
+                    const std::uint32_t action = network::HostToNetwork(((std::uint32_t *)packet)[0]);
+                    const std::uint32_t received_transaction_id = network::HostToNetwork(((std::uint32_t *)packet)[1]);
 
-            std::optional<AnnounceResponse> response = ParseResponse(packet, (int)current_buffer_position_, socket_.GetInternetProtocol());
-            if (!response)
-            {
-                LOG("UDPTrackerConnection", "Failed to parse announce response.");
-                return false;
-            }
+                    if (received_transaction_id != transaction_id_)
+                    {
+                        LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                        return {};
+                    }
 
-            result_ = Result{true, response};
-            state_ = State::Idle;
-            return true;
+                    if (action != static_cast<std::uint32_t>(Action::Announce))
+                    {
+                        LOG("UDPTrackerConnection", "Invalid action.");
+                        return {};
+                    }
+
+                    return ParseResponse(packet, (int)current_buffer_position_, socket_.GetInternetProtocol());
+                }
+                case ReceiveResult::Unfinished:
+                    break;
+                case ReceiveResult::Error:
+                    LOG("UDPTrackerConnection", "failed to receive announce response");
+                    return {};
+                case ReceiveResult::Timeout:
+                    CreateAnnounceRequest();
+                    state_ = State::SendAnnounceRequest;
+                    break;
+                }
+            }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        }
 
-        return false;
+        return {};
     }
-
     void UDPTrackerConnection::CreateConnectRequest()
     {
         transaction_id_ = GenerateTransactionId();
@@ -321,25 +389,21 @@ namespace tortoise
         CreateUDPAnnounceRequest(buffer_, *parameters_, transaction_id_, connection_id_.GetId());
     }
 
-    bool UDPTrackerConnection::Send()
+    UDPTrackerConnection::SendResult UDPTrackerConnection::Send()
     {
         assert(current_buffer_position_ < buffer_.size());
 
         int length = static_cast<int>(buffer_.size() - current_buffer_position_);
         const Socket::Result result = socket_.Send(buffer_.data() + current_buffer_position_, length);
         if (result == Socket::Result::Error)
-        {
-            result_ = Result{false, {}};
-            state_ = State::Idle;
-            return false;
-        }
+            return SendResult::Error;
 
         current_buffer_position_ += length;
         if (current_buffer_position_ < buffer_.size())
-            return false;
+            return SendResult::Unfinished;
 
         timeout_time_ = GetTimeoutTime(nr_timeouts_);
-        return true;
+        return SendResult::Finished;
     }
 
     UDPTrackerConnection::ReceiveResult UDPTrackerConnection::Receive()
@@ -347,11 +411,7 @@ namespace tortoise
         if (std::chrono::steady_clock::now() >= timeout_time_)
         {
             if (nr_timeouts_ == MAX_TIMEOUTS)
-            {
-                result_ = Result{false, {}};
-                state_ = State::Idle;
                 return ReceiveResult::Error;
-            }
 
             ++nr_timeouts_;
             return ReceiveResult::Timeout;
@@ -360,11 +420,7 @@ namespace tortoise
         int length = static_cast<int>(buffer_.size());
         const Socket::Result result = socket_.Receive(buffer_.data(), length);
         if (result == Socket::Result::Error)
-        {
-            result_ = Result{false, {}};
-            state_ = State::Idle;
             return ReceiveResult::Error;
-        }
 
         if (length == 0)
             return ReceiveResult::Unfinished;
@@ -379,5 +435,11 @@ namespace tortoise
     {
         buffer_.resize(size);
         current_buffer_position_ = 0;
+    }
+
+    std::optional<AnnounceResponse> tracker::udp::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+    {
+        UDPTrackerConnection connection;
+        return connection.Announce(url, *parameters, cancel);
     }
 }

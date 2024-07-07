@@ -110,11 +110,11 @@ struct Window
 
 Application::Application(CommandLineArguments args) : args_(args)
 {
-    tortoise::Session::Parameters params;
-    params.callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);
-    params.callbacks.peer_status_changed = std::bind(&Application::OnPeerStatusChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+    tortoise::EventCallbacks event_callbacks;
+    event_callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);
+    event_callbacks.peer_status_changed = std::bind(&Application::OnPeerStatusChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
 
-    session_ = std::make_unique<tortoise::Session>(params);
+    session_ = std::make_unique<tortoise::Session>(event_callbacks);
 }
 
 bool Application::AddTorrent(const std::string &torrent_file)
@@ -134,6 +134,8 @@ bool Application::AddTorrent(const std::string &torrent_file)
         std::cout << "Failed to add torrent" << std::endl;
         return false;
     }
+
+    handle.StartDownload();
 
     torrents_.push_back(handle);
 

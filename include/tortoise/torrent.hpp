@@ -11,13 +11,33 @@ namespace tortoise
 {
     class Torrent;
 
+    class InvalidHandleException : public Exception
+    {
+    public:
+        InvalidHandleException(const std::string &msg) : Exception(msg) {}
+    };
+
     //! \brief A non-owning handle to a torrent.
     class TorrentHandle
     {
     public:
-        TorrentHandle(const std::shared_ptr<const Torrent> &ptr) : ptr_(ptr) {}
+        TorrentHandle(const std::shared_ptr<Torrent> &ptr) : ptr_(ptr) {}
 
+        /*! \returns Returns the metainfo of the torrent.
+         *  \throws InvalidHandleException if the torrent is not valid.
+         */
         Metainfo GetMetainfo() const;
+
+        /*! \brief Starts downloading the torrent.
+         *  \return True if the torrent was started successfully.
+         *  \throws InvalidHandleException if the torrent is not valid.
+         */
+        void StartDownload();
+
+        /*! \brief Stops downloading the torrent.
+         *  \throws InvalidHandleException if the torrent is not valid.
+         */
+        void StopDownload();
 
         bool IsValid() const;
         operator bool() const;
@@ -25,13 +45,7 @@ namespace tortoise
         bool operator!=(const TorrentHandle &other) const;
 
     private:
-        std::weak_ptr<const Torrent> ptr_;
-    };
-
-    class TorrentException : public Exception
-    {
-    public:
-        TorrentException(const std::string &msg) : Exception(msg) {}
+        std::weak_ptr<Torrent> ptr_;
     };
 
     struct TorrentParameters
