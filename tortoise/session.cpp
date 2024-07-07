@@ -61,7 +61,7 @@ namespace tortoise
 
     private:
         std::vector<std::shared_ptr<Torrent>> torrents_;
-        TrackerManager tracker_manager_;
+        tracker::Manager tracker_manager_;
         std::mutex mutex_;
         EventQueue event_queue_;
     };
