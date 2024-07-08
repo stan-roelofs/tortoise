@@ -342,9 +342,9 @@ namespace tortoise
 
         switch (socket_.GetConnectionStatus())
         {
-        case Socket::Status::Pending:
+        case network::Socket::Status::Pending:
             return false;
-        case Socket::Status::Connected:
+        case network::Socket::Status::Connected:
         {
             SetTimeout(handshake_timeout);
             SetStatus(Status::Handshaking);
@@ -352,7 +352,7 @@ namespace tortoise
             LOG("PeerConnection", "Connected to peer %s", peer_info_.ip.c_str());
             return true;
         }
-        case Socket::Status::Error:
+        case network::Socket::Status::Error:
         {
             Error(std::string("Error connecting to peer ") + peer_info_.ip);
             return false;
@@ -385,13 +385,13 @@ namespace tortoise
         int length = (int)std::min(send_buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
         switch (socket_.Send(send_buffer_.data(), length))
         {
-        case Socket::Result::Ok:
+        case network::Socket::Result::Ok:
             LOG("PeerConnection", "Sent %d bytes to peer %s", length, peer_info_.ip.c_str());
             send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
             return true;
-        case Socket::Result::WouldBlock:
+        case network::Socket::Result::WouldBlock:
             return true;
-        case Socket::Result::Error:
+        case network::Socket::Result::Error:
             return false;
             break;
         }
@@ -405,7 +405,7 @@ namespace tortoise
         std::uint8_t chunk[1024];
         switch (socket_.Receive(chunk, length))
         {
-        case Socket::Result::Ok:
+        case network::Socket::Result::Ok:
             if (length != 0)
             {
                 LOG("PeerConnection", "Received %d bytes from peer %s", length, peer_info_.ip.c_str());
@@ -414,9 +414,9 @@ namespace tortoise
                 receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
             }
             return true;
-        case Socket::Result::WouldBlock:
+        case network::Socket::Result::WouldBlock:
             return true;
-        case Socket::Result::Error:
+        case network::Socket::Result::Error:
             return false;
         }
 

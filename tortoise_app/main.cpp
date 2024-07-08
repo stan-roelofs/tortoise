@@ -25,10 +25,6 @@ int main(int argc, const char *argv[])
   {
     switch (argv[arg][1])
     {
-    case 'c':
-      args.curses = false;
-      ++arg;
-      break;
     case 'h':
     case '?':
       return usage(argv);

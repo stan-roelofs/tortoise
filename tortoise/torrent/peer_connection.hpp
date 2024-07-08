@@ -84,7 +84,7 @@ namespace tortoise
 
         Status status_;
         std::chrono::steady_clock::time_point timeout_;
-        Socket socket_;
+        network::Socket socket_;
         ByteVector send_buffer_;
         ByteVector receive_buffer_;
 

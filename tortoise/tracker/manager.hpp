@@ -7,9 +7,9 @@
 #include <list>
 #include <thread>
 
-#include "tracker_announce.hpp"
-#include "tracker_connection.hpp"
-#include "tracker_list.hpp"
+#include "announce.hpp"
+#include "connection.hpp"
+#include "tiered_list.hpp"
 
 #include "../torrent/torrent_impl.hpp"
 
@@ -56,7 +56,7 @@ namespace tortoise
                 std::chrono::steady_clock::time_point timeout_;
                 std::uint64_t tracker_interval_seconds_;
 
-                TrackerList tracker_list_;
+                tracker::TieredList tracker_list_;
 
                 std::optional<std::future<std::optional<AnnounceResponse>>> request_;
                 std::shared_ptr<std::atomic_bool> cancel_flag_;

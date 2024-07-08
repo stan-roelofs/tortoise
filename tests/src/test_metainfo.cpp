@@ -27,7 +27,7 @@ TEST(Metainfo, single_file_without_optional_fields)
 		0xef, 0x9a, 0x9c, 0xd3,
 		0x87, 0xf4, 0xe9, 0x07};
 
-	EXPECT_EQ(expected_info_hash, metainfo->info_hash.GetBytes());
+	EXPECT_EQ(expected_info_hash, metainfo->info_hash);
 }
 TEST(Metainfo, missing_announce_fails)
 {
@@ -117,5 +117,5 @@ TEST(Metainfo, multi_file_with_optional_fields)
 		0x40, 0xE4, 0xEB, 0xF6,
 		0xFD, 0xE1, 0xA7, 0xD5};
 
-	EXPECT_EQ(expected_info_hash, metainfo->info_hash.GetBytes());
+	EXPECT_EQ(expected_info_hash, metainfo->info_hash);
 }

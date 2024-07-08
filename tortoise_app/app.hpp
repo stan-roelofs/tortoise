@@ -15,7 +15,6 @@ class Application
 public:
     struct CommandLineArguments
     {
-        bool curses = true;
         std::string torrent_file;
     };
 
@@ -35,8 +34,6 @@ private:
     CommandLineArguments args_;
     std::unique_ptr<tortoise::Session> session_;
     std::vector<tortoise::TorrentHandle> torrents_;
-
-    std::map<tortoise::TorrentHandle, Window *> windows_;
 };
 
 #endif

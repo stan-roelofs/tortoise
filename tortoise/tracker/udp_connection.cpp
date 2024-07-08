@@ -1,4 +1,4 @@
-#include "tracker_connection.hpp"
+#include "connection.hpp"
 
 #include <array>
 #include <cassert>
@@ -146,7 +146,7 @@ namespace tortoise
         UDPTrackerConnection();
         ~UDPTrackerConnection();
 
-        std::optional<tracker::AnnounceResponse> Announce(const URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel);
+        std::optional<tracker::AnnounceResponse> Announce(const network::URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel);
 
     private:
         enum class SendResult
@@ -203,7 +203,7 @@ namespace tortoise
         std::shared_ptr<std::atomic_bool> cancel_;
         std::unique_ptr<tracker::AnnounceParameters> parameters_;
         State state_;
-        Socket socket_;
+        network::Socket socket_;
         ConnectionId connection_id_;
         std::uint32_t transaction_id_;
         ByteVector buffer_;
@@ -225,7 +225,7 @@ namespace tortoise
         // TODO send a "stopped" event
     }
 
-    std::optional<tracker::AnnounceResponse> UDPTrackerConnection::Announce(const URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> UDPTrackerConnection::Announce(const network::URL &url, const tracker::AnnounceParameters &parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         cancel_ = cancel;
         parameters_ = std::make_unique<tracker::AnnounceParameters>(parameters);
@@ -394,8 +394,8 @@ namespace tortoise
         assert(current_buffer_position_ < buffer_.size());
 
         int length = static_cast<int>(buffer_.size() - current_buffer_position_);
-        const Socket::Result result = socket_.Send(buffer_.data() + current_buffer_position_, length);
-        if (result == Socket::Result::Error)
+        const network::Socket::Result result = socket_.Send(buffer_.data() + current_buffer_position_, length);
+        if (result == network::Socket::Result::Error)
             return SendResult::Error;
 
         current_buffer_position_ += length;
@@ -418,8 +418,8 @@ namespace tortoise
         }
 
         int length = static_cast<int>(buffer_.size());
-        const Socket::Result result = socket_.Receive(buffer_.data(), length);
-        if (result == Socket::Result::Error)
+        const network::Socket::Result result = socket_.Receive(buffer_.data(), length);
+        if (result == network::Socket::Result::Error)
             return ReceiveResult::Error;
 
         if (length == 0)
@@ -437,7 +437,7 @@ namespace tortoise
         current_buffer_position_ = 0;
     }
 
-    std::optional<tracker::AnnounceResponse> tracker::udp::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> tracker::udp::Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         UDPTrackerConnection connection;
         return connection.Announce(url, *parameters, cancel);

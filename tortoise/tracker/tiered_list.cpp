@@ -1,4 +1,4 @@
-#include "tracker_list.hpp"
+#include "tiered_list.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -10,7 +10,7 @@ namespace tortoise
 {
     namespace tracker
     {
-        TrackerList::TrackerList(const std::vector<std::vector<std::string>> &trackers)
+        TieredList::TieredList(const std::vector<std::vector<std::string>> &trackers)
         {
             if (trackers.empty())
                 throw InvalidArgumentException("trackers is empty");
@@ -36,12 +36,12 @@ namespace tortoise
             SelectFirstTracker();
         }
 
-        std::string TrackerList::GetCurrentTracker() const
+        std::string TieredList::GetCurrentTracker() const
         {
             return *current_tracker_;
         }
 
-        std::string TrackerList::SelectNextTracker()
+        std::string TieredList::SelectNextTracker()
         {
             ++current_tracker_;
             if (current_tracker_ == current_tier_->end())
@@ -56,7 +56,7 @@ namespace tortoise
             return *current_tracker_;
         }
 
-        void TrackerList::PromoteCurrentTracker()
+        void TieredList::PromoteCurrentTracker()
         {
             if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end() || current_tracker_ == current_tier_->begin())
                 return;
@@ -66,16 +66,25 @@ namespace tortoise
             std::swap(*current_tracker_, *(current_tracker_copy));
         }
 
-        void TrackerList::SelectFirstTracker()
+        void TieredList::SelectFirstTracker()
         {
             current_tier_ = trackers_.begin();
             current_tracker_ = current_tier_->begin();
         }
 
-        void TrackerList::RemoveCurrentTracker()
+        void TieredList::RemoveCurrentTracker()
         {
             if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
                 return;
+
+            auto it = current_tier_->erase(current_tracker_);
+            if (it == current_tier_->end())
+            {
+                ++current_tier_;
+                current_tracker_ = current_tier_->begin();
+            }
+            else
+                current_tracker_ = it;
         }
     }
 }

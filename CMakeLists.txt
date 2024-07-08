@@ -27,14 +27,13 @@ set (HEADERS
   tortoise/torrent/piece_manager.hpp
   tortoise/torrent/torrent_impl.hpp
 
-  tortoise/tracker/tracker_announce.hpp
-  tortoise/tracker/tracker_connection.hpp
-  tortoise/tracker/tracker_list.hpp
-  tortoise/tracker/tracker_manager.hpp
+  tortoise/tracker/announce.hpp
+  tortoise/tracker/connection.hpp
+  tortoise/tracker/tiered_list.hpp
+  tortoise/tracker/manager.hpp
 
   tortoise/network/ip_address.hpp
   tortoise/network/socket.hpp
-  tortoise/network/network.hpp
   tortoise/network/url.hpp
 
   tortoise/util/log.hpp
@@ -58,11 +57,11 @@ set(SOURCES
   tortoise/torrent/piece_manager.cpp
   tortoise/torrent/torrent_impl.cpp
 
-  tortoise/tracker/http_tracker_connection.cpp
-  tortoise/tracker/tracker_announce.cpp
-  tortoise/tracker/tracker_list.cpp
-  tortoise/tracker/tracker_manager.cpp
-  tortoise/tracker/udp_tracker_connection.cpp
+  tortoise/tracker/http_connection.cpp
+  tortoise/tracker/announce.cpp
+  tortoise/tracker/tiered_list.cpp
+  tortoise/tracker/manager.cpp
+  tortoise/tracker/udp_connection.cpp
 
   tortoise/util/hash.cpp
 )
@@ -101,8 +100,5 @@ if(TORTOISE_BUILD_TESTS)
 endif()
 
 if (TORTOISE_BUILD_APP)
-  if (WIN32)
-    add_subdirectory(external/PDCurses)
-  endif()
   add_subdirectory(tortoise_app)
 endif()

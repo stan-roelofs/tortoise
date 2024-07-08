@@ -1,7 +1,7 @@
 #include <tortoise/session.hpp>
 
 #include "torrent/torrent_impl.hpp"
-#include "tracker/tracker_manager.hpp"
+#include "tracker/manager.hpp"
 
 namespace tortoise
 {

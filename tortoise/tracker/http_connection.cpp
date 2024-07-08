@@ -1,4 +1,4 @@
-#include "tracker_connection.hpp"
+#include "connection.hpp"
 
 #include <iomanip>
 #include <limits>
@@ -8,7 +8,7 @@
 
 #include <tortoise/exceptions.hpp>
 
-#include "tracker_announce.hpp"
+#include "announce.hpp"
 #include "../bencode/bencode.hpp"
 #include "../util/log.hpp"
 #include "../network/socket.hpp"
@@ -43,7 +43,7 @@ namespace
         return escaped.str();
     }
 
-    std::string CreateRequest(const tortoise::URL &url, const tortoise::tracker::AnnounceParameters &parameters)
+    std::string CreateRequest(const tortoise::network::URL &url, const tortoise::tracker::AnnounceParameters &parameters)
     {
         std::string request;
 
@@ -349,11 +349,11 @@ namespace
 
 namespace tortoise
 {
-    std::optional<tracker::AnnounceResponse> tracker::http::Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+    std::optional<tracker::AnnounceResponse> tracker::http::Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
         LOG("tracker::http::Announce", "Announce (%s)", url.ToString().c_str());
 
-        Socket socket(network::TransportProtocol::TCP);
+        network::Socket socket(network::TransportProtocol::TCP);
         if (!socket.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort()))
         {
             LOG("tracker::http::Announce", "Failed to connect to tracker (%s)", url.ToString().c_str());
@@ -367,10 +367,10 @@ namespace tortoise
         // Connect
         {
             auto status = socket.GetConnectionStatus();
-            while (status != Socket::Status::Connected)
+            while (status != network::Socket::Status::Connected)
             {
                 status = socket.GetConnectionStatus();
-                if (status == Socket::Status::Error || *cancel)
+                if (status == network::Socket::Status::Error || *cancel)
                 {
                     LOG("tracker::http::Announce", "Failed to connect to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
                     return {};
@@ -386,13 +386,13 @@ namespace tortoise
             while (bytes_sent < buffer.size())
             {
                 const auto result = socket.Send(buffer.data() + bytes_sent, length);
-                if (result == Socket::Result::Error || *cancel)
+                if (result == network::Socket::Result::Error || *cancel)
                 {
                     LOG("tracker::http::Announce", "Failed to send request to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
                     return {};
                 }
 
-                if (result == Socket::Result::Ok)
+                if (result == network::Socket::Result::Ok)
                 {
                     bytes_sent += length;
                     length = (int)std::min(buffer.size() - bytes_sent, (std::size_t)std::numeric_limits<int>::max());
@@ -412,13 +412,13 @@ namespace tortoise
             std::uint8_t temp[1024];
             int length = sizeof(temp);
             const auto result = socket.Receive(temp, length);
-            if (result == Socket::Result::Error || *cancel)
+            if (result == network::Socket::Result::Error || *cancel)
             {
                 LOG("tracker::http::Announce", "Failed to receive response from tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
                 return {};
             }
 
-            if (result == Socket::Result::Ok)
+            if (result == network::Socket::Result::Ok)
             {
                 std::copy(temp, temp + length, std::back_inserter(buffer));
 

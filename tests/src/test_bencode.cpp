@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <sstream>
 
-#include "bencode.hpp"
+#include "bencode/bencode.hpp"
 
 using namespace tortoise;
 using namespace bencode;

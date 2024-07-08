@@ -1,4 +1,4 @@
-#include "tracker_manager.hpp"
+#include "manager.hpp"
 
 #include <cassert>
 #include <future>
@@ -6,7 +6,7 @@
 #include <tortoise/exceptions.hpp>
 
 #include "../util/log.hpp"
-#include "tracker_connection.hpp"
+#include "connection.hpp"
 
 namespace tortoise
 {
@@ -14,7 +14,7 @@ namespace tortoise
     {
         namespace
         {
-            std::future<std::optional<AnnounceResponse>> Announce(URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
+            std::future<std::optional<AnnounceResponse>> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
             {
                 assert(parameters);
                 if (!parameters)
@@ -148,7 +148,7 @@ namespace tortoise
             parameters->event = AnnounceParameters::Event::Started;
             parameters->numwant = 10;
 
-            const URL current_tracker{tracker_list_.GetCurrentTracker()};
+            const network::URL current_tracker{tracker_list_.GetCurrentTracker()};
             try
             {
                 LOG("Manager", "Requesting tracker update from %s", current_tracker.ToString().c_str());

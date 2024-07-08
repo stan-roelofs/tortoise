@@ -1,5 +1,5 @@
-#ifndef TORTOISE_TRACKER_LIST_HPP
-#define TORTOISE_TRACKER_LIST_HPP
+#ifndef TORTOISE_TIERED_LIST_HPP
+#define TORTOISE_TIERED_LIST_HPP
 
 #include <string>
 #include <list>
@@ -10,11 +10,11 @@ namespace tortoise
     namespace tracker
     {
         //! \brief Stores a list of tiers of trackers, see BEP 12.
-        class TrackerList
+        class TieredList
         {
         public:
             //! \throws InvalidArgumentException If the trackers list is empty.
-            TrackerList(const std::vector<std::vector<std::string>> &trackers);
+            TieredList(const std::vector<std::vector<std::string>> &trackers);
 
             //! \returns The current tracker URL.
             std::string GetCurrentTracker() const;
