@@ -2,7 +2,7 @@
 #define TORTOISE_ANNOUNCE_PARAMETERS_HPP
 
 #include <optional>
-#include <list>
+#include <vector>
 
 #include "../torrent/peer_id.hpp"
 #include "../torrent/peer_info.hpp"
@@ -98,7 +98,7 @@ namespace tortoise
             std::uint64_t incomplete;
 
             //! \brief A list of peers.
-            std::list<PeerInfo> peers;
+            std::vector<PeerInfo> peers;
         };
     } // namespace tracker
 } // namespace tortoise

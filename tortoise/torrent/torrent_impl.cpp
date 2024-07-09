@@ -55,8 +55,9 @@ namespace tortoise
         return !(*this == other);
     }
 
-    Torrent::Torrent(const TorrentParameters &parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue& event_queue)
+    Torrent::Torrent(const TorrentParameters &parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue)
         : running_(false),
+          requested_peers_(false),
           peer_info_provider_(peer_info_provider),
           event_queue_(event_queue),
           metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
@@ -65,7 +66,7 @@ namespace tortoise
         if (parameters.save_path.empty())
             throw Exception("save_path is empty"); // TODO set a default save path somewhere
 
-        peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::AddPeer, this, std::placeholders::_1));
+        peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::OnNewPeers, this, std::placeholders::_1));
 
         if (event_queue_.EventEnabled(EventType::TorrentAdded))
             event_queue_.PushEvent(std::make_unique<TorrentAddedEvent>());
@@ -91,7 +92,7 @@ namespace tortoise
 
             torrent.ProcessPeers();
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 
@@ -133,36 +134,105 @@ namespace tortoise
         return peer_id_;
     }
 
-    void Torrent::AddPeer(const PeerInfo &peer_info)
+    void Torrent::OnNewPeers(const std::vector<PeerInfo> &new_peers)
     {
         std::lock_guard lock(mutex_);
 
-        if (std::find(potential_peers_.begin(), potential_peers_.end(), peer_info) != potential_peers_.end())
-            return;
-        if (std::find_if(current_peers_.begin(), current_peers_.end(), [&peer_info](const auto &peer)
-                         { return peer->GetPeerInfo() == peer_info; }) != current_peers_.end())
-            return;
+        for (const auto &peer_info : new_peers)
+        {
+            if (std::find(potential_peers_.begin(), potential_peers_.end(), peer_info) != potential_peers_.end())
+                return;
+            if (std::find_if(pending_peers_.begin(), pending_peers_.end(), [&peer_info](const auto &peer)
+                             { return peer->GetPeerInfo() == peer_info; }) != pending_peers_.end())
+                return;
 
-        potential_peers_.push_back(peer_info);
+            if (std::find_if(connected_peers_.begin(), connected_peers_.end(), [&peer_info](const auto &peer)
+                             { return peer->GetPeerInfo() == peer_info; }) != connected_peers_.end())
+                return;
+            potential_peers_.push_back(peer_info);
+        }
+
+        requested_peers_ = false;
     }
 
     void Torrent::ProcessPeers()
     {
         std::lock_guard lock(mutex_);
 
+        if (!requested_peers_ && (potential_peers_.size() + pending_peers_.size() + connected_peers_.size()) < DESIRED_PEERS)
+        {
+            LOG("Torrent", "Requesting peers");
+            requested_peers_ = true;
+            peer_info_provider_.RequestPeers(*this, DESIRED_PEERS);
+        }
+
         // Add new peers if we don't have enough and there are still peers in the queue
         // TODO send a tracker request if we need more peers
-        while (current_peers_.size() < DESIRED_PEERS && !potential_peers_.empty())
+        while ((pending_peers_.size() + connected_peers_.size()) < DESIRED_PEERS && !potential_peers_.empty())
         {
             PeerInfo peer_info = potential_peers_.front();
             potential_peers_.pop_front();
 
-            LOG("Torrent", "Adding peer %s %u", peer_info.ip.c_str(), peer_info.port);
-            current_peers_.push_back(std::make_shared<PeerConnection>(peer_info, metainfo_, peer_id_, event_queue_));
+            LOG("Torrent", "Pending peer %s %u", peer_info.ip.c_str(), peer_info.port);
+            pending_peers_.push_back(std::make_unique<PeerConnection>(peer_info, metainfo_, peer_id_));
+
+            if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
+                event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info.ip, peer_info.port, PeerStatus::Connecting));
         }
 
-        // remove finished peers
-        current_peers_.remove_if([](const auto &peer)
-                                 { return peer->GetStatus() == PeerConnection::Status::Finished; });
+        {
+            auto it = pending_peers_.begin();
+            while (it != pending_peers_.end())
+            {
+                (*it)->Process();
+                switch ((*it)->GetStatus())
+                {
+                case PeerConnection::Status::Connecting:
+                case PeerConnection::Status::Handshaking:
+                    ++it;
+                    break;
+                case PeerConnection::Status::Connected:
+                {
+                    if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
+                    {
+                        const auto &peer_info = (*it)->GetPeerInfo();
+                        event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info.ip, peer_info.port, PeerStatus::Connected));
+                    }
+                    connected_peers_.push_back(std::make_unique<ConnectedPeer>(std::move(*it)));
+                    it = pending_peers_.erase(it);
+                    break;
+                }
+                case PeerConnection::Status::Finished:
+                {
+                    if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
+                    {
+                        const auto &peer_info = (*it)->GetPeerInfo();
+                        event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info.ip, peer_info.port, PeerStatus::Disconnected));
+                    }
+                    it = pending_peers_.erase(it);
+                    break;
+                }
+                }
+            }
+        }
+
+        {
+            auto it = connected_peers_.begin();
+            while (it != connected_peers_.end())
+            {
+                (*it)->Process();
+                if ((*it)->GetConnectionStatus() == PeerConnection::Status::Finished)
+                {
+                    if (event_queue_.EventEnabled(EventType::PeerStatusChanged))
+                    {
+                        const auto &peer_info = (*it)->GetPeerInfo();
+                        event_queue_.PushEvent(std::make_unique<PeerStatusChangedEvent>(peer_info.ip, peer_info.port, PeerStatus::Disconnected));
+                    }
+                    it = connected_peers_.erase(it);
+                }
+                else
+                    it++;
+            }
+        }
     }
 }

@@ -21,6 +21,7 @@ set (HEADERS
   tortoise/bencode/bencode.hpp
 
   tortoise/torrent/event_queue.hpp
+  tortoise/torrent/connected_peer.hpp
   tortoise/torrent/peer_connection.hpp
   tortoise/torrent/peer_id.hpp
   tortoise/torrent/peer_info.hpp
@@ -50,6 +51,7 @@ set(SOURCES
   tortoise/network/socket.cpp
   tortoise/network/url.cpp
 
+  tortoise/torrent/connected_peer.cpp
   tortoise/torrent/event_queue.cpp
   tortoise/torrent/load_torrent.cpp
   tortoise/torrent/peer_connection.cpp

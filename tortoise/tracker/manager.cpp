@@ -62,13 +62,18 @@ namespace tortoise
             }
         }
 
-        Manager::TorrentTrackerData::TorrentTrackerData(const Torrent &torrent, std::function<void(const PeerInfo &)> callback)
+        Manager::TorrentTrackerData::TorrentTrackerData(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
             : torrent(&torrent),
               callback(std::move(callback)),
               tracker_list_(torrent.GetMetainfo()->announce_list),
+              request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo()->info_hash, torrent.GetPeerId())),
               tracker_interval_seconds_(0),
               cancel_flag_(std::make_shared<std::atomic_bool>(false))
         {
+            request_parameters_->compact = true;
+            request_parameters_->no_peer_id = true;
+            request_parameters_->event = AnnounceParameters::Event::Started;
+            request_parameters_->numwant = 10;
         }
 
         Manager::TorrentTrackerData::~TorrentTrackerData()
@@ -111,7 +116,7 @@ namespace tortoise
 
                 request_ = std::nullopt;
             }
-            else if (tracker_interval_seconds_ == 0 || (last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now))
+            else if (tracker_interval_seconds_ != 0 && last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now)
                 RequestTrackerUpdate();
         }
 
@@ -131,36 +136,35 @@ namespace tortoise
             tracker_list_.SelectNextTracker();
         }
 
-        void Manager::TorrentTrackerData::RequestNewPeers()
+        void Manager::TorrentTrackerData::RequestNewPeers(unsigned desired)
         {
             std::lock_guard lock(mutex_);
 
-            last_tracker_contact_ = {};
+            request_parameters_->numwant = desired;
+
+            if (!request_ && (tracker_interval_seconds_ == 0 || last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < std::chrono::steady_clock::now()))
+                RequestTrackerUpdate();
         }
 
         void Manager::TorrentTrackerData::RequestTrackerUpdate()
         {
             std::lock_guard lock(mutex_);
 
-            std::shared_ptr<AnnounceParameters> parameters = std::make_shared<AnnounceParameters>(torrent->GetMetainfo()->info_hash, torrent->GetPeerId());
-            parameters->compact = true;
-            parameters->no_peer_id = true;
-            parameters->event = AnnounceParameters::Event::Started;
-            parameters->numwant = 10;
-
-            const network::URL current_tracker{tracker_list_.GetCurrentTracker()};
-            try
+            while (!request_ && !tracker_list_.GetCurrentTracker().empty())
             {
-                LOG("Manager", "Requesting tracker update from %s", current_tracker.ToString().c_str());
-                request_ = Announce(current_tracker, parameters, cancel_flag_);
-                timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
-            }
-            catch (UnsupportedProtocolException &e)
-            {
-                LOG("Manager", "Unsupported protocol: %s", e.what());
-                tracker_list_.RemoveCurrentTracker();
-                SelectNextTracker();
-                return;
+                try
+                {
+                    const auto current_tracker = tracker_list_.GetCurrentTracker();
+                    LOG("Manager", "Requesting tracker update from %s", current_tracker.c_str());
+                    request_ = Announce(current_tracker, request_parameters_, cancel_flag_);
+                    timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+                }
+                catch (UnsupportedProtocolException &e)
+                {
+                    LOG("Manager", "Unsupported protocol: %s", e.what());
+                    tracker_list_.RemoveCurrentTracker();
+                    SelectNextTracker();
+                }
             }
         }
 
@@ -186,8 +190,8 @@ namespace tortoise
             {
                 (void)peer;
                 LOG("Manager", "  %s:%d", peer.ip.c_str(), peer.port);
-                callback(peer);
             }
+            callback(result->peers);
 
             tracker_interval_seconds_ = result->min_interval ? result->min_interval.value() : result->interval;
 
@@ -196,11 +200,14 @@ namespace tortoise
                 // TODO
             }
 
+            if (last_tracker_contact_ != std::chrono::steady_clock::time_point{})
+                request_parameters_->event = AnnounceParameters::Event::None;
+
             last_tracker_contact_ = std::chrono::steady_clock::now();
             return true;
         }
 
-        void Manager::RegisterTorrent(const Torrent &torrent, std::function<void(const PeerInfo &)> callback)
+        void Manager::RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
         {
             std::lock_guard lock(mutex_);
 
@@ -227,7 +234,7 @@ namespace tortoise
                 torrents_.erase(it);
         }
 
-        void Manager::RequestPeers(const Torrent &torrent)
+        void Manager::RequestPeers(const Torrent &torrent, unsigned desired)
         {
             std::lock_guard lock(mutex_);
 
@@ -235,7 +242,7 @@ namespace tortoise
                                          { return data->torrent == &torrent; });
 
             if (it != torrents_.end())
-                (*it)->RequestNewPeers();
+                (*it)->RequestNewPeers(desired);
         }
     }
 }

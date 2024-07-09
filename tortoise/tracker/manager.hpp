@@ -25,9 +25,9 @@ namespace tortoise
             ~Manager();
 
             // Inherited via PeerInfoProvider
-            void RegisterTorrent(const Torrent &torrent, std::function<void(const PeerInfo &)> callback) override;
+            void RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback) override;
             void UnregisterTorrent(const Torrent &torrent) override;
-            void RequestPeers(const Torrent &torrent) override;
+            void RequestPeers(const Torrent &torrent, unsigned desired) override;
 
         private:
             static void Run(Manager &tracker_manager);
@@ -35,15 +35,15 @@ namespace tortoise
             class TorrentTrackerData
             {
             public:
-                TorrentTrackerData(const Torrent &torrent, std::function<void(const PeerInfo &)> callback);
+                TorrentTrackerData(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback);
                 ~TorrentTrackerData();
 
                 void Process();
                 void Cancel();
-                void RequestNewPeers();
+                void RequestNewPeers(unsigned desired);
 
                 const Torrent *torrent;
-                std::function<void(const PeerInfo &)> callback;
+                std::function<void(const std::vector<PeerInfo> &)> callback;
 
             private:
                 void RequestTrackerUpdate();
@@ -58,6 +58,7 @@ namespace tortoise
 
                 tracker::TieredList tracker_list_;
 
+                std::shared_ptr<AnnounceParameters> request_parameters_;
                 std::optional<std::future<std::optional<AnnounceResponse>>> request_;
                 std::shared_ptr<std::atomic_bool> cancel_flag_;
             };

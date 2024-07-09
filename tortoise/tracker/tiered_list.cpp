@@ -38,6 +38,8 @@ namespace tortoise
 
         std::string TieredList::GetCurrentTracker() const
         {
+            if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
+                return {};
             return *current_tracker_;
         }
 
