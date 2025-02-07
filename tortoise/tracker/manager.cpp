@@ -37,26 +37,22 @@ namespace tortoise
 
         Manager::~Manager()
         {
-            std::lock_guard guard(mutex_);
             running_ = false;
-
-            torrents_.clear();
-
             if (thread_.joinable())
                 thread_.join();
+
+            torrents_.clear();
         }
 
         void Manager::Run(Manager &tracker_manager)
         {
-            while (true)
+            while (tracker_manager.running_)
             {
                 {
                     std::lock_guard guard(tracker_manager.mutex_);
                     // TODO: could sort the torrents by the time until the next request, then stop when we find the first one that does not need a request
                     for (auto &torrent : tracker_manager.torrents_)
                         torrent->Process();
-                    if (!tracker_manager.running_)
-                        break;
                 }
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
