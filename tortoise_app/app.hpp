@@ -1,6 +1,7 @@
 #ifndef TORTOISE_APP_HPP
 #define TORTOISE_APP_HPP
 
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -16,10 +17,15 @@ public:
     struct CommandLineArguments
     {
         std::string torrent_file;
+        std::filesystem::path logging_file;
     };
 
     Application(CommandLineArguments args);
 
+    /*! \brief Run the application, blocking until it exits
+     *
+     * \return int Exit code
+     */
     int Run();
 
 private:
@@ -28,12 +34,10 @@ private:
     void OnTorrentAdded(tortoise::TorrentHandle torrent);
     void OnPeerStatusChanged(tortoise::TorrentHandle torrent, const std::string &ip, std::uint16_t port, tortoise::PeerStatus status);
 
-    int RunCurses();
-    int RunConsole();
-
     CommandLineArguments args_;
     std::unique_ptr<tortoise::Session> session_;
     std::vector<tortoise::TorrentHandle> torrents_;
+    std::atomic_bool running_;
 };
 
 #endif

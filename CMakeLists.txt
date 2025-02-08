@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.11)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
  
 project(Tortoise VERSION 0.1.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
-option(TORTOISE_ENABLE_LOGGING "Enable logging" OFF)
 option(TORTOISE_BUILD_APP "Build application" ON)
 option(TORTOISE_BUILD_TESTS "Build tests" ON)
 
@@ -13,6 +12,7 @@ set (HEADERS
   include/tortoise/exception.hpp
   include/tortoise/exceptions.hpp
   include/tortoise/load_torrent.hpp
+  include/tortoise/logging.hpp
   include/tortoise/metainfo.hpp
   include/tortoise/session.hpp
   include/tortoise/torrent.hpp
@@ -66,6 +66,7 @@ set(SOURCES
   tortoise/tracker/udp_connection.cpp
 
   tortoise/util/hash.cpp
+  tortoise/util/log.cpp
 )
 
 add_library(tortoise ${SOURCES} ${HEADERS})
@@ -79,10 +80,6 @@ if (WIN32)
   target_link_libraries(tortoise PRIVATE ws2_32)
 endif()
 
-if (TORTOISE_ENABLE_LOGGING)
-  message("Logging enabled")
-  target_compile_definitions(tortoise PRIVATE -DTORTOISE_ENABLE_LOGGING)
-endif()
 if(MSVC)
   target_compile_definitions(tortoise PRIVATE NOMINMAX)
   target_compile_options(tortoise PRIVATE /W4 /WX /wd4100 /wd4101)

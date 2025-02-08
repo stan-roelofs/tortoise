@@ -82,17 +82,12 @@ namespace tortoise
 
     void Torrent::Run(Torrent &torrent)
     {
-        while (true)
+        while (torrent.running_)
         {
-            {
-                std::lock_guard lock(torrent.mutex_);
-                if (!torrent.running_)
-                    break;
-            }
-
             torrent.ProcessPeers();
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (torrent.running_)
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 
@@ -106,7 +101,7 @@ namespace tortoise
         running_ = true;
         thread_ = std::thread(Torrent::Run, std::ref(*this));
 
-        LOG("Torrent", "Torrent started");
+        LOG_INFO("Torrent", "Torrent started");
     }
 
     void Torrent::Stop()
@@ -117,7 +112,7 @@ namespace tortoise
         if (thread_.joinable())
             thread_.join();
 
-        LOG("Torrent", "Torrent stopped");
+        LOG_INFO("Torrent", "Torrent stopped");
     }
 
     std::shared_ptr<const Metainfo> Torrent::GetMetainfo() const
@@ -161,7 +156,7 @@ namespace tortoise
 
         if (!requested_peers_ && (potential_peers_.size() + pending_peers_.size() + connected_peers_.size()) < DESIRED_PEERS)
         {
-            LOG("Torrent", "Requesting peers");
+            LOG_INFO("Torrent", "Requesting peers");
             requested_peers_ = true;
             peer_info_provider_.RequestPeers(*this, DESIRED_PEERS);
         }
@@ -173,7 +168,7 @@ namespace tortoise
             PeerInfo peer_info = potential_peers_.front();
             potential_peers_.pop_front();
 
-            LOG("Torrent", "Pending peer %s %u", peer_info.ip.c_str(), peer_info.port);
+            LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
             pending_peers_.push_back(std::make_unique<PeerConnection>(peer_info, metainfo_, peer_id_));
 
             if (event_queue_.EventEnabled(EventType::PeerStatusChanged))

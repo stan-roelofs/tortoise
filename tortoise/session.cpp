@@ -58,8 +58,10 @@ namespace tortoise
                 {
                     Event *e = event.get();
 
+                    // TODO: this is dumb, we shouldnt need to check every event type here
+
                     // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
-                    if (auto *added_event = dynamic_cast<TorrentAddedEvent *>(e))
+                    if (dynamic_cast<TorrentAddedEvent *>(e))
                     {
                         callbacks_.torrent_added(torrent.torrent);
                     }
@@ -77,8 +79,8 @@ namespace tortoise
             std::unique_ptr<EventQueue> event_queue;
             std::shared_ptr<Torrent> torrent;
         };
+		tracker::Manager tracker_manager_; // Keep this before torrents_ so it is destroyed after
         std::vector<TorrentData> torrents_;
-        tracker::Manager tracker_manager_;
         std::mutex mutex_;
         EventCallbacks callbacks_;
     };

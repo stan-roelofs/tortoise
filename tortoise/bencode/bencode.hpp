@@ -1,6 +1,7 @@
 #ifndef TORTOISE_BENCODE_HPP
 #define TORTOISE_BENCODE_HPP
 
+#include <cstdint>
 #include <istream>
 #include <map>
 #include <memory>

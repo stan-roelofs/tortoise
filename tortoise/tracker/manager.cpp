@@ -8,6 +8,10 @@
 #include "../util/log.hpp"
 #include "connection.hpp"
 
+namespace {
+	const std::string_view log_tag = "TrackerManager";
+}
+
 namespace tortoise
 {
     namespace tracker
@@ -61,9 +65,9 @@ namespace tortoise
         Manager::TorrentTrackerData::TorrentTrackerData(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
             : torrent(&torrent),
               callback(std::move(callback)),
+              tracker_interval_seconds_(0),
               tracker_list_(torrent.GetMetainfo()->announce_list),
               request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo()->info_hash, torrent.GetPeerId())),
-              tracker_interval_seconds_(0),
               cancel_flag_(std::make_shared<std::atomic_bool>(false))
         {
             request_parameters_->compact = true;
@@ -95,7 +99,7 @@ namespace tortoise
                     if (now > timeout_)
                     {
                         *cancel_flag_ = true;
-                        LOG("Manager", "Timed out waiting for tracker %s", tracker_list_.GetCurrentTracker().c_str());
+                        LOG_INFO(log_tag, std::format("Timed out waiting for tracker {}", tracker_list_.GetCurrentTracker()));
                         request_ = std::nullopt;
                         SelectNextTracker();
                     }
@@ -151,13 +155,13 @@ namespace tortoise
                 try
                 {
                     const auto current_tracker = tracker_list_.GetCurrentTracker();
-                    LOG("Manager", "Requesting tracker update from %s", current_tracker.c_str());
+                    LOG_INFO(log_tag, std::format("Requesting tracker update from {}", current_tracker));
                     request_ = Announce(current_tracker, request_parameters_, cancel_flag_);
                     timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
                 }
                 catch (UnsupportedProtocolException &e)
                 {
-                    LOG("Manager", "Unsupported protocol: %s", e.what());
+                    LOG_ERROR(log_tag, std::format("Unsupported protocol: {}", e.what()));
                     tracker_list_.RemoveCurrentTracker();
                     SelectNextTracker();
                 }
@@ -170,22 +174,22 @@ namespace tortoise
 
             if (!result)
             {
-                LOG("Manager", "Request failed");
+                LOG_INFO(log_tag, "Request failed");
                 return false;
             }
 
             if (result->failure_reason)
             {
-                LOG("Manager", "Request failed: %s", result->failure_reason->c_str());
+                LOG_INFO(log_tag, std::format("Request failed: {}", *result->failure_reason));
                 return false;
             }
 
-            LOG("Manager", "Request succeeded");
-            LOG("Manager", "Peers:");
+            LOG_INFO(log_tag, "Request succeeded");
+            LOG_INFO(log_tag, "Peers:");
             for (const auto &peer : result->peers)
             {
                 (void)peer;
-                LOG("Manager", "  %s:%d", peer.ip.c_str(), peer.port);
+                LOG_INFO(log_tag, std::string("  ") + peer.ToString());
             }
             callback(result->peers);
 

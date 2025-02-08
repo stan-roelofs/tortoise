@@ -19,7 +19,7 @@ namespace tortoise
     class PieceManager
     {
     public:
-        static constexpr std::uint32_t BLOCK_SIZE = 2 ^ 14; // 2^14 is used by near all clients and some even enforce this size.
+        static constexpr std::uint32_t BLOCK_SIZE = 1 << 14; // 2^14 is used by near all clients and some even enforce this size.
 
         PieceManager(std::size_t piece_count);
         ~PieceManager();

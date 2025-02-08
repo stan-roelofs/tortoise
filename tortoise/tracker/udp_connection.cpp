@@ -19,6 +19,8 @@ namespace tortoise
 
     namespace
     {
+		const std::string_view log_tag = "Connection";
+
         constexpr std::uint64_t MAGIC_PROTOCOL_CONSTANT = 0x41727101980;
         constexpr int CONNECT_REQUEST_SIZE = 16;
         constexpr int CONNECT_RESPONSE_SIZE = 16;
@@ -68,7 +70,7 @@ namespace tortoise
         {
             if (packet_size < ANNOUNCE_RESPONSE_MINIMUM_SIZE)
             {
-                LOG("UDPTrackerConnection", "packet size is too small");
+                LOG_ERROR(log_tag, "packet size is too small");
                 return {};
             }
 
@@ -79,13 +81,13 @@ namespace tortoise
                 stride_size = 18;
             else
             {
-                LOG("UDPTrackerConnection", "unknown protocol");
+                LOG_ERROR(log_tag, "unknown protocol");
                 return {};
             }
 
             if ((packet_size - ANNOUNCE_RESPONSE_MINIMUM_SIZE) % stride_size != 0)
             {
-                LOG("UDPTrackerConnection", "packet size is invalid: %d", packet_size);
+                LOG_ERROR(log_tag, std::format("packet size is invalid: {}", packet_size));
                 return {};
             }
 
@@ -231,11 +233,11 @@ namespace tortoise
         parameters_ = std::make_unique<tracker::AnnounceParameters>(parameters);
         if (!socket_.Connect(url.GetHost(), url.GetPort()))
         {
-            LOG("UDPTrackerConnection", "failed to connect to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
+            LOG_INFO(log_tag, std::format("failed to connect to {}:{}", url.GetHost(), url.GetPort()));
             return {};
         }
 
-        LOG("UDPTrackerConnection", "connected to %s:%s", url.GetHost().c_str(), url.GetPort().c_str());
+        LOG_INFO(log_tag, std::format("Connected to {}:{}", url.GetHost(), url.GetPort()));
 
         CreateConnectRequest();
         state_ = State::SendConnectRequest;
@@ -250,14 +252,14 @@ namespace tortoise
                 switch (Send())
                 {
                 case SendResult::Finished:
-                    LOG("UDPTrackerConnection", "sent connect request");
+                    LOG_INFO(log_tag, "sent connect request");
                     ResizeBuffer(CONNECT_RESPONSE_SIZE);
                     state_ = State::ReceiveConnectResponse;
                     break;
                 case SendResult::Unfinished:
                     break;
                 case SendResult::Error:
-                    LOG("UDPTrackerConnection", "failed to send connect request");
+                    LOG_ERROR(log_tag, "failed to send connect request");
                     return {};
                 }
                 break;
@@ -275,18 +277,18 @@ namespace tortoise
 
                     if (received_transaction_id != transaction_id_)
                     {
-                        LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                        LOG_ERROR(log_tag, "Transaction ID mismatch.");
                         return {};
                     }
 
                     if (action != static_cast<std::uint32_t>(Action::Connect))
                     {
-                        LOG("UDPTrackerConnection", "Invalid action.");
+                        LOG_ERROR(log_tag, "Invalid action.");
                         return {};
                     }
 
                     connection_id_ = ConnectionId(connection_id);
-                    LOG("UDPTrackerConnection", "Server accepted connect request. Our connection id is: %" PRId64, connection_id_.GetId());
+                    LOG_INFO(log_tag, std::format("Server accepted connect request. Our connection id is: {}", connection_id_.GetId()));
 
                     CreateAnnounceRequest();
                     state_ = State::SendAnnounceRequest;
@@ -295,7 +297,7 @@ namespace tortoise
                 case ReceiveResult::Unfinished:
                     break;
                 case ReceiveResult::Error:
-                    LOG("UDPTrackerConnection", "failed to receive connect response");
+                    LOG_ERROR(log_tag, "failed to receive connect response");
                     return {};
                 case ReceiveResult::Timeout:
                     CreateConnectRequest();
@@ -316,14 +318,14 @@ namespace tortoise
                 switch (Send())
                 {
                 case SendResult::Finished:
-                    LOG("UDPTrackerConnection", "sent announce request");
+                    LOG_INFO(log_tag, "sent announce request");
                     ResizeBuffer(0xFFFF);
                     state_ = State::ReceiveAnnounceResponse;
                     break;
                 case SendResult::Unfinished:
                     break;
                 case SendResult::Error:
-                    LOG("UDPTrackerConnection", "failed to send announce request");
+                    LOG_ERROR(log_tag, "failed to send announce request");
                     return {};
                 }
 
@@ -341,13 +343,13 @@ namespace tortoise
 
                     if (received_transaction_id != transaction_id_)
                     {
-                        LOG("UDPTrackerConnection", "Transaction ID mismatch.");
+                        LOG_ERROR(log_tag, "Transaction ID mismatch.");
                         return {};
                     }
 
                     if (action != static_cast<std::uint32_t>(Action::Announce))
                     {
-                        LOG("UDPTrackerConnection", "Invalid action.");
+                        LOG_ERROR(log_tag, "Invalid action.");
                         return {};
                     }
 
@@ -356,7 +358,7 @@ namespace tortoise
                 case ReceiveResult::Unfinished:
                     break;
                 case ReceiveResult::Error:
-                    LOG("UDPTrackerConnection", "failed to receive announce response");
+                    LOG_ERROR(log_tag, "failed to receive announce response");
                     return {};
                 case ReceiveResult::Timeout:
                     CreateAnnounceRequest();

@@ -14,6 +14,7 @@
 #include <unistd.h>
 #endif
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

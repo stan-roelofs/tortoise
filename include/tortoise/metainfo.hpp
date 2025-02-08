@@ -2,6 +2,7 @@
 #define TORTOISE_METADATA_HPP
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -8,6 +8,11 @@
 
 #include "../util/log.hpp"
 
+namespace
+{
+    const std::string_view tag = "Socket";
+}
+
 namespace tortoise
 {
     namespace network
@@ -45,11 +50,11 @@ namespace tortoise
         {
             if (host.empty() || port.empty())
             {
-                LOG("Socket", "host or port is empty");
+                LOG_WARN(tag, "host or port is empty");
                 return false;
             }
 
-            LOG("Socket", "Connecting to %s:%s", host.c_str(), port.c_str());
+            LOG_INFO(tag, std::format("Connecting to {}:{}", host, port));
 
             struct addrinfo *result = nullptr, hints;
 
@@ -71,7 +76,7 @@ namespace tortoise
             int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
             if (iResult != 0)
             {
-                LOG("Socket", "getaddrinfo failed: %d", iResult);
+                LOG_ERROR(tag, std::format("getaddrinfo failed: {}", iResult));
                 return false;
             }
 
@@ -81,13 +86,13 @@ namespace tortoise
                 socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
                 if (socket_ == INVALID_SOCKET_VALUE)
                 {
-                    LOG("Socket", "Failed to create socket");
+                    LOG_ERROR(tag, "Failed to create socket");
                     continue;
                 }
 
                 if (!SetBlocking(false))
                 {
-                    LOG("Socket", "Failed to set socket to non-blocking mode");
+                    LOG_ERROR(tag, "Failed to set socket to non-blocking mode");
                     return false;
                 }
 
@@ -143,13 +148,13 @@ namespace tortoise
             if (error == WSAEWOULDBLOCK)
                 return Result::WouldBlock;
 
-            LOG("Socket", "Send failed with error code: %i", error);
+            LOG_ERROR(tag, std::format("Send failed with error code: {}", error));
             return Result::Error;
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 return Result::WouldBlock;
 
-            LOG("Socket", "Send failed with error code: %i", errno);
+            LOG_ERROR(tag, std::format("Send failed with error code: {}", errno));
             return Result::Error;
 #endif
         }
@@ -170,13 +175,13 @@ namespace tortoise
             if (error == WSAEWOULDBLOCK)
                 return Result::WouldBlock;
 
-            LOG("Socket", "Receive failed with error code: %i", error);
+            LOG_ERROR(tag, std::format("Receive failed with error code: {}", error));
             return Result::Error;
 #else
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 return Result::WouldBlock;
 
-            LOG("Socket", "Receive failed with error code: %i", errno);
+            LOG_ERROR(tag, std::format("Receive failed with error code: {}", errno));
             return Result::Error;
 #endif
         }
@@ -197,12 +202,12 @@ namespace tortoise
                     errno;
 #endif
                 (void)code;
-                LOG("Socket", "getsockopt failed: %i", code);
+                LOG_ERROR(tag, std::format("getsockopt failed: {}", code));
                 return Status::Error;
             }
 
             if (error != 0)
-                LOG("Socket", "Socket error: %i", error);
+                LOG_ERROR(tag, std::format("Socket error: {}", error));
 
             if (!Select(false, true, 1))
                 return Status::Pending;

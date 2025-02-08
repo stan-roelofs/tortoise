@@ -9,6 +9,7 @@
 #include "peer_id.hpp"
 #include "piece_manager.hpp"
 
+#include <atomic>
 #include <list>
 #include <map>
 #include <thread>
@@ -42,7 +43,7 @@ namespace tortoise
         static void Run(Torrent &torrent);
         void ProcessPeers();
 
-        bool running_;
+        std::atomic_bool running_;
         mutable std::recursive_mutex mutex_;
         std::thread thread_;
 

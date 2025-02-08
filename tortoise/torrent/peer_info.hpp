@@ -16,6 +16,8 @@ namespace tortoise
         std::string ip;                // The peer's IP address either IPv6 (hexed) or IPv4 (dotted quad) or DNS name (string).
         std::uint16_t port;
 
+		std::string ToString() const { return ip + ":" + std::to_string(port); }
+
         bool operator==(const PeerInfo &other) const
         {
             return ip == other.ip && port == other.port;

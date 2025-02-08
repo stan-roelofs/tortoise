@@ -173,7 +173,7 @@ namespace
         }
         catch (BencodeException &e)
         {
-            LOG("HTTPTrackerConnection", "Failed to decode response: %s", e.what());
+            LOG_ERROR("HTTPTrackerConnection", std::format("Failed to decode response: {}", e.what()));
             return {};
         }
 
@@ -193,7 +193,7 @@ namespace
             integer_t interval = Get<integer_t>(*interval_data->second);
             if (interval < 0)
             {
-                LOG("HTTPTrackerConnection", "Interval is negative");
+                LOG_ERROR("HTTPTrackerConnection", "Interval is negative");
                 return {};
             }
 
@@ -201,7 +201,7 @@ namespace
         }
         else
         {
-            LOG("HTTPTrackerConnection", "Interval not found");
+            LOG_ERROR("HTTPTrackerConnection", "Interval not found");
             return {};
         }
 
@@ -211,7 +211,7 @@ namespace
             integer_t min_interval = Get<integer_t>(*min_interval_data->second);
             if (min_interval < 0)
             {
-                LOG("HTTPTrackerConnection", "Min interval is negative");
+                LOG_ERROR("HTTPTrackerConnection", "Min interval is negative");
                 return {};
             }
 
@@ -228,7 +228,7 @@ namespace
             integer_t complete = Get<integer_t>(*complete_data->second);
             if (complete < 0)
             {
-                LOG("HTTPTrackerConnection", "Complete is negative");
+                LOG_ERROR("HTTPTrackerConnection", "Complete is negative");
                 return {};
             }
 
@@ -236,7 +236,7 @@ namespace
         }
         else
         {
-            LOG("HTTPTrackerConnection", "Complete not found");
+            LOG_ERROR("HTTPTrackerConnection", "Complete not found");
             return {};
         }
 
@@ -246,7 +246,7 @@ namespace
             integer_t incomplete = Get<integer_t>(*incomplete_data->second);
             if (incomplete < 0)
             {
-                LOG("HTTPTrackerConnection", "Incomplete is negative");
+                LOG_ERROR("HTTPTrackerConnection", "Incomplete is negative");
                 return {};
             }
 
@@ -254,7 +254,7 @@ namespace
         }
         else
         {
-            LOG("HTTPTrackerConnection", "Incomplete not found");
+            LOG_ERROR("HTTPTrackerConnection", "Incomplete not found");
             return {};
         }
 
@@ -271,7 +271,7 @@ namespace
                     const integer_t port = Get<integer_t>(*dict.at("port"));
                     if (port < 0 || port > 65535)
                     {
-                        LOG("HTTPTrackerConnection", "Invalid port number");
+                        LOG_ERROR("HTTPTrackerConnection", "Invalid port number");
                         return {};
                     }
 
@@ -279,12 +279,12 @@ namespace
                     try
                     {
                         info.peer_id = PeerId::FromString(peer_id);
+                        response.peers.emplace_back(info);
                     }
                     catch (const InvalidArgumentException &)
                     {
-                        LOG("HTTPTrackerConnection", "Ignored invalid peer id: %s", peer_id.c_str());
+                        LOG_WARN("HTTPTrackerConnection", std::format("Ignored invalid peer id: {}", peer_id));
                     }
-                    response.peers.emplace_back(info);
                 }
             }
             else if (CheckType<string_t>(*dict.at("peers")))
@@ -293,7 +293,7 @@ namespace
                 const string_t &peers = Get<string_t>(*dict.at("peers"));
                 if (peers.size() % 6 != 0)
                 {
-                    LOG("HTTPTrackerConnection", "Invalid peers field");
+                    LOG_ERROR("HTTPTrackerConnection", "Invalid peers field");
                     return {};
                 }
 
@@ -309,7 +309,7 @@ namespace
             }
             else
             {
-                LOG("HTTPTrackerConnection", "Invalid peers field");
+                LOG_ERROR("HTTPTrackerConnection", "Invalid peers field");
                 return {};
             }
         }
@@ -318,14 +318,14 @@ namespace
         {
             if (!CheckType<string_t>(*dict.at("peers")))
             {
-                LOG("HTTPTrackerConnection", "Invalid peers_ipv6 field");
+                LOG_ERROR("HTTPTrackerConnection", "Invalid peers_ipv6 field");
                 return {};
             }
 
             const string_t &peers = Get<string_t>(*dict.at("peers_ipv6"));
             if (peers.size() % 18 != 0)
             {
-                LOG("HTTPTrackerConnection", "Invalid peers_ipv6 field");
+                LOG_ERROR("HTTPTrackerConnection", "Invalid peers_ipv6 field");
                 return {};
             }
 
@@ -351,12 +351,12 @@ namespace tortoise
 {
     std::optional<tracker::AnnounceResponse> tracker::http::Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
     {
-        LOG("tracker::http::Announce", "Announce (%s)", url.ToString().c_str());
+        LOG_INFO("HTTPTrackerConnection", std::format("Announce ({})", url.ToString()));
 
         network::Socket socket(network::TransportProtocol::TCP);
         if (!socket.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort()))
         {
-            LOG("tracker::http::Announce", "Failed to connect to tracker (%s)", url.ToString().c_str());
+            LOG_ERROR("HTTPTrackerConnection", std::format("Failed to connect to tracker ({})", url.ToString()));
             return {};
         }
 
@@ -372,7 +372,7 @@ namespace tortoise
                 status = socket.GetConnectionStatus();
                 if (status == network::Socket::Status::Error || *cancel)
                 {
-                    LOG("tracker::http::Announce", "Failed to connect to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                    LOG_ERROR("HTTPTrackerConnection", std::format("Failed to connect to tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
                     return {};
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -388,7 +388,7 @@ namespace tortoise
                 const auto result = socket.Send(buffer.data() + bytes_sent, length);
                 if (result == network::Socket::Result::Error || *cancel)
                 {
-                    LOG("tracker::http::Announce", "Failed to send request to tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                    LOG_ERROR("HTTPTrackerConnection", std::format("Failed to send request to tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
                     return {};
                 }
 
@@ -414,7 +414,7 @@ namespace tortoise
             const auto result = socket.Receive(temp, length);
             if (result == network::Socket::Result::Error || *cancel)
             {
-                LOG("tracker::http::Announce", "Failed to receive response from tracker %s %s", url.ToString().c_str(), *cancel ? "(cancelled)" : "");
+                LOG_ERROR("HTTPTrackerConnection", std::format("Failed to receive response from tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
                 return {};
             }
 

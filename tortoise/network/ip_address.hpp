@@ -2,6 +2,7 @@
 #define TORTOISE_IP_ADDRESS_HPP
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <variant>
