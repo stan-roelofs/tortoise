@@ -60,6 +60,7 @@ namespace tortoise
     {
         // handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
         const auto start_size = buffer.size();
+        (void)start_size;
         buffer.push_back(protocol::protocol_string_size);
         util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
         constexpr std::uint8_t reserved[8] = {0};
