@@ -17,7 +17,6 @@ public:
     struct CommandLineArguments
     {
         std::string torrent_file;
-        std::filesystem::path logging_file; // TODO
     };
 
     Application(CommandLineArguments args);

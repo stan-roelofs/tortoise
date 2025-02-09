@@ -3,35 +3,44 @@
 #include <assert.h>
 #include <format>
 #include <iostream>
+#include <fstream>
 
 #include <tortoise/load_torrent.hpp>
 #include <tortoise/logging.hpp>
 #include <tortoise/metainfo.hpp>
 
+namespace
+{
+    void Log(const tortoise::logging::Message &message)
+    {
+        static auto stream = std::ofstream("tortoise.log", std::ios::app);
+		assert(stream.is_open());
+
+        stream << std::format("{:L%T} ", message.time);
+
+        switch (message.level)
+        {
+        case tortoise::logging::Level::Debug:
+            stream << "[DEBUG] ";
+            break;
+        case tortoise::logging::Level::Info:
+            stream << "[INFO] ";
+            break;
+        case tortoise::logging::Level::Warning:
+            stream << "[WARNING] ";
+            break;
+        case tortoise::logging::Level::Error:
+            stream << "[ERROR] ";
+            break;
+        }
+
+        stream << std::format("{} : {}", message.tag, message.message) << std::endl;
+    }
+}
+
 Application::Application(CommandLineArguments args) : args_(args)
 {
-    tortoise::logging::RegisterReceiver([](const tortoise::logging::Message& message)
-        {
-            std::cout << std::format("{:%T} ", message.time);
-
-                                            switch(message.level)
-                                            {
-                                                case tortoise::logging::Level::Debug:
-                                                    std::cout << "[DEBUG] ";
-                                                    break;
-                                                case tortoise::logging::Level::Info:
-                                                    std::cout << "[INFO] ";
-                                                    break;
-                                                case tortoise::logging::Level::Warning:
-                                                    std::cout << "[WARNING] ";
-                                                    break;
-                                                case tortoise::logging::Level::Error:
-                                                    std::cout << "[ERROR] ";
-                                                    break;
-                                            }
-
-
-                                            std::cout << std::format("{} : {}", message.tag, message.message) << std::endl; });
+    tortoise::logging::RegisterReceiver(Log);
 
     tortoise::EventCallbacks event_callbacks;
     event_callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);

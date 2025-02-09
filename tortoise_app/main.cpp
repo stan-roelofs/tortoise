@@ -9,7 +9,6 @@ static int usage(const char *argv[])
 {
   std::cout << "Usage: " << argv[0] << " [-h?] <file>*" << std::endl;
   std::cout << "  -h, -?  Show this help" << std::endl;
-  std::cout << "  -c      Run in console mode" << std::endl;
   return EXIT_FAILURE;
 }
 
