@@ -1,6 +1,7 @@
 #ifndef TORTOISE_TORRENT_HPP
 #define TORTOISE_TORRENT_HPP
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -52,7 +53,7 @@ namespace tortoise
     {
         TorrentParameters(const Metainfo &info) : metainfo(info) {}
         Metainfo metainfo;
-        std::string save_path;
+        std::filesystem::path save_path;
     };
 } // namespace tortoise
 

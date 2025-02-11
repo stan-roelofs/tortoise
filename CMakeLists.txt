@@ -14,17 +14,18 @@ set (HEADERS
   include/tortoise/load_torrent.hpp
   include/tortoise/logging.hpp
   include/tortoise/metainfo.hpp
+  include/tortoise/peer_id.hpp
+  include/tortoise/peer_info.hpp
   include/tortoise/session.hpp
   include/tortoise/torrent.hpp
   include/tortoise/version.hpp
 
+  tortoise/event_queue.hpp
+
   tortoise/bencode/bencode.hpp
 
-  tortoise/torrent/event_queue.hpp
-  tortoise/torrent/connected_peer.hpp
+  tortoise/torrent/peer.hpp
   tortoise/torrent/peer_connection.hpp
-  tortoise/torrent/peer_id.hpp
-  tortoise/torrent/peer_info.hpp
   tortoise/torrent/piece_manager.hpp
   tortoise/torrent/torrent_impl.hpp
 
@@ -51,9 +52,8 @@ set(SOURCES
   tortoise/network/socket.cpp
   tortoise/network/url.cpp
 
-  tortoise/torrent/connected_peer.cpp
-  tortoise/torrent/event_queue.cpp
   tortoise/torrent/load_torrent.cpp
+  tortoise/torrent/peer.cpp
   tortoise/torrent/peer_connection.cpp
   tortoise/torrent/peer_id.cpp
   tortoise/torrent/piece_manager.cpp

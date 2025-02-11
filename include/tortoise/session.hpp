@@ -15,14 +15,14 @@ namespace tortoise
     class Session
     {
     public:
-        Session(EventCallbacks callbacks);
+        Session(event::Callbacks callbacks);
         ~Session();
 
         /*! \brief Adds a torrent to the session.
          *  \param torrent Parameters for the the new torrent.
          *  \return A handle to the torrent.
          */
-        TorrentHandle AddTorrent(const TorrentParameters &parameters);
+        TorrentHandle AddTorrent(TorrentParameters parameters);
 
         /*! \brief Removes a torrent from the session. If the torrent is not in the session, this function has no effect.
          *  \param handle handle to the torrent.

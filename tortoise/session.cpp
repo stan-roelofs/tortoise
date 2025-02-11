@@ -1,108 +1,92 @@
 #include <tortoise/session.hpp>
 
+#include <filesystem>
+
+#include "event_queue.hpp"
 #include "torrent/torrent_impl.hpp"
 #include "tracker/manager.hpp"
 
 namespace tortoise
 {
-    class Session::Implementation
-    {
-    public:
-        Implementation(EventCallbacks callbacks) : callbacks_(callbacks)
-        {
-        }
+	class Session::Implementation
+	{
+	public:
+		Implementation(event::Callbacks callbacks) : callbacks_(callbacks)
+		{
+#define SUBSCRIBE_EVENT(cb, eventtype) \
+	if (callbacks_.cb)                 \
+		event_queue_.Subscribe<event::eventtype>([this](const auto &event) { callbacks_.cb(event); });
 
-        ~Implementation()
-        {
-        }
+			SUBSCRIBE_EVENT(torrent_added, TorrentAdded);
+			SUBSCRIBE_EVENT(peer_status_changed, PeerStatusChanged);
 
-        TorrentHandle AddTorrent(const TorrentParameters &parameters)
-        {
-            // if (params.save_path.empty())
-            //  TODO get default path from settings
+#undef SUBSCRIBE_EVENT
+		}
 
-            // TODO check if torrent already exists
+		~Implementation() = default;
 
-            TorrentData new_torrent;
-            new_torrent.event_queue = std::make_unique<EventQueue>(callbacks_);
-            auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, *new_torrent.event_queue);
-            new_torrent.torrent = torrent;
-            {
-                std::lock_guard lock(mutex_);
-                torrents_.push_back(std::move(new_torrent));
-            }
+		TorrentHandle AddTorrent(TorrentParameters parameters)
+		{
+			if (parameters.save_path.empty())
+				parameters.save_path = std::filesystem::current_path();
 
-            return torrent;
-        }
+			// TODO check if torrent already exists
 
-        void RemoveTorrent(TorrentHandle handle)
-        {
-            if (!handle.IsValid())
-                return;
+			auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
+			event_queue_.Push(event::TorrentAdded(torrent));
 
-            std::lock_guard lock(mutex_);
-            auto it = std::find_if(torrents_.begin(), torrents_.end(), [&](const TorrentData &torrent)
-                                   { return TorrentHandle(torrent.torrent) == handle; });
-            if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
-                torrents_.erase(it);
-        }
+			{
+				std::lock_guard lock(mutex_);
+				torrents_.push_back(torrent);
+			}
 
-        void HandleEvents()
-        {
-            std::lock_guard guard(mutex_);
-            for (auto &torrent : torrents_)
-            {
-                std::vector<std::unique_ptr<Event>> events = torrent.event_queue->PopEvents();
+			return torrent;
+		}
 
-                for (auto &event : events)
-                {
-                    Event *e = event.get();
+		void RemoveTorrent(TorrentHandle handle)
+		{
+			if (!handle.IsValid())
+				return;
 
-                    // TODO: this is dumb, we shouldnt need to check every event type here
+			std::lock_guard lock(mutex_);
+			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto &torrent)
+								   { return TorrentHandle(torrent) == handle; });
+			if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
+				torrents_.erase(it);
+		}
 
-                    // Note: we could use a visitor pattern here, but it is a lot of effort with little benefit.
-                    if (dynamic_cast<TorrentAddedEvent *>(e))
-                    {
-                        callbacks_.torrent_added(torrent.torrent);
-                    }
-                    else if (auto *peer_status_event = dynamic_cast<PeerStatusChangedEvent *>(e))
-                    {
-                        callbacks_.peer_status_changed(torrent.torrent, peer_status_event->ip, peer_status_event->port, peer_status_event->status);
-                    }
-                }
-            }
-        }
+		void HandleEvents()
+		{
+			std::lock_guard guard(mutex_);
+			event_queue_.Process();
+		}
 
-    private:
-        struct TorrentData
-        {
-            std::unique_ptr<EventQueue> event_queue;
-            std::shared_ptr<Torrent> torrent;
-        };
+	private:
 		tracker::Manager tracker_manager_; // Keep this before torrents_ so it is destroyed after
-        std::vector<TorrentData> torrents_;
-        std::mutex mutex_;
-        EventCallbacks callbacks_;
-    };
+		std::vector<std::shared_ptr<Torrent>> torrents_;
+		EventQueue event_queue_;
+		std::mutex mutex_;
+		event::Callbacks callbacks_;
+	};
 
-    Session::Session(EventCallbacks callbacks) : implementation_(std::make_unique<Implementation>(callbacks))
-    {
-    }
+	Session::Session(event::Callbacks callbacks) : implementation_(std::make_unique<Implementation>(callbacks))
+	{
+	}
 
-    Session::~Session() = default;
+	Session::~Session() = default;
 
-    TorrentHandle Session::AddTorrent(const TorrentParameters &params)
-    {
-        return implementation_->AddTorrent(params);
-    }
+	TorrentHandle Session::AddTorrent(TorrentParameters params)
+	{
+		return implementation_->AddTorrent(params);
+	}
 
-    void Session::RemoveTorrent(TorrentHandle handle)
-    {
-        implementation_->RemoveTorrent(handle);
-    }
+	void Session::RemoveTorrent(TorrentHandle handle)
+	{
+		implementation_->RemoveTorrent(handle);
+	}
 
-    void Session::HandleEvents()
-    {
-        implementation_->HandleEvents();
-    }
+	void Session::HandleEvents()
+	{
+		implementation_->HandleEvents();
+	}
 }

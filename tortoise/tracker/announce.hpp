@@ -4,8 +4,8 @@
 #include <optional>
 #include <vector>
 
-#include "../torrent/peer_id.hpp"
-#include "../torrent/peer_info.hpp"
+#include <tortoise/peer_info.hpp>
+
 #include "../network/ip_address.hpp"
 #include "../network/url.hpp"
 

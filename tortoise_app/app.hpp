@@ -14,29 +14,36 @@ struct Window;
 class Application
 {
 public:
-    struct CommandLineArguments
-    {
-        std::string torrent_file;
-    };
+	struct CommandLineArguments
+	{
+		std::string torrent_file;
+	};
 
-    Application(CommandLineArguments args);
+	Application(CommandLineArguments args);
 
-    /*! \brief Run the application, blocking until it exits
-     *
-     * \return int Exit code
-     */
-    int Run();
+	/*! \brief Run the application, blocking until it exits
+	 *
+	 * \return int Exit code
+	 */
+	int Run();
 
 private:
-    bool AddTorrent(const std::string &torrent_file);
+	bool AddTorrent(const std::string& torrent_file);
 
-    void OnTorrentAdded(tortoise::TorrentHandle torrent);
-    void OnPeerStatusChanged(tortoise::TorrentHandle torrent, const std::string &ip, std::uint16_t port, tortoise::PeerStatus status);
+	void OnTorrentAdded(const tortoise::event::TorrentAdded& event);
+	void OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event);
 
-    CommandLineArguments args_;
-    std::unique_ptr<tortoise::Session> session_;
-    std::vector<tortoise::TorrentHandle> torrents_;
-    std::atomic_bool running_;
+	CommandLineArguments args_;
+	std::unique_ptr<tortoise::Session> session_;
+
+	struct TorrentInfo
+	{
+		TorrentInfo(tortoise::TorrentHandle h) : handle(std::move(h)) {}
+		const tortoise::TorrentHandle handle;
+		std::map<tortoise::PeerInfo, tortoise::PeerStatus> peers;
+	};
+	std::vector<TorrentInfo> torrents_;
+	std::atomic_bool running_;
 };
 
 #endif

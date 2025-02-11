@@ -54,7 +54,6 @@ namespace tortoise
             {
                 {
                     std::lock_guard guard(tracker_manager.mutex_);
-                    // TODO: could sort the torrents by the time until the next request, then stop when we find the first one that does not need a request
                     for (auto &torrent : tracker_manager.torrents_)
                         torrent->Process();
                 }

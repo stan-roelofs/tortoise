@@ -279,12 +279,12 @@ namespace
                     try
                     {
                         info.peer_id = PeerId::FromString(peer_id);
-                        response.peers.emplace_back(info);
                     }
                     catch (const InvalidArgumentException &)
                     {
                         LOG_WARN("HTTPTrackerConnection", std::format("Ignored invalid peer id: {}", peer_id));
                     }
+                    response.peers.emplace_back(info);
                 }
             }
             else if (CheckType<string_t>(*dict.at("peers")))

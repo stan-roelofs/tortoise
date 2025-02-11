@@ -7,442 +7,376 @@
 
 #include <tortoise/exceptions.hpp>
 #include <tortoise/metainfo.hpp>
+#include <tortoise/peer_id.hpp>
 
 #include "../util/log.hpp"
-#include "peer_id.hpp"
 
 namespace
 {
-    // TODO make this configurable
-    constexpr std::chrono::seconds keep_alive_timeout(120);
-    constexpr std::chrono::seconds connect_timeout(30);
-    constexpr std::chrono::seconds handshake_timeout(30);
+	// TODO make this configurable
+	constexpr std::chrono::seconds keep_alive_timeout(120);
+	constexpr std::chrono::seconds connect_timeout(30);
+	constexpr std::chrono::seconds handshake_timeout(30);
 
-    constexpr unsigned DESIRED_REQUESTS = 5;
+	constexpr unsigned DESIRED_REQUESTS = 5;
 
 	const std::string_view log_tag = "PeerConnection";
 }
 
 namespace tortoise
 {
-    namespace protocol
-    {
-        enum class MessageID : std::uint8_t
-        {
-            Choke = 0,
-            Unchoke = 1,
-            Interested = 2,
-            NotInterested = 3,
-            Have = 4,
-            Bitfield = 5,
-            Request = 6,
-            Piece = 7,
-            Cancel = 8,
-            Port = 9
-        };
+	namespace protocol
+	{
+		enum class MessageID : std::uint8_t
+		{
+			Choke = 0,
+			Unchoke = 1,
+			Interested = 2,
+			NotInterested = 3,
+			Have = 4,
+			Bitfield = 5,
+			Request = 6,
+			Piece = 7,
+			Cancel = 8,
+			Port = 9,
+		};
 
-        constexpr char protocol_string[] = "BitTorrent protocol";
-        constexpr int protocol_string_size = sizeof(protocol_string) - 1;
-        static_assert(protocol_string_size == 19, "Protocol string size is not 19 bytes.");
-        constexpr int handshake_size = 49 + protocol_string_size;
-        constexpr int length_prefix_size = 4; // The number of bytes used to prefix the length of a message
-    }
+		constexpr char protocol_string[] = "BitTorrent protocol";
+		constexpr int protocol_string_size = sizeof(protocol_string) - 1;
+		static_assert(protocol_string_size == 19, "Protocol string size is not 19 bytes.");
+		constexpr int handshake_size = 49 + protocol_string_size;
+		constexpr int length_prefix_size = 4; // The number of bytes used to prefix the length of a message
+	}
 
-    static std::uint32_t GetLengthPrefix(const ByteVector &buffer)
-    {
-        assert(buffer.size() >= protocol::length_prefix_size);
-        if (buffer.size() < protocol::length_prefix_size)
-            return 0;
-        return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
-    }
+	static std::uint32_t GetLengthPrefix(const ByteVector& buffer)
+	{
+		assert(buffer.size() >= protocol::length_prefix_size);
+		if (buffer.size() < protocol::length_prefix_size)
+			return 0;
+		return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
+	}
 
-    static void CreateHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
-    {
-        // handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
-        const auto start_size = buffer.size();
-        (void)start_size;
-        buffer.push_back(protocol::protocol_string_size);
-        util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
-        constexpr std::uint8_t reserved[8] = {0};
-        util::Write(buffer, reserved, 8);
-        util::Write(buffer, info_hash.data(), info_hash.size());
-        const auto peer = peer_id.Get();
-        assert(peer.size() == 20);
-        util::Write(buffer, peer.data(), peer.size());
-        assert(buffer.size() - start_size == protocol::handshake_size);
-    }
+	static void CreateHandshake(ByteVector& buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
+	{
+		// handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
+		const auto start_size = buffer.size();
+		(void)start_size;
+		buffer.push_back(protocol::protocol_string_size);
+		util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
+		constexpr std::uint8_t reserved[8] = { 0 };
+		util::Write(buffer, reserved, 8);
+		util::Write(buffer, info_hash.data(), info_hash.size());
+		const auto peer = peer_id.Get();
+		assert(peer.size() == 20);
+		util::Write(buffer, peer.data(), peer.size());
+		assert(buffer.size() - start_size == protocol::handshake_size);
+	}
 
-    static bool ParseHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> &info_hash, PeerId &peer_id)
-    {
-        if (buffer.size() < protocol::handshake_size)
-            return false;
+	static bool ParseHandshake(ByteVector& buffer, std::array<std::uint8_t, 20>& info_hash, PeerId& peer_id)
+	{
+		if (buffer.size() < protocol::handshake_size)
+			return false;
 
-        if (buffer[0] != protocol::protocol_string_size)
-        {
-            LOG_ERROR(log_tag, std::format("Invalid protocol string size: {}", buffer[0]));
-            return false;
-        }
+		if (buffer[0] != protocol::protocol_string_size)
+		{
+			LOG_ERROR(log_tag, std::format("Invalid protocol string size: {}", buffer[0]));
+			return false;
+		}
 
-        if (memcmp(&buffer[1], protocol::protocol_string, protocol::protocol_string_size) != 0)
-        {
-            LOG_ERROR(log_tag, "Invalid protocol string");
-            return false;
-        }
+		if (memcmp(&buffer[1], protocol::protocol_string, protocol::protocol_string_size) != 0)
+		{
+			LOG_ERROR(log_tag, "Invalid protocol string");
+			return false;
+		}
 
-        std::copy(&buffer[28], &buffer[28] + 20, info_hash.begin());
-        std::string peer_id_str(&buffer[48], &buffer[48] + 20);
-        peer_id = PeerId::FromString(peer_id_str);
-        return true;
-    }
+		std::copy(&buffer[28], &buffer[28] + 20, info_hash.begin());
+		std::string peer_id_str(&buffer[48], &buffer[48] + 20);
+		peer_id = PeerId::FromString(peer_id_str);
+		return true;
+	}
 
-    // TODO: while handshaking make sure we don't connect to ourselves!
+	// TODO: while handshaking make sure we don't connect to ourselves!
 
-    PeerConnection::PeerConnection(const PeerInfo &peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id)
-        : peer_info_(peer_info),
-          metainfo_(std::move(metainfo)),
-          own_peer_id_(std::move(peer_id)),
-          nr_blocks_requested_(0),
-          am_choking_(true),
-          am_interested_(false),
-          peer_choking_(false),
-          peer_interested_(false),
-          can_receive_bitfield_(true),
-          status_(Status::Connecting),
-          socket_(network::TransportProtocol::TCP)
-    {
-        if (!metainfo_)
-            throw InvalidArgumentException("Metainfo is null.");
+	PeerConnection::PeerConnection(const PeerInfo& peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
+		peer_info_(peer_info),
+		metainfo_(std::move(metainfo)),
+		own_peer_id_(std::move(peer_id)),
+		can_receive_bitfield_(true),
+		status_(Status::Connecting),
+		socket_(network::TransportProtocol::TCP)
+	{
+		if (!metainfo_)
+			throw InvalidArgumentException("Metainfo is null.");
 
-        LOG_INFO(log_tag, std::format("Connecting to peer {}", peer_info_.ToString()));
-        if (!socket_.Connect(peer_info_.ip, std::to_string(peer_info_.port)))
-        {
-            LOG_ERROR(log_tag, std::format("Error connecting to peer {}", peer_info_.ToString()));
-            status_ = Status::Finished;
-            return;
-        }
+		if (!message_callbacks_.bitfield || !message_callbacks_.cancel || !message_callbacks_.choke || !message_callbacks_.interested ||
+			!message_callbacks_.not_interested || !message_callbacks_.piece || !message_callbacks_.port || !message_callbacks_.request ||
+			!message_callbacks_.unchoke || !message_callbacks_.have)
+			throw InvalidArgumentException("Missing message callbacks.");
 
-        SetTimeout(connect_timeout);
-    }
+		LOG_INFO(log_tag, std::format("Connecting to peer {}", peer_info_.ToString()));
+		if (!socket_.Connect(peer_info_.ip, std::to_string(peer_info_.port)))
+		{
+			LOG_ERROR(log_tag, std::format("Error connecting to peer {}", peer_info_.ToString()));
+			status_ = Status::Finished;
+			return;
+		}
 
-    PeerConnection::~PeerConnection() = default;
+		SetTimeout(connect_timeout);
+	}
 
-    void PeerConnection::Process()
-    {
-        if (status_ == Status::Finished)
-            return; // We are done
+	PeerConnection::~PeerConnection() = default;
 
-        if (CheckTimeout())
-            return;
+	PeerConnection::Status PeerConnection::Process()
+	{
+		if (status_ == Status::Finished)
+			return status_; // We are done
 
-        if (status_ == Status::Connecting && !Connect())
-            return; // We are still connecting
+		if (CheckTimeout())
+			return status_;
 
-        if (!Send())
-        {
-            Error(std::format("Error while sending data to peer {}", peer_info_.ToString()));
-            return;
-        }
-        if (!Receive())
-        {
-            Error(std::format("Error while receiving data from peer {}", peer_info_.ToString()));
-            return;
-        }
+		if (status_ == Status::Connecting && !Connect())
+			return status_; // We are still connecting
 
-        HandleMessages();
-    }
+		if (!Send())
+		{
+			Error(std::format("Error while sending data to peer {}", peer_info_.ToString()));
+			return status_;
+		}
+		if (!Receive())
+		{
+			Error(std::format("Error while receiving data from peer {}", peer_info_.ToString()));
+			return status_;
+		}
 
-    PeerConnection::Status PeerConnection::GetStatus() const
-    {
-        return status_;
-    }
+		HandleMessages();
+		return status_;
+	}
 
-    const PeerInfo &PeerConnection::GetPeerInfo() const
-    {
-        return peer_info_;
-    }
+	PeerConnection::Status PeerConnection::GetStatus() const
+	{
+		return status_;
+	}
 
-    // Message handlers
-    bool PeerConnection::HandleMessages()
-    {
-        if (status_ == Status::Handshaking)
-        {
-            if (receive_buffer_.size() < protocol::handshake_size)
-                return true; // Not enough data, wait...
+	const PeerInfo& PeerConnection::GetPeerInfo() const
+	{
+		return peer_info_;
+	}
 
-            std::array<std::uint8_t, 20> info_hash;
-            PeerId peer_id;
-            if (!ParseHandshake(receive_buffer_, info_hash, peer_id))
-            {
-                Error(std::format("Invalid handshake from peer {}", peer_info_.ToString()));
-                return false;
-            }
-            if (info_hash != metainfo_->info_hash)
-            {
-                Error(std::format("Invalid info hash from peer {}", peer_info_.ToString()));
-                return false;
-            }
-            if (peer_info_.peer_id && peer_id != *peer_info_.peer_id)
-            {
-                Error(std::format("Received invalid peer id from peer {}", peer_info_.ToString()));
-                return false;
-            }
-            LOG_INFO(log_tag, std::format("Successfully handshaked with peer {}", peer_info_.ToString()));
+	// Message handlers
+	void PeerConnection::HandleMessages()
+	{
+		if (status_ == Status::Handshaking)
+		{
+			if (receive_buffer_.size() < protocol::handshake_size)
+				return; // Not enough data, wait...
 
-            ShiftBuffer(protocol::handshake_size);
-            status_ = Status::Connected;
-        }
+			std::array<std::uint8_t, 20> info_hash;
+			PeerId peer_id;
+			if (!ParseHandshake(receive_buffer_, info_hash, peer_id))
+			{
+				Error(std::format("Invalid handshake from peer {}", peer_info_.ToString()));
+				return;
+			}
+			if (info_hash != metainfo_->info_hash)
+			{
+				Error(std::format("Invalid info hash from peer {}", peer_info_.ToString()));
+				return;
+			}
+			if (peer_info_.peer_id && peer_id != *peer_info_.peer_id)
+			{
+				Error(std::format("Received invalid peer id from peer {}", peer_info_.ToString()));
+				return;
+			}
+			LOG_INFO(log_tag, std::format("Successfully handshaked with peer {}", peer_info_.ToString()));
 
-        if (status_ != Status::Connected)
-            return false;
+			ShiftBuffer(protocol::handshake_size);
+			status_ = Status::Connected;
+		}
 
-        // Handle messages as long as there is a complete message in the buffer
-        while ((receive_buffer_.size() >= protocol::length_prefix_size) && ((receive_buffer_.size() - protocol::length_prefix_size) >= GetLengthPrefix(receive_buffer_)))
-        {
-            const auto length = GetLengthPrefix(receive_buffer_);
-            if (length > 0)
-            {
-                switch (static_cast<protocol::MessageID>(receive_buffer_[protocol::length_prefix_size]))
-                {
-                case protocol::MessageID::Choke:
-                    OnMessageChoke();
-                    break;
-                case protocol::MessageID::Unchoke:
-                    OnMessageUnchoke();
-                    break;
-                case protocol::MessageID::Interested:
-                    OnMessageInterested();
-                    break;
-                case protocol::MessageID::NotInterested:
-                    OnMessageNotInterested();
-                    break;
-                case protocol::MessageID::Have:
-                    OnMessageHave(network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1)));
-                    break;
-                case protocol::MessageID::Bitfield:
-                {
-                    OnMessageBitfield(ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
-                                                 receive_buffer_.begin() + protocol::length_prefix_size + length));
-                    break;
-                }
-                case protocol::MessageID::Request:
-                {
-                    const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
-                    const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
-                    const auto requested_length = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 9));
-                    OnMessageRequest(piece_index, begin, requested_length);
-                    break;
-                }
-                case protocol::MessageID::Piece:
-                {
-                    const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
-                    const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
-                    const auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
-                                                  receive_buffer_.begin() + protocol::length_prefix_size + length);
-                    OnMessagePiece(piece_index, begin, block);
-                    break;
-                }
-                case protocol::MessageID::Cancel:
-                {
-                    const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
-                    const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
-                    const auto requested_length = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 9));
-                    OnMessageCancel(piece_index, begin, requested_length);
-                    break;
-                }
-                case protocol::MessageID::Port:
-                {
-                    const auto port = network::HostToNetwork(util::Read<std::uint16_t>(receive_buffer_, protocol::length_prefix_size + 1));
-                    OnMessagePort(port);
-                    break;
-                }
-                default:
-                    Error(std::format("Received invalid message from peer {}", peer_info_.ToString()));
-                    return false;
-                }
-            }
+		if (status_ != Status::Connected)
+			return;
 
-            can_receive_bitfield_ = false; // We have received a message, so we can't receive a bitfield anymore
-            ShiftBuffer(protocol::length_prefix_size + length);
-        }
+		// Handle messages as long as there is a complete message in the buffer
+		while ((receive_buffer_.size() >= protocol::length_prefix_size) && ((receive_buffer_.size() - protocol::length_prefix_size) >= GetLengthPrefix(receive_buffer_)))
+		{
+			const auto length = GetLengthPrefix(receive_buffer_);
+			if (length > 0)
+			{
+				switch (static_cast<protocol::MessageID>(receive_buffer_[protocol::length_prefix_size]))
+				{
+				case protocol::MessageID::Choke:
+					message_callbacks_.choke();
+					break;
+				case protocol::MessageID::Unchoke:
+					message_callbacks_.unchoke();
+					break;
+				case protocol::MessageID::Interested:
+					message_callbacks_.interested();
+					break;
+				case protocol::MessageID::NotInterested:
+					message_callbacks_.not_interested();
+					break;
+				case protocol::MessageID::Have:
+					message_callbacks_.have(network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1)));
+					break;
+				case protocol::MessageID::Bitfield:
+				{
+					if (!can_receive_bitfield_)
+						break;
 
-        return true;
-    }
+					const auto bitfield = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
+						receive_buffer_.begin() + protocol::length_prefix_size + length);
+					const std::size_t expected_bitfield_size = (metainfo_->pieces.size() + 7) / 8;
+					if (bitfield.size() != expected_bitfield_size)
+					{
+						Error(std::format("Peer {} sent invalid bitfield", peer_info_.ToString()));
+						return;
+					}
+					message_callbacks_.bitfield(bitfield);
+					break;
+				}
+				case protocol::MessageID::Request:
+				{
+					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
+					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
+					const auto requested_length = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 9));
+					message_callbacks_.request(piece_index, begin, requested_length);
+					break;
+				}
+				case protocol::MessageID::Piece:
+				{
+					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
+					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
+					const auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
+						receive_buffer_.begin() + protocol::length_prefix_size + length);
+					message_callbacks_.piece(piece_index, begin, block);
+					break;
+				}
+				case protocol::MessageID::Cancel:
+				{
+					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
+					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
+					const auto requested_length = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 9));
+					message_callbacks_.cancel(piece_index, begin, requested_length);
+					break;
+				}
+				case protocol::MessageID::Port:
+				{
+					const auto port = network::HostToNetwork(util::Read<std::uint16_t>(receive_buffer_, protocol::length_prefix_size + 1));
+					message_callbacks_.port(port);
+					break;
+				}
+				default:
+					Error(std::format("Received invalid message from peer {}", peer_info_.ToString()));
+					return;
+				}
+			}
 
-    void PeerConnection::ShiftBuffer(std::size_t amount)
-    {
-        assert(amount <= receive_buffer_.size());
-        if (amount > receive_buffer_.size())
-            amount = receive_buffer_.size();
-        receive_buffer_.erase(receive_buffer_.begin(), receive_buffer_.begin() + amount);
-    }
+			can_receive_bitfield_ = false; // We have received a message, so we can't receive a bitfield anymore
+			ShiftBuffer(protocol::length_prefix_size + length);
+		}
+	}
 
-    void PeerConnection::Error(const std::string &reason)
-    {
-        LOG_ERROR(log_tag, reason);
-        status_ = Status::Finished;
-    }
+	void PeerConnection::ShiftBuffer(std::size_t amount)
+	{
+		assert(amount <= receive_buffer_.size());
+		if (amount > receive_buffer_.size())
+			amount = receive_buffer_.size();
+		receive_buffer_.erase(receive_buffer_.begin(), receive_buffer_.begin() + amount);
+	}
 
-    bool PeerConnection::Connect()
-    {
-        assert(status_ == Status::Connecting);
-        if (status_ != Status::Connecting)
-            return false;
+	void PeerConnection::Error(const std::string& reason)
+	{
+		LOG_ERROR(log_tag, reason);
+		status_ = Status::Finished;
+	}
 
-        switch (socket_.GetConnectionStatus())
-        {
-        case network::Socket::Status::Pending:
-            return false;
-        case network::Socket::Status::Connected:
-        {
-            SetTimeout(handshake_timeout);
-            status_ = Status::Handshaking;
-            CreateHandshake(send_buffer_, metainfo_->info_hash, own_peer_id_);
-            LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
-            return true;
-        }
-        case network::Socket::Status::Error:
-        {
-            Error(std::format("Error connecting to peer {}", peer_info_.ToString()));
-            return false;
-        }
-        }
+	bool PeerConnection::Connect()
+	{
+		assert(status_ == Status::Connecting);
+		if (status_ != Status::Connecting)
+			return false;
 
-        return false; // Not reached
-    }
+		switch (socket_.GetConnectionStatus())
+		{
+		case network::Socket::Status::Pending:
+			return false;
+		case network::Socket::Status::Connected:
+		{
+			SetTimeout(handshake_timeout);
+			status_ = Status::Handshaking;
+			CreateHandshake(send_buffer_, metainfo_->info_hash, own_peer_id_);
+			LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
+			return true;
+		}
+		case network::Socket::Status::Error:
+		{
+			Error(std::format("Error connecting to peer {}", peer_info_.ToString()));
+			return false;
+		}
+		}
 
-    void PeerConnection::SetTimeout(std::chrono::seconds timeout)
-    {
-        timeout_ = std::chrono::steady_clock::now() + timeout;
-    }
+		return false; // Not reached
+	}
 
-    bool PeerConnection::CheckTimeout()
-    {
-        if (std::chrono::steady_clock::now() <= timeout_)
-            return false;
+	void PeerConnection::SetTimeout(std::chrono::seconds timeout)
+	{
+		timeout_ = std::chrono::steady_clock::now() + timeout;
+	}
 
-        LOG_INFO(log_tag, std::format("Peer {} timed out", peer_info_.ToString()));
-        status_ = Status::Finished;
-        return true;
-    }
+	bool PeerConnection::CheckTimeout()
+	{
+		if (std::chrono::steady_clock::now() <= timeout_)
+			return false;
 
-    bool PeerConnection::Send()
-    {
-        if (send_buffer_.empty())
-            return true;
+		LOG_INFO(log_tag, std::format("Peer {} timed out", peer_info_.ToString()));
+		status_ = Status::Finished;
+		return true;
+	}
 
-        int length = (int)std::min(send_buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
-        switch (socket_.Send(send_buffer_.data(), length))
-        {
-        case network::Socket::Result::Ok:
-            LOG_INFO(log_tag, std::format("Sent {} bytes to peer {}", length, peer_info_.ToString()));
-            send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
-            return true;
-        case network::Socket::Result::WouldBlock:
-            return true;
-        case network::Socket::Result::Error:
-            return false;
-            break;
-        }
+	bool PeerConnection::Send()
+	{
+		if (send_buffer_.empty())
+			return true;
 
-        return true;
-    }
+		int length = (int)std::min(send_buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
+		switch (socket_.Send(send_buffer_.data(), length))
+		{
+		case network::Socket::Result::Ok:
+			LOG_INFO(log_tag, std::format("Sent {} bytes to peer {}", length, peer_info_.ToString()));
+			send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
+			return true;
+		case network::Socket::Result::WouldBlock:
+			return true;
+		case network::Socket::Result::Error:
+			return false;
+			break;
+		}
 
-    bool PeerConnection::Receive()
-    {
-        int length = 1024;
-        std::uint8_t chunk[1024];
-        switch (socket_.Receive(chunk, length))
-        {
-        case network::Socket::Result::Ok:
-            if (length != 0)
-            {
-                LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", length, peer_info_.ToString()));
+		return true;
+	}
 
-                SetTimeout(keep_alive_timeout);
-                receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
-            }
-            return true;
-        case network::Socket::Result::WouldBlock:
-            return true;
-        case network::Socket::Result::Error:
-            return false;
-        }
+	bool PeerConnection::Receive()
+	{
+		int length = 1024;
+		std::uint8_t chunk[1024];
+		switch (socket_.Receive(chunk, length))
+		{
+		case network::Socket::Result::Ok:
+			if (length != 0)
+			{
+				LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", length, peer_info_.ToString()));
 
-        return true;
-    }
+				SetTimeout(keep_alive_timeout);
+				receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
+			}
+			return true;
+		case network::Socket::Result::WouldBlock:
+			return true;
+		case network::Socket::Result::Error:
+			return false;
+		}
 
-    void PeerConnection::OnMessageChoke()
-    {
-        LOG_INFO(log_tag, std::format("Peer {} choked us", peer_info_.ToString()));
-        peer_choking_ = true;
-    }
-
-    void PeerConnection::OnMessageUnchoke()
-    {
-        LOG_INFO(log_tag, std::format("Peer {} unchoked us", peer_info_.ToString()));
-        peer_choking_ = false;
-    }
-
-    void PeerConnection::OnMessageInterested()
-    {
-        LOG_INFO(log_tag, std::format("Peer {} is interested", peer_info_.ToString()));
-        peer_interested_ = true;
-    }
-
-    void PeerConnection::OnMessageNotInterested()
-    {
-        LOG_INFO(log_tag, std::format("Peer {} is not interested", peer_info_.ToString()));
-        peer_interested_ = false;
-    }
-
-    void PeerConnection::OnMessageHave(std::uint32_t piece_index)
-    {
-        LOG_INFO(log_tag, std::format("Peer {} has piece {}", peer_info_.ToString(), piece_index));
-    }
-
-    void PeerConnection::OnMessageBitfield(const ByteVector &bitfield)
-    {
-        if (!can_receive_bitfield_)
-            return;
-
-        const std::size_t expected_bitfield_size = (metainfo_->pieces.size() + 7) / 8;
-        if (bitfield.size() != expected_bitfield_size)
-        {
-            Error(std::format("Peer {} sent invalid bitfield", peer_info_.ToString()));
-            return;
-        }
-
-        LOG_INFO(log_tag, std::format("Peer {} sent bitfield", peer_info_.ToString()));
-
-        for (std::uint32_t byte = 0; byte < bitfield.size(); ++byte)
-        {
-            for (std::uint32_t bit = 0; bit < 8; ++bit)
-            {
-                if (bitfield[byte] & (1 << (7 - bit)))
-                {
-                    //const std::uint32_t piece_index = (byte * 8) + bit;
-                }
-            }
-        }
-    }
-
-    void PeerConnection::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
-    {
-        LOG_INFO(log_tag, std::format("Peer {} requested piece {}, begin {}, length {}", peer_info_.ToString(), index, begin, length));
-    }
-
-    void PeerConnection::OnMessagePiece(std::uint32_t index, std::uint32_t begin, const ByteVector &piece)
-    {
-		LOG_INFO(log_tag, std::format("Peer {} sent piece {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
-    }
-
-    void PeerConnection::OnMessageCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
-    {
-        LOG_INFO(log_tag, std::format("Peer {} cancelled request piece {}, begin {}, length {}", peer_info_.ToString(), index, begin, length));
-    }
-
-    void PeerConnection::OnMessagePort(std::uint16_t port)
-    {
-        LOG_INFO(log_tag, std::format("Peer {} sent port {}", peer_info_.ToString(), port));
-    }
+		return true;
+	}
 }

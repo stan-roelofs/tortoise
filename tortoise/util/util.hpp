@@ -26,6 +26,8 @@ namespace tortoise
         template <typename T>
         inline T Read(const ByteVector &buffer, std::size_t index)
         {
+            if (index + sizeof(T) > buffer.size())
+                throw std::out_of_range("Index out of range");
             return *reinterpret_cast<const T *>(&buffer[index]);
         }
     }

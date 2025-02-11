@@ -11,102 +11,104 @@
 
 namespace
 {
-    void Log(const tortoise::logging::Message &message)
-    {
-        static auto stream = std::ofstream("tortoise.log", std::ios::app);
+	void Log(const tortoise::logging::Message& message)
+	{
+		static auto stream = std::ofstream("tortoise.log", std::ios::app);
 		assert(stream.is_open());
 
-        stream << std::format("{:L%T} ", message.time);
+		stream << std::format("{:L%T} ", message.time);
 
-        switch (message.level)
-        {
-        case tortoise::logging::Level::Debug:
-            stream << "[DEBUG] ";
-            break;
-        case tortoise::logging::Level::Info:
-            stream << "[INFO] ";
-            break;
-        case tortoise::logging::Level::Warning:
-            stream << "[WARNING] ";
-            break;
-        case tortoise::logging::Level::Error:
-            stream << "[ERROR] ";
-            break;
-        }
+		switch (message.level)
+		{
+		case tortoise::logging::Level::Debug:
+			stream << "[DEBUG] ";
+			break;
+		case tortoise::logging::Level::Info:
+			stream << "[INFO] ";
+			break;
+		case tortoise::logging::Level::Warning:
+			stream << "[WARNING] ";
+			break;
+		case tortoise::logging::Level::Error:
+			stream << "[ERROR] ";
+			break;
+		}
 
-        stream << std::format("{} : {}", message.tag, message.message) << std::endl;
-    }
+		stream << std::format("{} : {}", message.tag, message.message) << std::endl;
+	}
 }
 
 Application::Application(CommandLineArguments args) : args_(args)
 {
-    tortoise::logging::RegisterReceiver(Log);
+	tortoise::logging::RegisterReceiver(Log);
 
-    tortoise::EventCallbacks event_callbacks;
-    event_callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);
-    event_callbacks.peer_status_changed = std::bind(&Application::OnPeerStatusChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+	tortoise::event::Callbacks event_callbacks;
+	event_callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);
+	event_callbacks.peer_status_changed = std::bind(&Application::OnPeerStatusChanged, this, std::placeholders::_1);
 
-    session_ = std::make_unique<tortoise::Session>(event_callbacks);
+	session_ = std::make_unique<tortoise::Session>(event_callbacks);
 }
 
-bool Application::AddTorrent(const std::string &torrent_file)
+bool Application::AddTorrent(const std::string& torrent_file)
 {
-    auto metainfo = tortoise::LoadTorrent(torrent_file);
-    if (!metainfo)
-    {
-        std::cout << "Failed to load torrent file: " << torrent_file << std::endl;
-        return false;
-    }
+	auto metainfo = tortoise::LoadTorrent(torrent_file);
+	if (!metainfo)
+	{
+		std::cout << "Failed to load torrent file: " << torrent_file << std::endl;
+		return false;
+	}
 
-    tortoise::TorrentParameters torrent_params(*metainfo);
-    torrent_params.save_path = ".";
-    auto handle = session_->AddTorrent(torrent_params);
-    if (!handle)
-    {
-        std::cout << "Failed to add torrent" << std::endl;
-        return false;
-    }
+	tortoise::TorrentParameters torrent_params(*metainfo);
+	torrent_params.save_path = ".";
+	auto handle = session_->AddTorrent(torrent_params);
+	if (!handle)
+	{
+		std::cout << "Failed to add torrent" << std::endl;
+		return false;
+	}
 
-    handle.StartDownload();
+	handle.StartDownload();
 
-    torrents_.push_back(handle);
+	torrents_.emplace_back(handle);
 
-    return true;
+	return true;
 }
 
-void Application::OnTorrentAdded(tortoise::TorrentHandle torrent)
+void Application::OnTorrentAdded(const tortoise::event::TorrentAdded& event)
 {
-    std::cout << "Added torrent: " << torrent.GetMetainfo().name << std::endl;
+	std::cout << "Torrent added: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnPeerStatusChanged(tortoise::TorrentHandle torrent, const std::string &ip, std::uint16_t port, tortoise::PeerStatus status)
+void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event)
 {
-    switch (status)
-    {
-    case tortoise::PeerStatus::Connecting:
-        std::cout << "Connecting to peer " << ip << ":" << port << std::endl;
-        break;
-    case tortoise::PeerStatus::Connected:
-        std::cout << "Connected to peer " << ip << ":" << port << std::endl;
-        break;
-    case tortoise::PeerStatus::Disconnected:
-        std::cout << "Disconnected from peer " << ip << ":" << port << std::endl;
-        break;
-    }
+	switch (event.status)
+	{
+	case tortoise::PeerStatus::Connecting:
+		std::cout << "Connecting to peer " << event.info.ToString() << std::endl;
+		break;
+	case tortoise::PeerStatus::Connected:
+		std::cout << "Connected to peer " << event.info.ToString() << std::endl;
+		break;
+	case tortoise::PeerStatus::Disconnected:
+		std::cout << "Disconnected from peer " << event.info.ToString() << std::endl;
+		break;
+	case tortoise::PeerStatus::Unknown:
+		break;
+	}
 }
 
 int Application::Run()
 {
-    if (!AddTorrent(args_.torrent_file))
-        return EXIT_FAILURE;
+	if (!AddTorrent(args_.torrent_file))
+		return EXIT_FAILURE;
 
-    running_ = true;
-    while (running_)
-    {
-        session_->HandleEvents();
+	running_ = true;
+	while (running_)
+	{
+		session_->HandleEvents();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
 
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
