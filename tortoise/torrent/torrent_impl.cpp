@@ -162,7 +162,8 @@ namespace tortoise
 			potential_peers_.pop_front();
 
 			LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
-			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_), PeerStatus::Unknown });
+			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_), PeerStatus::Connecting });
+			event_queue_.Push(event::PeerStatusChanged {shared_from_this(), peer_info, PeerStatus::Connecting });
 		}
 
 		{
@@ -174,20 +175,19 @@ namespace tortoise
 				{
 					it->second = status;
 					event_queue_.Push(event::PeerStatusChanged {shared_from_this(), it->first->GetPeerInfo(), status});
+				}
 
-					switch (status)
-					{
-					case PeerStatus::Unknown:
-					case PeerStatus::Connecting:
-					case PeerStatus::Connected:
-						++it;
-						break;
-					case PeerStatus::Disconnected:
-					{
-						it = peers_.erase(it);
-						break;
-					}
-					}
+				switch (status)
+				{
+				case PeerStatus::Connecting:
+				case PeerStatus::Connected:
+					++it;
+					break;
+				case PeerStatus::Disconnected:
+				{
+					it = peers_.erase(it);
+					break;
+				}
 				}
 			}
 		}

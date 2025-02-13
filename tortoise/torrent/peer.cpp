@@ -38,7 +38,7 @@ namespace tortoise
 			std::bind(&Peer::OnMessageCancel, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
 			std::bind(&Peer::OnMessagePort, this, std::placeholders::_1))),
 		connection_status_(PeerConnection::Status::Connecting),
-		status_(PeerStatus::Unknown),
+		status_(PeerStatus::Connecting),
 		am_choking_(true),
 		am_interested_(false),
 		peer_choking_(false),

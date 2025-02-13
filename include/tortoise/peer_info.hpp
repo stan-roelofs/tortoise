@@ -31,7 +31,6 @@ namespace tortoise
 
 	enum class PeerStatus
 	{
-		Unknown,
 		Connecting,
 		Connected,
 		Disconnected,

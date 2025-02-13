@@ -92,8 +92,6 @@ void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& 
 	case tortoise::PeerStatus::Disconnected:
 		std::cout << "Disconnected from peer " << event.info.ToString() << std::endl;
 		break;
-	case tortoise::PeerStatus::Unknown:
-		break;
 	}
 }
 
