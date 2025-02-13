@@ -17,6 +17,7 @@
 
 namespace tortoise
 {
+	//! \brief Establishes a connection to a peer and handles further communication.
 	class PeerConnection
 	{
 	public:
@@ -35,31 +36,31 @@ namespace tortoise
 			std::function<void()> interested;
 			std::function<void()> not_interested;
 			std::function<void(std::uint32_t)> have;
-			std::function<void(const ByteVector&)> bitfield;
+			std::function<void(const ByteVector &)> bitfield;
 			std::function<void(std::uint32_t, std::uint32_t, std::uint32_t)> request;
-			std::function<void(std::uint32_t, std::uint32_t, const ByteVector&)> piece;
+			std::function<void(std::uint32_t, std::uint32_t, const ByteVector &)> piece;
 			std::function<void(std::uint32_t, std::uint32_t, std::uint32_t)> cancel;
 			std::function<void(std::uint16_t)> port;
 		};
 
 		/*!
-		 * \brief Creates a new peer.
-		 * \param peer_info The peer info.
+		 * \brief Creates a new peer connection.
+		 * \param peer_info The peer info that is required to connect.
 		 * \param info_hash The info hash of the torrent, used for the handshake.
 		 * \param peer_id The peer id of this client, used for the handshake.
 		 */
-		PeerConnection(const PeerInfo& peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks);
+		PeerConnection(const PeerInfo &peer_info, const Metainfo &metainfo, PeerId peer_id, MessageCallbacks callbacks);
 		~PeerConnection();
 
 		Status GetStatus() const;
-		const PeerInfo& GetPeerInfo() const;
+		const PeerInfo &GetPeerInfo() const;
 
 		Status Process();
 
 	private:
 		void HandleMessages();
 		void ShiftBuffer(std::size_t amount);
-		void Error(const std::string& reason);
+		void Error(const std::string &reason);
 		bool Connect();
 		void SetTimeout(std::chrono::seconds timeout);
 		bool CheckConnectionAlive();
@@ -69,7 +70,7 @@ namespace tortoise
 		MessageCallbacks message_callbacks_;
 
 		PeerInfo peer_info_;
-		std::shared_ptr<const Metainfo> metainfo_;
+		const Metainfo &metainfo_;
 		PeerId own_peer_id_;
 
 		bool can_receive_bitfield_;

@@ -24,6 +24,7 @@ set (HEADERS
 
   tortoise/bencode/bencode.hpp
 
+  tortoise/torrent/bitfield.hpp
   tortoise/torrent/peer.hpp
   tortoise/torrent/peer_connection.hpp
   tortoise/torrent/piece_manager.hpp
@@ -52,6 +53,7 @@ set(SOURCES
   tortoise/network/socket.cpp
   tortoise/network/url.cpp
 
+  tortoise/torrent/bitfield.cpp
   tortoise/torrent/load_torrent.cpp
   tortoise/torrent/peer.cpp
   tortoise/torrent/peer_connection.cpp

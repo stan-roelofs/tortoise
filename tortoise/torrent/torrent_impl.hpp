@@ -35,7 +35,7 @@ namespace tortoise
 		void Start();
 		void Stop();
 
-		std::shared_ptr<const Metainfo> GetMetainfo() const;
+		const Metainfo &GetMetainfo() const;
 		PeerId GetPeerId() const;
 
 	private:
@@ -51,7 +51,7 @@ namespace tortoise
 		bool requested_peers_;
 		PeerInfoProvider &peer_info_provider_;
 		EventQueue &event_queue_;
-		std::shared_ptr<const Metainfo> metainfo_;
+		const Metainfo metainfo_;
 		const PeerId peer_id_;
 		PieceManager piece_manager_;
 

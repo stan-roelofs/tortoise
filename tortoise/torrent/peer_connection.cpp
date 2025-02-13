@@ -107,7 +107,7 @@ namespace tortoise
 
 	// TODO: while handshaking make sure we don't connect to ourselves!
 
-	PeerConnection::PeerConnection(const PeerInfo& peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
+	PeerConnection::PeerConnection(const PeerInfo& peer_info, const Metainfo& metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
 		peer_info_(peer_info),
 		metainfo_(std::move(metainfo)),
 		own_peer_id_(std::move(peer_id)),
@@ -115,9 +115,6 @@ namespace tortoise
 		status_(Status::Connecting),
 		socket_(network::TransportProtocol::TCP)
 	{
-		if (!metainfo_)
-			throw InvalidArgumentException("Metainfo is null.");
-
 		if (!message_callbacks_.bitfield || !message_callbacks_.cancel || !message_callbacks_.choke || !message_callbacks_.interested ||
 			!message_callbacks_.not_interested || !message_callbacks_.piece || !message_callbacks_.port || !message_callbacks_.request ||
 			!message_callbacks_.unchoke || !message_callbacks_.have)
@@ -187,7 +184,7 @@ namespace tortoise
 				Error(std::format("Invalid handshake from peer {}", peer_info_.ToString()));
 				return;
 			}
-			if (info_hash != metainfo_->info_hash)
+			if (info_hash != metainfo_.info_hash)
 			{
 				Error(std::format("Invalid info hash from peer {}", peer_info_.ToString()));
 				return;
@@ -236,7 +233,7 @@ namespace tortoise
 
 					const auto bitfield = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
 						receive_buffer_.begin() + protocol::length_prefix_size + length);
-					const std::size_t expected_bitfield_size = (metainfo_->pieces.size() + 7) / 8;
+					const std::size_t expected_bitfield_size = (metainfo_.pieces.size() + 7) / 8;
 					if (bitfield.size() != expected_bitfield_size)
 					{
 						Error(std::format("Peer {} sent invalid bitfield", peer_info_.ToString()));
@@ -315,7 +312,7 @@ namespace tortoise
 		{
 			SetTimeout(handshake_timeout);
 			status_ = Status::Handshaking;
-			WriteHandshakeMessage(send_buffer_, metainfo_->info_hash, own_peer_id_);
+			WriteHandshakeMessage(send_buffer_, metainfo_.info_hash, own_peer_id_);
 			LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
 			return true;
 		}

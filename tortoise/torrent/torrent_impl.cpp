@@ -21,7 +21,7 @@ namespace tortoise
 		if (!IsValid())
 			throw InvalidHandleException("TorrentHandle is not valid");
 
-		return *ptr_.lock()->GetMetainfo();
+		return ptr_.lock()->GetMetainfo();
 	}
 
 	void TorrentHandle::StartDownload()
@@ -60,8 +60,8 @@ namespace tortoise
 		requested_peers_(false),
 		peer_info_provider_(peer_info_provider),
 		event_queue_(event_queue),
-		metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
-		piece_manager_(metainfo_->pieces.size())
+		metainfo_(parameters.metainfo),
+		piece_manager_(metainfo_)
 	{
 		if (parameters.save_path.empty())
 			throw Exception("save_path is empty");
@@ -112,10 +112,8 @@ namespace tortoise
 		LOG_INFO("Torrent", "Torrent stopped");
 	}
 
-	std::shared_ptr<const Metainfo> Torrent::GetMetainfo() const
+	const Metainfo& Torrent::GetMetainfo() const
 	{
-		std::lock_guard lock(mutex_);
-
 		return metainfo_;
 	}
 
@@ -163,7 +161,7 @@ namespace tortoise
 
 			LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
 			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_), PeerStatus::Connecting });
-			event_queue_.Push(event::PeerStatusChanged {shared_from_this(), peer_info, PeerStatus::Connecting });
+			event_queue_.Push(event::PeerStatusChanged {shared_from_this(), peer_info, PeerStatus::Connecting});
 		}
 
 		{

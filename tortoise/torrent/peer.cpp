@@ -25,7 +25,7 @@ namespace
 
 namespace tortoise
 {
-	Peer::Peer(const PeerInfo& peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id) : connection_(peer_info, metainfo, peer_id,
+	Peer::Peer(const PeerInfo& peer_info, const Metainfo& metainfo, PeerId peer_id) : connection_(peer_info, metainfo, peer_id,
 		PeerConnection::MessageCallbacks(
 			std::bind(&Peer::OnMessageChoke, this),
 			std::bind(&Peer::OnMessageUnchoke, this),
@@ -42,7 +42,8 @@ namespace tortoise
 		am_choking_(true),
 		am_interested_(false),
 		peer_choking_(false),
-		peer_interested_(false)
+		peer_interested_(false),
+		bitfield_(metainfo.pieces.size())
 	{
 	}
 	Peer::~Peer() = default;
@@ -96,19 +97,9 @@ namespace tortoise
 
 	void Peer::OnMessageBitfield(const ByteVector& bitfield)
 	{
-
 		LOG_INFO(log_tag, std::format("Peer {} sent bitfield", connection_.GetPeerInfo().ToString()));
 
-		for (std::uint32_t byte = 0; byte < bitfield.size(); ++byte)
-		{
-			for (std::uint32_t bit = 0; bit < 8; ++bit)
-			{
-				if (bitfield[byte] & (1 << (7 - bit)))
-				{
-					// const std::uint32_t piece_index = (byte * 8) + bit;
-				}
-			}
-		}
+		bitfield_.SetBitfield(bitfield);
 	}
 
 	void Peer::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
