@@ -10,6 +10,8 @@
 #include <queue>
 #include <typeindex>
 
+#include <tortoise/exception.hpp>
+
 namespace tortoise
 {
 	/*! \brief A thread-safe queue that can accept events of any type and notify subscribers of the event.*/
@@ -26,7 +28,7 @@ namespace tortoise
 		 * \return A token that identifies the subscription.
 		 */
 		template <class T>
-		Token Subscribe(const std::function<void(const T&)>& callback)
+		Token Subscribe(const std::function<void(const T &)> &callback)
 		{
 			std::type_index type = std::type_index(typeid(T));
 
@@ -41,18 +43,19 @@ namespace tortoise
 			else
 				token = next_token_++;
 
-			const auto [it, success] = subscribers_.current[type].insert({ token, [callback](const void* event)
-																		  { callback(*static_cast<const T*>(event)); } });
-			assert(success);
+			const auto [it, success] = subscribers_.current[type].insert({token, [callback](const void *event)
+																		  { callback(*static_cast<const T *>(event)); }});
+			if (!success)
+				throw Exception("Failed to subscribe to event");
 			return token;
 		}
 
 		template <class T>
-		void Push(const T& event)
+		void Push(const T &event)
 		{
 			std::lock_guard lock(queued_events_.mutex);
 			queued_events_.values.push_back([this, event]
-				{ ProcessEvent(event); });
+											{ ProcessEvent(event); });
 		}
 
 		//! \brief Processes all events in the queue, this should be called regularly.
@@ -83,18 +86,18 @@ namespace tortoise
 		}
 
 		template <class T>
-		void ProcessEvent(const T& event)
+		void ProcessEvent(const T &event)
 		{
 			auto type = std::type_index(typeid(T));
 
 			std::lock_guard lock(subscribers_.mutex);
-			for (auto& subscriber : subscribers_.current[type])
+			for (auto &subscriber : subscribers_.current[type])
 				subscriber.second(&event);
 		}
 
 		struct
 		{
-			std::map<std::type_index, std::map<Token, std::function<void(const void*)>>> current;
+			std::map<std::type_index, std::map<Token, std::function<void(const void *)>>> current;
 			std::queue<Token> removed;
 			std::mutex mutex;
 		} subscribers_;

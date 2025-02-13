@@ -62,7 +62,7 @@ namespace tortoise
 		void Error(const std::string& reason);
 		bool Connect();
 		void SetTimeout(std::chrono::seconds timeout);
-		bool CheckTimeout();
+		bool CheckConnectionAlive();
 		bool Send();
 		bool Receive();
 
@@ -76,6 +76,7 @@ namespace tortoise
 
 		Status status_;
 		std::chrono::steady_clock::time_point timeout_;
+		std::chrono::steady_clock::time_point time_last_sent_;
 		network::Socket socket_;
 		ByteVector send_buffer_;
 		ByteVector receive_buffer_;

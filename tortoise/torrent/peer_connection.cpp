@@ -16,7 +16,9 @@ namespace
 	// TODO make this configurable
 	constexpr std::chrono::seconds keep_alive_timeout(120);
 	constexpr std::chrono::seconds connect_timeout(30);
-	constexpr std::chrono::seconds handshake_timeout(30);
+	constexpr std::chrono::seconds handshake_timeout = connect_timeout;
+
+	constexpr std::chrono::seconds max_idle_time(keep_alive_timeout - std::chrono::seconds(5));
 
 	constexpr unsigned DESIRED_REQUESTS = 5;
 
@@ -56,7 +58,15 @@ namespace tortoise
 		return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
 	}
 
-	static void CreateHandshake(ByteVector& buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
+	static void WriteKeepAliveMessage(ByteVector& buffer)
+	{
+		const auto start_size = buffer.size();
+		util::Write(buffer, (std::uint32_t)0);
+		assert(buffer.size() - start_size == 4);
+		(void)start_size;
+	}
+
+	static void WriteHandshakeMessage(ByteVector& buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
 	{
 		// handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
 		const auto start_size = buffer.size();
@@ -131,7 +141,7 @@ namespace tortoise
 		if (status_ == Status::Finished)
 			return status_; // We are done
 
-		if (CheckTimeout())
+		if (CheckConnectionAlive())
 			return status_;
 
 		if (status_ == Status::Connecting && !Connect())
@@ -305,7 +315,7 @@ namespace tortoise
 		{
 			SetTimeout(handshake_timeout);
 			status_ = Status::Handshaking;
-			CreateHandshake(send_buffer_, metainfo_->info_hash, own_peer_id_);
+			WriteHandshakeMessage(send_buffer_, metainfo_->info_hash, own_peer_id_);
 			LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
 			return true;
 		}
@@ -324,8 +334,15 @@ namespace tortoise
 		timeout_ = std::chrono::steady_clock::now() + timeout;
 	}
 
-	bool PeerConnection::CheckTimeout()
+	bool PeerConnection::CheckConnectionAlive()
 	{
+		const auto current_time = std::chrono::steady_clock::now();
+		if (status_ == Status::Connected && current_time - time_last_sent_ > max_idle_time)
+		{
+			WriteKeepAliveMessage(send_buffer_);
+			time_last_sent_ = current_time;
+		}
+
 		if (std::chrono::steady_clock::now() <= timeout_)
 			return false;
 
@@ -344,6 +361,7 @@ namespace tortoise
 		{
 		case network::Socket::Result::Ok:
 			LOG_INFO(log_tag, std::format("Sent {} bytes to peer {}", length, peer_info_.ToString()));
+			time_last_sent_ = std::chrono::steady_clock::now();
 			send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
 			return true;
 		case network::Socket::Result::WouldBlock:
