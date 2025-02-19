@@ -11,11 +11,14 @@ namespace tortoise
 		Bitfield(std::size_t nr_pieces);
 
 		bool HasPiece(std::uint32_t index) const;
-		void SetBitfield(const ByteVector& bitfield);
 		void SetHavePiece(std::uint32_t index);
 
+		void FromBytes(ByteVector bytes);
+		const ByteVector &AsBytes() const;
+
 	private:
-		std::vector<bool> bitfield_;
+		std::size_t nr_pieces_;
+		ByteVector bitfield_;
 	};
 }
 

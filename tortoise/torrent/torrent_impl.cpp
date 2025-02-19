@@ -60,7 +60,7 @@ namespace tortoise
 		requested_peers_(false),
 		peer_info_provider_(peer_info_provider),
 		event_queue_(event_queue),
-		metainfo_(parameters.metainfo),
+		metainfo_(std::make_shared<const Metainfo>(parameters.metainfo)),
 		piece_manager_(metainfo_)
 	{
 		if (parameters.save_path.empty())
@@ -114,7 +114,7 @@ namespace tortoise
 
 	const Metainfo& Torrent::GetMetainfo() const
 	{
-		return metainfo_;
+		return *metainfo_;
 	}
 
 	PeerId Torrent::GetPeerId() const
@@ -160,8 +160,8 @@ namespace tortoise
 			potential_peers_.pop_front();
 
 			LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
-			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_), PeerStatus::Connecting });
-			event_queue_.Push(event::PeerStatusChanged {shared_from_this(), peer_info, PeerStatus::Connecting});
+			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_, piece_manager_), PeerStatus::Connecting });
+			event_queue_.Push(event::PeerStatusChanged{ shared_from_this(), peer_info, PeerStatus::Connecting });
 		}
 
 		{
@@ -172,8 +172,10 @@ namespace tortoise
 				if (status != it->second)
 				{
 					it->second = status;
-					event_queue_.Push(event::PeerStatusChanged {shared_from_this(), it->first->GetPeerInfo(), status});
+					event_queue_.Push(event::PeerStatusChanged{ shared_from_this(), it->first->GetPeerInfo(), status });
 				}
+
+				// TODO: if peer slow or has no pieces we need AND there are potential peers, disconnect and connect to a new peer
 
 				switch (status)
 				{

@@ -4,34 +4,34 @@
 
 namespace tortoise
 {
-	Bitfield::Bitfield(std::size_t nr_pieces)
+	Bitfield::Bitfield(std::size_t nr_pieces) : nr_pieces_(nr_pieces)
 	{
-		bitfield_.resize(nr_pieces, false);
+		bitfield_.resize((nr_pieces + 7) / 8, 0);
 	}
 
 	bool Bitfield::HasPiece(std::uint32_t index) const
 	{
-		return bitfield_[index];
+		if (index >= nr_pieces_)
+			throw InvalidArgumentException("Invalid bitfield index");
+		return (bitfield_[index / 8] & (1 << (7 - (index % 8)))) != 0;
 	}
 
 	void Bitfield::SetHavePiece(std::uint32_t index)
 	{
-		bitfield_[index] = true;
+		if (index >= nr_pieces_)
+			throw InvalidArgumentException("Invalid bitfield index");
+		bitfield_[index / 8] |= 1 << (7 - (index % 8));
 	}
 
-	void Bitfield::SetBitfield(const ByteVector& bitfield)
+	void Bitfield::FromBytes(ByteVector bytes)
 	{
-		if (bitfield.size() != (bitfield_.size() + 7) / 8)
+		if (bytes.size() != bitfield_.size())
 			throw InvalidArgumentException("Invalid bitfield size");
+		bitfield_ = std::move(bytes);
+	}
 
-		for (std::size_t byte = 0; byte < bitfield.size(); ++byte)
-		{
-			const uint8_t byte_value = bitfield[byte];
-			const std::size_t bit_offset = static_cast<std::size_t>(byte) * 8;
-			for (uint8_t bit = 0; bit < 8 && bit_offset + bit < bitfield_.size(); ++bit)
-			{
-				bitfield_[bit_offset + bit] = (byte_value & (1 << (7 - bit))) != 0;
-			}
-		}
+	const ByteVector &Bitfield::AsBytes() const
+	{
+		return bitfield_;
 	}
 }

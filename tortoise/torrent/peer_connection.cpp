@@ -50,7 +50,7 @@ namespace tortoise
 		constexpr int length_prefix_size = 4; // The number of bytes used to prefix the length of a message
 	}
 
-	static std::uint32_t GetLengthPrefix(const ByteVector& buffer)
+	static std::uint32_t GetLengthPrefix(const ByteVector &buffer)
 	{
 		assert(buffer.size() >= protocol::length_prefix_size);
 		if (buffer.size() < protocol::length_prefix_size)
@@ -58,22 +58,74 @@ namespace tortoise
 		return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
 	}
 
-	static void WriteKeepAliveMessage(ByteVector& buffer)
+	static void WriteRequestMessage(ByteVector &buffer, std::uint32_t index, std::uint32_t begin, std::uint32_t length)
 	{
 		const auto start_size = buffer.size();
-		util::Write(buffer, (std::uint32_t)0);
+		util::Write(buffer, network::HostToNetwork(static_cast<uint32_t>(13)));
+		buffer.push_back(static_cast<std::uint8_t>(protocol::MessageID::Request));
+		util::Write(buffer, network::HostToNetwork(index));
+		util::Write(buffer, network::HostToNetwork(begin));
+		util::Write(buffer, network::HostToNetwork(length));
+		(void)start_size;
+		assert(buffer.size() - start_size == 17);
+	}
+
+	static void WriteSimpleMessage(ByteVector &buffer, protocol::MessageID id)
+	{
+		assert(id == protocol::MessageID::Choke || id == protocol::MessageID::Unchoke || id == protocol::MessageID::Interested || id == protocol::MessageID::NotInterested);
+		const auto start_size = buffer.size();
+		util::Write(buffer, network::HostToNetwork(static_cast<std::uint32_t>(1)));
+		buffer.push_back(static_cast<std::uint8_t>(id));
+		assert(buffer.size() - start_size == 5);
+		(void)start_size;
+	}
+
+	static void WriteInterestedMessage(ByteVector &buffer)
+	{
+		WriteSimpleMessage(buffer, protocol::MessageID::Interested);
+	}
+
+	static void WriteNotInterestedMessage(ByteVector &buffer)
+	{
+		WriteSimpleMessage(buffer, protocol::MessageID::NotInterested);
+	}
+
+	static void WriteKeepAliveMessage(ByteVector &buffer)
+	{
+		const auto start_size = buffer.size();
+		util::Write(buffer, static_cast<std::uint32_t>(0));
 		assert(buffer.size() - start_size == 4);
 		(void)start_size;
 	}
 
-	static void WriteHandshakeMessage(ByteVector& buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
+	static void WriteHaveMessage(ByteVector &buffer, std::uint32_t piece_index)
+	{
+		const auto start_size = buffer.size();
+		util::Write(buffer, network::HostToNetwork(static_cast<std::uint32_t>(5)));
+		buffer.push_back(static_cast<std::uint8_t>(protocol::MessageID::Have));
+		util::Write(buffer, network::HostToNetwork(piece_index));
+		assert(buffer.size() - start_size == 9);
+		(void)start_size;
+	}
+
+	static void WriteBitfieldMessage(ByteVector &buffer, const ByteVector &bitfield)
+	{
+		const auto start_size = buffer.size();
+		util::Write(buffer, network::HostToNetwork(static_cast<std::uint32_t>(1 + bitfield.size())));
+		buffer.push_back(static_cast<std::uint8_t>(protocol::MessageID::Bitfield));
+		buffer.insert(buffer.end(), bitfield.begin(), bitfield.end());
+		assert(buffer.size() - start_size == 5 + bitfield.size());
+		(void)start_size;
+	}
+
+	static void WriteHandshakeMessage(ByteVector &buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
 	{
 		// handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
 		const auto start_size = buffer.size();
 		(void)start_size;
 		buffer.push_back(protocol::protocol_string_size);
 		util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
-		constexpr std::uint8_t reserved[8] = { 0 };
+		constexpr std::uint8_t reserved[8] = {0};
 		util::Write(buffer, reserved, 8);
 		util::Write(buffer, info_hash.data(), info_hash.size());
 		const auto peer = peer_id.Get();
@@ -82,7 +134,7 @@ namespace tortoise
 		assert(buffer.size() - start_size == protocol::handshake_size);
 	}
 
-	static bool ParseHandshake(ByteVector& buffer, std::array<std::uint8_t, 20>& info_hash, PeerId& peer_id)
+	static bool ParseHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> &info_hash, PeerId &peer_id)
 	{
 		if (buffer.size() < protocol::handshake_size)
 			return false;
@@ -107,14 +159,17 @@ namespace tortoise
 
 	// TODO: while handshaking make sure we don't connect to ourselves!
 
-	PeerConnection::PeerConnection(const PeerInfo& peer_info, const Metainfo& metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
-		peer_info_(peer_info),
-		metainfo_(std::move(metainfo)),
-		own_peer_id_(std::move(peer_id)),
-		can_receive_bitfield_(true),
-		status_(Status::Connecting),
-		socket_(network::TransportProtocol::TCP)
+	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
+																																			   peer_info_(peer_info),
+																																			   metainfo_(std::move(metainfo)),
+																																			   own_peer_id_(std::move(peer_id)),
+																																			   can_receive_bitfield_(true),
+																																			   status_(Status::Connecting),
+																																			   socket_(network::TransportProtocol::TCP)
 	{
+		if (!metainfo_)
+			throw InvalidArgumentException("Metainfo is null.");
+
 		if (!message_callbacks_.bitfield || !message_callbacks_.cancel || !message_callbacks_.choke || !message_callbacks_.interested ||
 			!message_callbacks_.not_interested || !message_callbacks_.piece || !message_callbacks_.port || !message_callbacks_.request ||
 			!message_callbacks_.unchoke || !message_callbacks_.have)
@@ -138,7 +193,7 @@ namespace tortoise
 		if (status_ == Status::Finished)
 			return status_; // We are done
 
-		if (CheckConnectionAlive())
+		if (!CheckConnectionAlive())
 			return status_;
 
 		if (status_ == Status::Connecting && !Connect())
@@ -159,14 +214,45 @@ namespace tortoise
 		return status_;
 	}
 
+	void PeerConnection::Disconnect()
+	{
+		LOG_INFO(log_tag, std::format("Disconnecting from peer {}", peer_info_.ToString()));
+		status_ = Status::Finished;
+	}
+
+	void PeerConnection::SendRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
+	{
+		LOG_INFO(log_tag, std::format("Requesting block (index: {}, begin: {}, length: {}) from peer {}", index, begin, length, peer_info_.ToString()));
+		WriteRequestMessage(send_buffer_, index, begin, length);
+	}
+
+	void PeerConnection::SendInterested()
+	{
+		LOG_INFO(log_tag, std::format("Sending interested to peer {}", peer_info_.ToString()));
+		WriteInterestedMessage(send_buffer_);
+	}
+
+	void PeerConnection::SendNotInterested()
+	{
+		LOG_INFO(log_tag, std::format("Sending not interested to peer {}", peer_info_.ToString()));
+		WriteNotInterestedMessage(send_buffer_);
+	}
+
+	void PeerConnection::SendHave(std::uint32_t piece_index)
+	{
+		LOG_INFO(log_tag, std::format("Sending have piece {} to peer {}", piece_index, peer_info_.ToString()));
+		WriteHaveMessage(send_buffer_, piece_index);
+	}
+
+	void PeerConnection::SendBitfield(const ByteVector &bitfield)
+	{
+		LOG_INFO(log_tag, std::format("Sending bitfield to peer {}", peer_info_.ToString()));
+		WriteBitfieldMessage(send_buffer_, bitfield);
+	}
+
 	PeerConnection::Status PeerConnection::GetStatus() const
 	{
 		return status_;
-	}
-
-	const PeerInfo& PeerConnection::GetPeerInfo() const
-	{
-		return peer_info_;
 	}
 
 	// Message handlers
@@ -184,7 +270,7 @@ namespace tortoise
 				Error(std::format("Invalid handshake from peer {}", peer_info_.ToString()));
 				return;
 			}
-			if (info_hash != metainfo_.info_hash)
+			if (info_hash != metainfo_->info_hash)
 			{
 				Error(std::format("Invalid info hash from peer {}", peer_info_.ToString()));
 				return;
@@ -231,15 +317,15 @@ namespace tortoise
 					if (!can_receive_bitfield_)
 						break;
 
-					const auto bitfield = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
-						receive_buffer_.begin() + protocol::length_prefix_size + length);
-					const std::size_t expected_bitfield_size = (metainfo_.pieces.size() + 7) / 8;
+					auto bitfield = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
+											   receive_buffer_.begin() + protocol::length_prefix_size + length);
+					const std::size_t expected_bitfield_size = (metainfo_->pieces.size() + 7) / 8;
 					if (bitfield.size() != expected_bitfield_size)
 					{
 						Error(std::format("Peer {} sent invalid bitfield", peer_info_.ToString()));
 						return;
 					}
-					message_callbacks_.bitfield(bitfield);
+					message_callbacks_.bitfield(std::move(bitfield));
 					break;
 				}
 				case protocol::MessageID::Request:
@@ -254,9 +340,9 @@ namespace tortoise
 				{
 					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
 					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
-					const auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
-						receive_buffer_.begin() + protocol::length_prefix_size + length);
-					message_callbacks_.piece(piece_index, begin, block);
+					auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
+											receive_buffer_.begin() + protocol::length_prefix_size + length);
+					message_callbacks_.piece(piece_index, begin, std::move(block));
 					break;
 				}
 				case protocol::MessageID::Cancel:
@@ -292,7 +378,7 @@ namespace tortoise
 		receive_buffer_.erase(receive_buffer_.begin(), receive_buffer_.begin() + amount);
 	}
 
-	void PeerConnection::Error(const std::string& reason)
+	void PeerConnection::Error(const std::string &reason)
 	{
 		LOG_ERROR(log_tag, reason);
 		status_ = Status::Finished;
@@ -312,7 +398,7 @@ namespace tortoise
 		{
 			SetTimeout(handshake_timeout);
 			status_ = Status::Handshaking;
-			WriteHandshakeMessage(send_buffer_, metainfo_.info_hash, own_peer_id_);
+			WriteHandshakeMessage(send_buffer_, metainfo_->info_hash, own_peer_id_);
 			LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
 			return true;
 		}
@@ -341,11 +427,11 @@ namespace tortoise
 		}
 
 		if (std::chrono::steady_clock::now() <= timeout_)
-			return false;
+			return true;
 
 		LOG_INFO(log_tag, std::format("Peer {} timed out", peer_info_.ToString()));
 		status_ = Status::Finished;
-		return true;
+		return false;
 	}
 
 	bool PeerConnection::Send()
@@ -373,25 +459,27 @@ namespace tortoise
 
 	bool PeerConnection::Receive()
 	{
-		int length = 1024;
-		std::uint8_t chunk[1024];
-		switch (socket_.Receive(chunk, length))
+		unsigned received_bytes = 0;
+		network::Socket::Result result = network::Socket::Result::Ok;
+		while (result == network::Socket::Result::Ok)
 		{
-		case network::Socket::Result::Ok:
-			if (length != 0)
-			{
-				LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", length, peer_info_.ToString()));
+			std::uint8_t chunk[1024];
+			int length = sizeof(chunk);
 
-				SetTimeout(keep_alive_timeout);
-				receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
-			}
-			return true;
-		case network::Socket::Result::WouldBlock:
-			return true;
-		case network::Socket::Result::Error:
-			return false;
+			result = socket_.Receive(chunk, length);
+			if (result == network::Socket::Result::Error || result == network::Socket::Result::WouldBlock || length == 0)
+				break;
+
+			received_bytes += length;
+			receive_buffer_.insert(receive_buffer_.end(), chunk, chunk + length);
 		}
 
-		return true;
+		if (received_bytes > 0)
+		{
+			SetTimeout(keep_alive_timeout);
+			LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", received_bytes, peer_info_.ToString()));
+		}
+
+		return result != network::Socket::Result::Error;
 	}
 }

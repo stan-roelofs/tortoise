@@ -10,8 +10,6 @@
 #include <tortoise/metainfo.hpp>
 #include <tortoise/peer_info.hpp>
 
-#include "piece_manager.hpp"
-
 #include "../network/socket.hpp"
 #include "../util/util.hpp"
 
@@ -24,8 +22,8 @@ namespace tortoise
 		enum class Status
 		{
 			Connecting,
-			Connected,
 			Handshaking,
+			Connected,
 			Finished
 		};
 
@@ -36,9 +34,9 @@ namespace tortoise
 			std::function<void()> interested;
 			std::function<void()> not_interested;
 			std::function<void(std::uint32_t)> have;
-			std::function<void(const ByteVector &)> bitfield;
+			std::function<void(ByteVector)> bitfield;
 			std::function<void(std::uint32_t, std::uint32_t, std::uint32_t)> request;
-			std::function<void(std::uint32_t, std::uint32_t, const ByteVector &)> piece;
+			std::function<void(std::uint32_t, std::uint32_t, ByteVector)> piece;
 			std::function<void(std::uint32_t, std::uint32_t, std::uint32_t)> cancel;
 			std::function<void(std::uint16_t)> port;
 		};
@@ -49,13 +47,20 @@ namespace tortoise
 		 * \param info_hash The info hash of the torrent, used for the handshake.
 		 * \param peer_id The peer id of this client, used for the handshake.
 		 */
-		PeerConnection(const PeerInfo &peer_info, const Metainfo &metainfo, PeerId peer_id, MessageCallbacks callbacks);
+		PeerConnection(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks);
 		~PeerConnection();
 
 		Status GetStatus() const;
-		const PeerInfo &GetPeerInfo() const;
 
 		Status Process();
+
+		void Disconnect();
+
+		void SendRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length);
+		void SendInterested();
+		void SendNotInterested();
+		void SendHave(std::uint32_t piece_index);
+		void SendBitfield(const ByteVector &bitfield);
 
 	private:
 		void HandleMessages();
@@ -70,7 +75,7 @@ namespace tortoise
 		MessageCallbacks message_callbacks_;
 
 		PeerInfo peer_info_;
-		const Metainfo &metainfo_;
+		std::shared_ptr<const Metainfo> metainfo_;
 		PeerId own_peer_id_;
 
 		bool can_receive_bitfield_;

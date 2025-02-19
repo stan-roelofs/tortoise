@@ -24,24 +24,24 @@ namespace tortoise
 		{
 		public:
 			virtual ~PeerInfoProvider() = default;
-			virtual void RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback) = 0;
-			virtual void UnregisterTorrent(const Torrent &torrent) = 0;
-			virtual void RequestPeers(const Torrent &torrent, unsigned desired) = 0;
+			virtual void RegisterTorrent(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback) = 0;
+			virtual void UnregisterTorrent(const Torrent& torrent) = 0;
+			virtual void RequestPeers(const Torrent& torrent, unsigned desired) = 0;
 		};
 
-		Torrent(const TorrentParameters &params, PeerInfoProvider &peer_info_provider, EventQueue &event_queue);
+		Torrent(const TorrentParameters& params, PeerInfoProvider& peer_info_provider, EventQueue& event_queue);
 		~Torrent();
 
 		void Start();
 		void Stop();
 
-		const Metainfo &GetMetainfo() const;
+		const Metainfo& GetMetainfo() const;
 		PeerId GetPeerId() const;
 
 	private:
-		void OnNewPeers(const std::vector<PeerInfo> &new_peers);
+		void OnNewPeers(const std::vector<PeerInfo>& new_peers);
 
-		static void Run(Torrent &torrent);
+		static void Run(Torrent& torrent);
 		void ProcessPeers();
 
 		std::atomic_bool running_;
@@ -49,9 +49,9 @@ namespace tortoise
 		std::thread thread_;
 
 		bool requested_peers_;
-		PeerInfoProvider &peer_info_provider_;
-		EventQueue &event_queue_;
-		const Metainfo metainfo_;
+		PeerInfoProvider& peer_info_provider_;
+		EventQueue& event_queue_;
+		std::shared_ptr<const Metainfo> metainfo_;
 		const PeerId peer_id_;
 		PieceManager piece_manager_;
 
