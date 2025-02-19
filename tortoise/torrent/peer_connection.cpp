@@ -50,7 +50,7 @@ namespace tortoise
 		constexpr int length_prefix_size = 4; // The number of bytes used to prefix the length of a message
 	}
 
-	static std::uint32_t GetLengthPrefix(const ByteVector &buffer)
+	static std::uint32_t GetLengthPrefix(const ByteVector& buffer)
 	{
 		assert(buffer.size() >= protocol::length_prefix_size);
 		if (buffer.size() < protocol::length_prefix_size)
@@ -58,7 +58,7 @@ namespace tortoise
 		return network::NetworkToHost(util::Read<std::uint32_t>(buffer, 0));
 	}
 
-	static void WriteRequestMessage(ByteVector &buffer, std::uint32_t index, std::uint32_t begin, std::uint32_t length)
+	static void WriteRequestMessage(ByteVector& buffer, std::uint32_t index, std::uint32_t begin, std::uint32_t length)
 	{
 		const auto start_size = buffer.size();
 		util::Write(buffer, network::HostToNetwork(static_cast<uint32_t>(13)));
@@ -70,7 +70,7 @@ namespace tortoise
 		assert(buffer.size() - start_size == 17);
 	}
 
-	static void WriteSimpleMessage(ByteVector &buffer, protocol::MessageID id)
+	static void WriteSimpleMessage(ByteVector& buffer, protocol::MessageID id)
 	{
 		assert(id == protocol::MessageID::Choke || id == protocol::MessageID::Unchoke || id == protocol::MessageID::Interested || id == protocol::MessageID::NotInterested);
 		const auto start_size = buffer.size();
@@ -80,17 +80,17 @@ namespace tortoise
 		(void)start_size;
 	}
 
-	static void WriteInterestedMessage(ByteVector &buffer)
+	static void WriteInterestedMessage(ByteVector& buffer)
 	{
 		WriteSimpleMessage(buffer, protocol::MessageID::Interested);
 	}
 
-	static void WriteNotInterestedMessage(ByteVector &buffer)
+	static void WriteNotInterestedMessage(ByteVector& buffer)
 	{
 		WriteSimpleMessage(buffer, protocol::MessageID::NotInterested);
 	}
 
-	static void WriteKeepAliveMessage(ByteVector &buffer)
+	static void WriteKeepAliveMessage(ByteVector& buffer)
 	{
 		const auto start_size = buffer.size();
 		util::Write(buffer, static_cast<std::uint32_t>(0));
@@ -98,7 +98,7 @@ namespace tortoise
 		(void)start_size;
 	}
 
-	static void WriteHaveMessage(ByteVector &buffer, std::uint32_t piece_index)
+	static void WriteHaveMessage(ByteVector& buffer, std::uint32_t piece_index)
 	{
 		const auto start_size = buffer.size();
 		util::Write(buffer, network::HostToNetwork(static_cast<std::uint32_t>(5)));
@@ -108,7 +108,7 @@ namespace tortoise
 		(void)start_size;
 	}
 
-	static void WriteBitfieldMessage(ByteVector &buffer, const ByteVector &bitfield)
+	static void WriteBitfieldMessage(ByteVector& buffer, const ByteVector& bitfield)
 	{
 		const auto start_size = buffer.size();
 		util::Write(buffer, network::HostToNetwork(static_cast<std::uint32_t>(1 + bitfield.size())));
@@ -118,14 +118,14 @@ namespace tortoise
 		(void)start_size;
 	}
 
-	static void WriteHandshakeMessage(ByteVector &buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
+	static void WriteHandshakeMessage(ByteVector& buffer, std::array<std::uint8_t, 20> info_hash, PeerId peer_id)
 	{
 		// handshake: <pstrlen><pstr><reserved><info_hash><peer_id>
 		const auto start_size = buffer.size();
 		(void)start_size;
 		buffer.push_back(protocol::protocol_string_size);
 		util::Write(buffer, protocol::protocol_string, protocol::protocol_string_size);
-		constexpr std::uint8_t reserved[8] = {0};
+		constexpr std::uint8_t reserved[8] = { 0 };
 		util::Write(buffer, reserved, 8);
 		util::Write(buffer, info_hash.data(), info_hash.size());
 		const auto peer = peer_id.Get();
@@ -134,7 +134,7 @@ namespace tortoise
 		assert(buffer.size() - start_size == protocol::handshake_size);
 	}
 
-	static bool ParseHandshake(ByteVector &buffer, std::array<std::uint8_t, 20> &info_hash, PeerId &peer_id)
+	static bool ParseHandshake(ByteVector& buffer, std::array<std::uint8_t, 20>& info_hash, PeerId& peer_id)
 	{
 		if (buffer.size() < protocol::handshake_size)
 			return false;
@@ -160,12 +160,12 @@ namespace tortoise
 	// TODO: while handshaking make sure we don't connect to ourselves!
 
 	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
-																																			   peer_info_(peer_info),
-																																			   metainfo_(std::move(metainfo)),
-																																			   own_peer_id_(std::move(peer_id)),
-																																			   can_receive_bitfield_(true),
-																																			   status_(Status::Connecting),
-																																			   socket_(network::TransportProtocol::TCP)
+		peer_info_(peer_info),
+		metainfo_(std::move(metainfo)),
+		own_peer_id_(std::move(peer_id)),
+		can_receive_bitfield_(true),
+		status_(Status::Connecting),
+		socket_(network::TransportProtocol::TCP)
 	{
 		if (!metainfo_)
 			throw InvalidArgumentException("Metainfo is null.");
@@ -222,6 +222,7 @@ namespace tortoise
 
 	void PeerConnection::SendRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
 	{
+		assert(length > 0);
 		LOG_INFO(log_tag, std::format("Requesting block (index: {}, begin: {}, length: {}) from peer {}", index, begin, length, peer_info_.ToString()));
 		WriteRequestMessage(send_buffer_, index, begin, length);
 	}
@@ -244,7 +245,7 @@ namespace tortoise
 		WriteHaveMessage(send_buffer_, piece_index);
 	}
 
-	void PeerConnection::SendBitfield(const ByteVector &bitfield)
+	void PeerConnection::SendBitfield(const ByteVector& bitfield)
 	{
 		LOG_INFO(log_tag, std::format("Sending bitfield to peer {}", peer_info_.ToString()));
 		WriteBitfieldMessage(send_buffer_, bitfield);
@@ -318,7 +319,7 @@ namespace tortoise
 						break;
 
 					auto bitfield = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 1 /* skip message id */,
-											   receive_buffer_.begin() + protocol::length_prefix_size + length);
+						receive_buffer_.begin() + protocol::length_prefix_size + length);
 					const std::size_t expected_bitfield_size = (metainfo_->pieces.size() + 7) / 8;
 					if (bitfield.size() != expected_bitfield_size)
 					{
@@ -341,7 +342,7 @@ namespace tortoise
 					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
 					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
 					auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
-											receive_buffer_.begin() + protocol::length_prefix_size + length);
+						receive_buffer_.begin() + protocol::length_prefix_size + length);
 					message_callbacks_.piece(piece_index, begin, std::move(block));
 					break;
 				}
@@ -378,7 +379,7 @@ namespace tortoise
 		receive_buffer_.erase(receive_buffer_.begin(), receive_buffer_.begin() + amount);
 	}
 
-	void PeerConnection::Error(const std::string &reason)
+	void PeerConnection::Error(const std::string& reason)
 	{
 		LOG_ERROR(log_tag, reason);
 		status_ = Status::Finished;
