@@ -19,6 +19,7 @@ namespace tortoise
 
 			SUBSCRIBE_EVENT(torrent_added, TorrentAdded);
 			SUBSCRIBE_EVENT(peer_status_changed, PeerStatusChanged);
+			SUBSCRIBE_EVENT(piece_downloaded, PieceDownloaded);
 
 #undef SUBSCRIBE_EVENT
 		}
@@ -49,8 +50,8 @@ namespace tortoise
 				return;
 
 			std::lock_guard lock(mutex_);
-			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto &torrent)
-								   { return TorrentHandle(torrent) == handle; });
+			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto& torrent)
+				{ return TorrentHandle(torrent) == handle; });
 			if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
 				torrents_.erase(it);
 		}

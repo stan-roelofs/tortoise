@@ -45,6 +45,7 @@ Application::Application(CommandLineArguments args) : args_(args)
 	tortoise::event::Callbacks event_callbacks;
 	event_callbacks.torrent_added = std::bind(&Application::OnTorrentAdded, this, std::placeholders::_1);
 	event_callbacks.peer_status_changed = std::bind(&Application::OnPeerStatusChanged, this, std::placeholders::_1);
+	event_callbacks.piece_downloaded = std::bind(&Application::OnPieceDownloaded, this, std::placeholders::_1);
 
 	session_ = std::make_unique<tortoise::Session>(event_callbacks);
 }
@@ -69,7 +70,7 @@ bool Application::AddTorrent(const std::string& torrent_file)
 
 	handle.StartDownload();
 
-	torrents_.emplace_back(handle);
+	torrents_.emplace(handle, handle);
 
 	return true;
 }
@@ -81,18 +82,37 @@ void Application::OnTorrentAdded(const tortoise::event::TorrentAdded& event)
 
 void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event)
 {
+	auto it = torrents_.find(event.handle);
+	if (it == torrents_.end())
+		throw tortoise::Exception("Invalid handle");
+
+	it->second.peers[event.info] = event.status;
 	switch (event.status)
 	{
 	case tortoise::PeerStatus::Connecting:
-		std::cout << "Connecting to peer " << event.info.ToString() << std::endl;
+		std::cout << std::format("[{}] : Connecting to peer {}", event.handle.GetMetainfo().name, event.info.ToString()) << std::endl;
+
 		break;
 	case tortoise::PeerStatus::Connected:
-		std::cout << "Connected to peer " << event.info.ToString() << std::endl;
+		std::cout << std::format("[{}] : Connected to peer {}", event.handle.GetMetainfo().name, event.info.ToString()) << std::endl;
 		break;
 	case tortoise::PeerStatus::Disconnected:
-		std::cout << "Disconnected from peer " << event.info.ToString() << std::endl;
+		std::cout << std::format("[{}] : Disconnected from peer {}", event.handle.GetMetainfo().name, event.info.ToString()) << std::endl;
+		it->second.peers.erase(event.info);
 		break;
 	}
+}
+
+void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded& event)
+{
+	auto it = torrents_.find(event.handle);
+	if (it == torrents_.end())
+		throw tortoise::Exception("Invalid handle");
+
+	++it->second.pieces_downloaded;
+	assert(!it->second.have_pieces.at(event.piece_index));
+	it->second.have_pieces.at(event.piece_index) = true;
+	std::cout << std::format("[{}] : Downloaded {}/{} pieces from {} peers", event.handle.GetMetainfo().name, it->second.pieces_downloaded, event.handle.GetMetainfo().pieces.size(), it->second.peers.size()) << std::endl;
 }
 
 int Application::Run()

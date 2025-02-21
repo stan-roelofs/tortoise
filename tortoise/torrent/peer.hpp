@@ -11,10 +11,11 @@
 
 namespace tortoise
 {
-	class Peer : public PieceManager::Peer
+	class Peer : public PieceManager::Listener
 	{
 	public:
 		Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager& piece_manager);
+		~Peer();
 
 		const PeerInfo& GetPeerInfo() const;
 		PeerStatus GetStatus() const;
@@ -35,8 +36,8 @@ namespace tortoise
 		void UpdateInterested();
 		void MakeRequests();
 
-		// Inherited via PieceManager::Peer
-		void SendHave(std::uint32_t piece_index) override;
+		// Inherited via Listener
+		void OnPieceDownloaded(std::uint32_t piece_index) override;
 
 		std::shared_ptr<const Metainfo> metainfo_;
 		PeerInfo peer_info_;
@@ -49,6 +50,8 @@ namespace tortoise
 		bool peer_choking_;	   // Peer is choking this client
 		bool peer_interested_; // Peer is interested in this client
 
+		PieceManager& piece_manager_;
+		PieceManager::Handle handle_;
 		std::queue<Block> request_queue_;
 		std::set<Block> requested_blocks_;
 	};

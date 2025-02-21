@@ -8,85 +8,90 @@
 
 namespace tortoise
 {
-    namespace tracker
-    {
-        TieredList::TieredList(const std::vector<std::vector<std::string>> &trackers)
-        {
-            if (trackers.empty())
-                throw InvalidArgumentException("trackers is empty");
+	namespace tracker
+	{
+		TieredList::TieredList(const std::vector<std::vector<std::string>>& trackers)
+		{
+			if (trackers.empty())
+				throw InvalidArgumentException("trackers is empty");
 
-            auto rd = std::random_device{};
-            auto rng = std::default_random_engine{rd()};
+			auto rd = std::random_device{};
+			auto rng = std::default_random_engine{ rd() };
 
-            for (const auto &tier : trackers)
-            {
-                if (tier.empty())
-                    continue;
+			for (const auto& tier : trackers)
+			{
+				if (tier.empty())
+					continue;
 
-                std::vector<std::string> tier_trackers(tier.begin(), tier.end());
+				std::vector<std::string> tier_trackers(tier.begin(), tier.end());
 
-                // URLs within each tier will be processed in a randomly chosen order; in other words, the list will be shuffled when first read.
-                if (tier_trackers.size() > 1)
-                    std::shuffle(tier_trackers.begin(), tier_trackers.end(), rng);
+				// URLs within each tier will be processed in a randomly chosen order; in other words, the list will be shuffled when first read.
+				if (tier_trackers.size() > 1)
+					std::shuffle(tier_trackers.begin(), tier_trackers.end(), rng);
 
-                std::list<std::string> tier_list(tier_trackers.begin(), tier_trackers.end());
-                trackers_.emplace_back(tier_list);
-            }
+				std::list<std::string> tier_list(tier_trackers.begin(), tier_trackers.end());
+				trackers_.emplace_back(tier_list);
+			}
 
-            SelectFirstTracker();
-        }
+			SelectFirstTracker();
+		}
 
-        std::string TieredList::GetCurrentTracker() const
-        {
-            if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
-                return {};
-            return *current_tracker_;
-        }
+		std::string TieredList::GetCurrentTracker() const
+		{
+			if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
+				return {};
+			return *current_tracker_;
+		}
 
-        std::string TieredList::SelectNextTracker()
-        {
-            ++current_tracker_;
-            if (current_tracker_ == current_tier_->end())
-            {
-                ++current_tier_;
-                if (current_tier_ == trackers_.end())
-                    SelectFirstTracker();
-                else
-                    current_tracker_ = current_tier_->begin();
-            }
+		std::string TieredList::SelectNextTracker()
+		{
+			if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
+				return {};
 
-            return *current_tracker_;
-        }
+			++current_tracker_;
+			if (current_tracker_ == current_tier_->end())
+			{
+				++current_tier_;
+				if (current_tier_ == trackers_.end())
+					SelectFirstTracker();
+				else
+					current_tracker_ = current_tier_->begin();
+			}
 
-        void TieredList::PromoteCurrentTracker()
-        {
-            if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end() || current_tracker_ == current_tier_->begin())
-                return;
+			return *current_tracker_;
+		}
 
-            auto current_tracker_copy = current_tracker_;
-            --current_tracker_;
-            std::swap(*current_tracker_, *(current_tracker_copy));
-        }
+		void TieredList::PromoteCurrentTracker()
+		{
+			if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end() || current_tracker_ == current_tier_->begin())
+				return;
 
-        void TieredList::SelectFirstTracker()
-        {
-            current_tier_ = trackers_.begin();
-            current_tracker_ = current_tier_->begin();
-        }
+			auto current_tracker_copy = current_tracker_;
+			--current_tracker_;
+			std::swap(*current_tracker_, *(current_tracker_copy));
+		}
 
-        void TieredList::RemoveCurrentTracker()
-        {
-            if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
-                return;
+		void TieredList::SelectFirstTracker()
+		{
+			current_tier_ = trackers_.begin();
+			current_tracker_ = current_tier_->begin();
+		}
 
-            auto it = current_tier_->erase(current_tracker_);
-            if (it == current_tier_->end())
-            {
-                ++current_tier_;
-                current_tracker_ = current_tier_->begin();
-            }
-            else
-                current_tracker_ = it;
-        }
-    }
+		void TieredList::RemoveCurrentTracker()
+		{
+			if (current_tier_ == trackers_.end() || current_tracker_ == current_tier_->end())
+				return;
+
+			auto it = current_tier_->erase(current_tracker_);
+			if (it == current_tier_->end())
+			{
+				current_tier_ = trackers_.erase(current_tier_);
+				if (current_tier_ == trackers_.end())
+					return;
+				current_tracker_ = current_tier_->begin();
+			}
+			else
+				current_tracker_ = it;
+		}
+	}
 }

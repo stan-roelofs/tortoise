@@ -6,7 +6,7 @@
 
 namespace
 {
-	constexpr std::size_t DESIRED_PEERS = 20;
+	constexpr std::size_t DESIRED_PEERS = 30;
 }
 
 namespace tortoise
@@ -67,11 +67,14 @@ namespace tortoise
 			throw Exception("save_path is empty");
 
 		peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::OnNewPeers, this, std::placeholders::_1));
+		piece_manager_.AddListener(this);
 	}
 
 	Torrent::~Torrent()
 	{
 		Stop();
+
+		piece_manager_.RemoveListener(this);
 
 		std::lock_guard lock(mutex_);
 		peer_info_provider_.UnregisterTorrent(*this);
@@ -83,8 +86,8 @@ namespace tortoise
 		{
 			torrent.ProcessPeers();
 
-			if (torrent.running_)
-				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			//if (torrent.running_)
+				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
 
@@ -139,6 +142,11 @@ namespace tortoise
 		}
 
 		requested_peers_ = false;
+	}
+
+	void Torrent::OnPieceDownloaded(std::uint32_t piece_index)
+	{
+		event_queue_.Push(event::PieceDownloaded{ shared_from_this(), piece_index });
 	}
 
 	void Torrent::ProcessPeers()

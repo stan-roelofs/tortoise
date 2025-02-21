@@ -31,7 +31,7 @@ namespace
 
 namespace tortoise
 {
-	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager& piece_manager) : PieceManager::Peer(piece_manager),
+	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager& piece_manager) :
 		metainfo_(metainfo),
 		peer_info_(peer_info),
 		connection_(peer_info, metainfo, peer_id,
@@ -51,10 +51,19 @@ namespace tortoise
 		am_choking_(true),
 		am_interested_(false),
 		peer_choking_(true),
-		peer_interested_(false)
+		peer_interested_(false),
+		piece_manager_(piece_manager),
+		handle_(PieceManager::INVALID_HANDLE)
 	{
 		if (!metainfo)
 			throw InvalidArgumentException("Metainfo is null");
+
+		handle_ = piece_manager_.RegisterPeer();
+	}
+
+	Peer::~Peer()
+	{
+		piece_manager_.UnregisterPeer(handle_);
 	}
 
 	const PeerInfo& Peer::GetPeerInfo() const
@@ -100,7 +109,7 @@ namespace tortoise
 		if (!requested_blocks_.empty() || !request_queue_.empty())
 			interested = true;
 		else
-			interested = piece_manager_.HaveInterestingPiece(this);
+			interested = piece_manager_.HaveInterestingPiece(handle_);
 
 		if (am_interested_ != interested)
 		{
@@ -119,7 +128,7 @@ namespace tortoise
 		const auto requests_to_send = DESIRED_REQUESTS - requested_blocks_.size();
 		while (request_queue_.size() < requests_to_send)
 		{
-			const auto blocks = piece_manager_.GetRequests(this);
+			const auto blocks = piece_manager_.GetRequests(handle_);
 			if (blocks.empty())
 				break;
 			for (const auto& block : blocks)
@@ -136,7 +145,7 @@ namespace tortoise
 		}
 	}
 
-	void Peer::SendHave(std::uint32_t piece_index)
+	void Peer::OnPieceDownloaded(std::uint32_t piece_index)
 	{
 		if (connection_status_ != PeerConnection::Status::Connected)
 			return;
@@ -171,7 +180,7 @@ namespace tortoise
 	{
 		LOG_INFO(log_tag, std::format("Peer {} has piece {}", peer_info_.ToString(), piece_index));
 
-		piece_manager_.SetPeerHave(this, piece_index);
+		piece_manager_.SetPeerHave(handle_, piece_index);
 	}
 
 	void Peer::OnMessageBitfield(ByteVector bitfield)
@@ -181,7 +190,7 @@ namespace tortoise
 		Bitfield peer_bitfield(metainfo_->pieces.size());
 		peer_bitfield.FromBytes(std::move(bitfield));
 
-		piece_manager_.SetPeerBitfield(this, std::move(peer_bitfield));
+		piece_manager_.SetPeerBitfield(handle_, std::move(peer_bitfield));
 	}
 
 	void Peer::OnMessageRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length)
@@ -202,7 +211,7 @@ namespace tortoise
 
 		LOG_INFO(log_tag, std::format("Peer {} sent block {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
 		requested_blocks_.erase(Block{ index, begin, 0 });
-		piece_manager_.ReceiveBlock(this, index, begin, std::move(piece));
+		piece_manager_.ReceiveBlock(handle_, index, begin, std::move(piece));
 	}
 
 	void Peer::OnMessageCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length)

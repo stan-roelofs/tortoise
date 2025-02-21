@@ -9,28 +9,33 @@
 
 namespace tortoise
 {
+	namespace event
+	{
+		struct TorrentAdded
+		{
+			TorrentHandle handle;
+		};
 
+		struct PeerStatusChanged
+		{
+			TorrentHandle handle;
+			PeerInfo info;
+			PeerStatus status;
+		};
 
-    namespace event
-    {
-        struct TorrentAdded
-        {
-            TorrentHandle handle;
-        };
+		struct PieceDownloaded
+		{
+			TorrentHandle handle;
+			std::uint32_t piece_index;
+		};
 
-        struct PeerStatusChanged
-        {
-            TorrentHandle handle;
-            PeerInfo info;
-            PeerStatus status;
-        };
-
-        struct Callbacks
-        {
-            std::function<void(TorrentAdded)> torrent_added;
-            std::function<void(PeerStatusChanged)> peer_status_changed;
-        };
-    }
+		struct Callbacks
+		{
+			std::function<void(TorrentAdded)> torrent_added;
+			std::function<void(PeerStatusChanged)> peer_status_changed;
+			std::function<void(PieceDownloaded)> piece_downloaded;
+		};
+	}
 
 } // namespace tortoise
 

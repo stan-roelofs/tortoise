@@ -2,11 +2,13 @@
 #define TORTOISE_PIECE_MANAGER_HPP
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <set>
 #include <vector>
 
 #include <tortoise/metainfo.hpp>
@@ -21,7 +23,7 @@ namespace tortoise
 		std::uint32_t offset;
 		std::uint32_t length;
 
-		bool operator<(const Block &other) const
+		bool operator<(const Block& other) const
 		{
 			return piece_index < other.piece_index || (piece_index == other.piece_index && offset < other.offset);
 		}
@@ -49,38 +51,32 @@ namespace tortoise
 	{
 	public:
 		static constexpr std::uint32_t BLOCK_SIZE = 1 << 14; // 2^14 is used by near all clients and some even enforce this size.
+		using Handle = std::uint32_t;
+		static constexpr Handle INVALID_HANDLE = 0;
 
-		class Peer
+		class Listener
 		{
 		public:
-			Peer(PieceManager &manager) : piece_manager_(manager)
-			{
-				piece_manager_.RegisterPeer(this);
-			}
-			virtual ~Peer()
-			{
-				piece_manager_.UnregisterPeer(this);
-			}
-			virtual void SendHave(std::uint32_t piece_index) = 0;
-
-		protected:
-			PieceManager &piece_manager_;
+			virtual void OnPieceDownloaded(std::uint32_t piece_index) = 0;
 		};
 
 		PieceManager(std::shared_ptr<const Metainfo> metainfo);
 		~PieceManager();
 
-		bool HaveInterestingPiece(Peer *peer);
+		bool HaveInterestingPiece(Handle peer);
 
-		const Bitfield &GetBitfield() const;
+		const Bitfield& GetBitfield() const;
 
-		void RegisterPeer(Peer *peer);
-		void UnregisterPeer(Peer *peer);
+		Handle RegisterPeer();
+		void UnregisterPeer(Handle peer);
 
-		void SetPeerBitfield(Peer *peer, Bitfield bitfield);
-		void SetPeerHave(Peer *peer, std::uint32_t piece);
-		std::vector<Block> GetRequests(Peer *peer);
-		void ReceiveBlock(Peer *peer, std::uint32_t piece_index, std::uint32_t offset, ByteVector block);
+		void SetPeerHave(Handle peer, std::uint32_t piece);
+		void SetPeerBitfield(Handle peer, Bitfield bitfield);
+		std::vector<Block> GetRequests(Handle peer);
+		void ReceiveBlock(Handle peer, std::uint32_t piece_index, std::uint32_t offset, ByteVector block);
+
+		void AddListener(Listener* listener);
+		void RemoveListener(Listener* listener);
 
 	private:
 		struct BlockData
@@ -90,13 +86,26 @@ namespace tortoise
 		};
 		struct Piece
 		{
-			Piece(std::uint32_t index, std::uint32_t length) : index(index), length(length), done(false), requested(false)
+			Piece(std::uint32_t index, std::uint32_t length) : index(index), length(length), blocks_done(false), requested(false)
 			{
 			}
+
+			bool Finished() const { return blocks_done == blocks.size(); }
+			bool SetBlockData(std::uint32_t offset, ByteVector data)
+			{
+				auto& block = blocks.at(offset / BLOCK_SIZE).data;
+				if (!block.empty())
+					return false;
+
+				++blocks_done;
+				block = std::move(data);
+				return true;
+			}
+
 			std::uint32_t index;
 			std::uint32_t length;
 			std::vector<BlockData> blocks;
-			bool done;
+			std::size_t blocks_done;
 			bool requested;
 		};
 		struct PeerData
@@ -106,7 +115,12 @@ namespace tortoise
 		};
 
 		std::vector<Piece> pieces_;
-		std::map<Peer *, PeerData> peers_;
+		std::map<Handle, PeerData> peers_;
+
+		std::set<Listener*> listeners_;
+
+		std::queue<Handle> unused_handles_;
+		Handle next_handle_;
 
 		std::shared_ptr<const Metainfo> metainfo_;
 		Bitfield bitfield_;
