@@ -18,6 +18,14 @@ namespace tortoise
         InvalidHandleException(const std::string &msg) : Exception(msg) {}
     };
 
+    struct Statistics
+    {
+        /// Upload rate in bytes per second
+        std::uint64_t upload_rate;
+        /// Download rate in bytes per second
+        std::uint64_t download_rate;
+    };
+
     //! \brief A non-owning handle to a torrent.
     class TorrentHandle
     {
@@ -39,6 +47,9 @@ namespace tortoise
          *  \throws InvalidHandleException if the torrent is not valid.
          */
         void StopDownload();
+
+        //! \brief Returns the current statistics of the torrent
+        Statistics GetStatistics() const;
 
         bool IsValid() const;
         operator bool() const;

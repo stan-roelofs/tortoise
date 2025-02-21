@@ -20,7 +20,7 @@ namespace
 
 	constexpr std::chrono::seconds max_idle_time(keep_alive_timeout - std::chrono::seconds(5));
 
-	constexpr unsigned DESIRED_REQUESTS = 5;
+	constexpr static std::chrono::seconds speed_update_interval = std::chrono::seconds(5);
 
 	const std::string_view log_tag = "PeerConnection";
 }
@@ -188,6 +188,9 @@ namespace tortoise
 
 	PeerConnection::~PeerConnection() = default;
 
+	std::uint64_t PeerConnection::GetDownloadSpeed() const { return speed_tracker_.download_speed_; }
+	std::uint64_t PeerConnection::GetUploadSpeed() const { return speed_tracker_.upload_speed_; }
+
 	PeerConnection::Status PeerConnection::Process()
 	{
 		if (status_ == Status::Finished)
@@ -211,6 +214,7 @@ namespace tortoise
 		}
 
 		HandleMessages();
+		UpdateSpeeds();
 		return status_;
 	}
 
@@ -339,6 +343,7 @@ namespace tortoise
 				}
 				case protocol::MessageID::Piece:
 				{
+					speed_tracker_.bytes_received_ += length;
 					const auto piece_index = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 1));
 					const auto begin = network::HostToNetwork(util::Read<std::uint32_t>(receive_buffer_, protocol::length_prefix_size + 5));
 					auto block = ByteVector(receive_buffer_.begin() + protocol::length_prefix_size + 9 /* skip message id, piece index and begin */,
@@ -369,6 +374,21 @@ namespace tortoise
 			can_receive_bitfield_ = false; // We have received a message, so we can't receive a bitfield anymore
 			ShiftBuffer(protocol::length_prefix_size + length);
 		}
+	}
+
+	void PeerConnection::UpdateSpeeds()
+	{
+		const auto now = std::chrono::steady_clock::now();
+		const auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - speed_tracker_.last_update_time_);
+		if (duration < speed_update_interval)
+			return;
+
+		speed_tracker_.download_speed_ = speed_tracker_.bytes_received_ / duration.count();
+		speed_tracker_.upload_speed_ = speed_tracker_.bytes_sent_ / duration.count();
+		speed_tracker_.bytes_received_ = 0;
+		speed_tracker_.bytes_sent_ = 0;
+
+		speed_tracker_.last_update_time_ = now;
 	}
 
 	void PeerConnection::ShiftBuffer(std::size_t amount)

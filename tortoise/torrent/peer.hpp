@@ -14,12 +14,17 @@ namespace tortoise
 	class Peer : public PieceManager::Listener
 	{
 	public:
-		Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager& piece_manager);
+		Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager &piece_manager);
 		~Peer();
 
-		const PeerInfo& GetPeerInfo() const;
+		const PeerInfo &GetPeerInfo() const;
 		PeerStatus GetStatus() const;
 		PeerStatus Process();
+
+		//! \returns the download speed in bytes per second
+		std::uint64_t GetDownloadSpeed() const;
+		//! \returns the upload speed in bytes per second
+		std::uint64_t GetUploadSpeed() const;
 
 	private:
 		void OnMessageChoke();
@@ -50,7 +55,7 @@ namespace tortoise
 		bool peer_choking_;	   // Peer is choking this client
 		bool peer_interested_; // Peer is interested in this client
 
-		PieceManager& piece_manager_;
+		PieceManager &piece_manager_;
 		PieceManager::Handle handle_;
 		std::queue<Block> request_queue_;
 		std::set<Block> requested_blocks_;

@@ -51,6 +51,10 @@ namespace tortoise
 		~PeerConnection();
 
 		Status GetStatus() const;
+		//! \returns the download speed in bytes per second
+		std::uint64_t GetDownloadSpeed() const;
+		//! \returns the upload speed in bytes per second
+		std::uint64_t GetUploadSpeed() const;
 
 		Status Process();
 
@@ -64,6 +68,7 @@ namespace tortoise
 
 	private:
 		void HandleMessages();
+		void UpdateSpeeds();
 		void ShiftBuffer(std::size_t amount);
 		void Error(const std::string &reason);
 		bool Connect();
@@ -86,6 +91,15 @@ namespace tortoise
 		network::Socket socket_;
 		ByteVector send_buffer_;
 		ByteVector receive_buffer_;
+
+		struct
+		{
+			std::chrono::steady_clock::time_point last_update_time_ = std::chrono::steady_clock::now();
+			std::uint64_t bytes_sent_ = 0;
+			std::uint64_t bytes_received_ = 0;
+			std::uint64_t upload_speed_ = 0;
+			std::uint64_t download_speed_ = 0;
+		} speed_tracker_;
 	};
 
 }

@@ -8,7 +8,8 @@
 #include "../util/log.hpp"
 #include "connection.hpp"
 
-namespace {
+namespace
+{
 	const std::string_view log_tag = "TrackerManager";
 }
 
@@ -26,10 +27,10 @@ namespace tortoise
 
 				if (url.GetProtocol() == "http")
 					return std::async(std::launch::async, [=]()
-						{ return tracker::http::Announce(url, parameters, cancel); });
+									  { return tracker::http::Announce(url, parameters, cancel); });
 				else if (url.GetProtocol() == "udp")
 					return std::async(std::launch::async, [=]()
-						{ return tracker::udp::Announce(url, parameters, cancel); });
+									  { return tracker::udp::Announce(url, parameters, cancel); });
 
 				throw UnsupportedProtocolException(url.GetProtocol());
 			}
@@ -48,26 +49,26 @@ namespace tortoise
 			torrents_.clear();
 		}
 
-		void Manager::Run(Manager& tracker_manager)
+		void Manager::Run(Manager &tracker_manager)
 		{
 			while (tracker_manager.running_)
 			{
 				{
 					std::lock_guard guard(tracker_manager.mutex_);
-					for (auto& torrent : tracker_manager.torrents_)
+					for (auto &torrent : tracker_manager.torrents_)
 						torrent->Process();
 				}
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 			}
 		}
 
-		Manager::TorrentTrackerData::TorrentTrackerData(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback)
+		Manager::TorrentTrackerData::TorrentTrackerData(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
 			: torrent(&torrent),
-			callback(std::move(callback)),
-			tracker_interval_seconds_(0),
-			tracker_list_(torrent.GetMetainfo().announce_list),
-			request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo().info_hash, torrent.GetPeerId())),
-			cancel_flag_(std::make_shared<std::atomic_bool>(false))
+			  callback(std::move(callback)),
+			  tracker_interval_seconds_(0),
+			  tracker_list_(torrent.GetMetainfo().announce_list),
+			  request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo().info_hash, torrent.GetPeerId())),
+			  cancel_flag_(std::make_shared<std::atomic_bool>(false))
 		{
 			request_parameters_->compact = true;
 			request_parameters_->no_peer_id = true;
@@ -158,7 +159,7 @@ namespace tortoise
 					request_ = Announce(current_tracker, request_parameters_, cancel_flag_);
 					timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
 				}
-				catch (UnsupportedProtocolException& e)
+				catch (UnsupportedProtocolException &e)
 				{
 					LOG_ERROR(log_tag, std::format("Unsupported protocol: {}", e.what()));
 					tracker_list_.RemoveCurrentTracker();
@@ -167,7 +168,7 @@ namespace tortoise
 			}
 		}
 
-		bool Manager::TorrentTrackerData::HandleTrackerResult(const std::optional<AnnounceResponse>& result)
+		bool Manager::TorrentTrackerData::HandleTrackerResult(const std::optional<AnnounceResponse> &result)
 		{
 			std::lock_guard lock(mutex_);
 
@@ -185,7 +186,7 @@ namespace tortoise
 
 			LOG_INFO(log_tag, "Request succeeded");
 			LOG_INFO(log_tag, "Peers:");
-			for (const auto& peer : result->peers)
+			for (const auto &peer : result->peers)
 			{
 				(void)peer;
 				LOG_INFO(log_tag, std::string("  ") + peer.ToString());
@@ -206,12 +207,12 @@ namespace tortoise
 			return true;
 		}
 
-		void Manager::RegisterTorrent(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback)
+		void Manager::RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
 		{
 			std::lock_guard lock(mutex_);
 
-			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData>& data)
-				{ return data->torrent == &torrent; });
+			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
+										 { return data->torrent == &torrent; });
 
 			if (it != torrents_.end())
 			{
@@ -222,23 +223,23 @@ namespace tortoise
 			torrents_.push_back(std::make_unique<TorrentTrackerData>(torrent, callback));
 		}
 
-		void Manager::UnregisterTorrent(const Torrent& torrent)
+		void Manager::UnregisterTorrent(const Torrent &torrent)
 		{
 			std::lock_guard lock(mutex_);
 
-			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData>& data)
-				{ return data->torrent == &torrent; });
+			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
+										 { return data->torrent == &torrent; });
 
 			if (it != torrents_.end())
 				torrents_.erase(it);
 		}
 
-		void Manager::RequestPeers(const Torrent& torrent, unsigned desired)
+		void Manager::RequestPeers(const Torrent &torrent, unsigned desired)
 		{
 			std::lock_guard lock(mutex_);
 
-			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData>& data)
-				{ return data->torrent == &torrent; });
+			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
+										 { return data->torrent == &torrent; });
 
 			if (it != torrents_.end())
 				(*it)->RequestNewPeers(desired);

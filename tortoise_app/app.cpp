@@ -11,7 +11,7 @@
 
 namespace
 {
-	void Log(const tortoise::logging::Message& message)
+	void Log(const tortoise::logging::Message &message)
 	{
 		static auto stream = std::ofstream("tortoise.log", std::ios::app);
 		assert(stream.is_open());
@@ -50,7 +50,7 @@ Application::Application(CommandLineArguments args) : args_(args)
 	session_ = std::make_unique<tortoise::Session>(event_callbacks);
 }
 
-bool Application::AddTorrent(const std::string& torrent_file)
+bool Application::AddTorrent(const std::string &torrent_file)
 {
 	auto metainfo = tortoise::LoadTorrent(torrent_file);
 	if (!metainfo)
@@ -75,12 +75,12 @@ bool Application::AddTorrent(const std::string& torrent_file)
 	return true;
 }
 
-void Application::OnTorrentAdded(const tortoise::event::TorrentAdded& event)
+void Application::OnTorrentAdded(const tortoise::event::TorrentAdded &event)
 {
 	std::cout << "Torrent added: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event)
+void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged &event)
 {
 	auto it = torrents_.find(event.handle);
 	if (it == torrents_.end())
@@ -103,7 +103,7 @@ void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& 
 	}
 }
 
-void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded& event)
+void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded &event)
 {
 	auto it = torrents_.find(event.handle);
 	if (it == torrents_.end())
@@ -112,7 +112,10 @@ void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded& even
 	++it->second.pieces_downloaded;
 	assert(!it->second.have_pieces.at(event.piece_index));
 	it->second.have_pieces.at(event.piece_index) = true;
-	std::cout << std::format("[{}] : Downloaded {}/{} pieces from {} peers", event.handle.GetMetainfo().name, it->second.pieces_downloaded, event.handle.GetMetainfo().pieces.size(), it->second.peers.size()) << std::endl;
+
+	const auto download_rate_mb = event.handle.GetStatistics().download_rate / 1024.0f / 1024.0f;
+
+	std::cout << std::format("[{}] : Downloaded {}/{} pieces from {} peers ({} MB/s)", event.handle.GetMetainfo().name, it->second.pieces_downloaded, event.handle.GetMetainfo().pieces.size(), it->second.peers.size(), download_rate_mb) << std::endl;
 }
 
 int Application::Run()

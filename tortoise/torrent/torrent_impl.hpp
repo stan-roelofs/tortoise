@@ -1,6 +1,12 @@
 #ifndef TORTOISE_TORRENT_IMPL_HPP
 #define TORTOISE_TORRENT_IMPL_HPP
 
+#include <atomic>
+#include <chrono>
+#include <list>
+#include <map>
+#include <thread>
+
 #include <tortoise/event.hpp>
 #include <tortoise/peer_info.hpp>
 #include <tortoise/torrent.hpp>
@@ -9,11 +15,6 @@
 #include "peer.hpp"
 #include "peer_connection.hpp"
 #include "piece_manager.hpp"
-
-#include <atomic>
-#include <list>
-#include <map>
-#include <thread>
 
 namespace tortoise
 {
@@ -38,9 +39,13 @@ namespace tortoise
 		const Metainfo &GetMetainfo() const;
 		PeerId GetPeerId() const;
 
+		Statistics GetStatistics() const;
+
 	private:
 		void OnNewPeers(const std::vector<PeerInfo> &new_peers);
 		void OnPieceDownloaded(std::uint32_t piece_index) override;
+
+		void RequestPeers();
 
 		static void Run(Torrent &torrent);
 		void ProcessPeers();
@@ -49,7 +54,7 @@ namespace tortoise
 		mutable std::recursive_mutex mutex_;
 		std::thread thread_;
 
-		bool requested_peers_;
+		std::chrono::steady_clock::time_point last_peer_request_;
 		PeerInfoProvider &peer_info_provider_;
 		EventQueue &event_queue_;
 		std::shared_ptr<const Metainfo> metainfo_;
@@ -59,6 +64,9 @@ namespace tortoise
 		std::list<PeerInfo> potential_peers_;
 
 		std::list<std::pair<std::unique_ptr<Peer>, PeerStatus>> peers_;
+
+		std::uint64_t upload_speed_;
+		std::uint64_t download_speed_;
 	};
 }
 
