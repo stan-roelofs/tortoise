@@ -28,6 +28,7 @@ set (HEADERS
   tortoise/torrent/peer.hpp
   tortoise/torrent/peer_connection.hpp
   tortoise/torrent/piece_manager.hpp
+  tortoise/torrent/piece_writer.hpp
   tortoise/torrent/torrent_impl.hpp
 
   tortoise/tracker/announce.hpp
@@ -59,6 +60,7 @@ set(SOURCES
   tortoise/torrent/peer_connection.cpp
   tortoise/torrent/peer_id.cpp
   tortoise/torrent/piece_manager.cpp
+  tortoise/torrent/piece_writer.cpp
   tortoise/torrent/torrent_impl.cpp
 
   tortoise/tracker/http_connection.cpp

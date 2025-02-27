@@ -64,6 +64,7 @@ namespace tortoise
 		void SendInterested();
 		void SendNotInterested();
 		void SendHave(std::uint32_t piece_index);
+		void SendCancel(std::uint32_t index, std::uint32_t begin, std::uint32_t length);
 		void SendBitfield(const ByteVector &bitfield);
 
 	private:

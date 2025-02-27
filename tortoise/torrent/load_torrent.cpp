@@ -78,7 +78,12 @@ namespace tortoise
 
 			metainfo->files = {};
 			if (info.find("length") != info.end())
-				metainfo->files.push_back(Metainfo::File{static_cast<std::uint32_t>(bencode::Get<bencode::integer_t>(*info.at("length"))), {""}});
+			{
+				const auto length = static_cast<std::uint64_t>(bencode::Get<bencode::integer_t>(*info.at("length")));
+				if (length == 0)
+					return nullptr;
+				metainfo->files.push_back(Metainfo::File{length, bencode::Get<bencode::string_t>(*info.at("name"))});
+			}
 			else if (info.find("files") != info.end())
 			{
 				const bencode::list_t &files = bencode::Get<bencode::list_t>(*info.at("files"));
@@ -86,11 +91,13 @@ namespace tortoise
 				{
 					const bencode::dictionary_t &file_dct = bencode::Get<bencode::dictionary_t>(*file);
 					Metainfo::File multi_file;
-					multi_file.length = static_cast<std::uint32_t>(bencode::Get<bencode::integer_t>(*file_dct.at("length")));
+					multi_file.length = static_cast<std::uint64_t>(bencode::Get<bencode::integer_t>(*file_dct.at("length")));
+					if (multi_file.length == 0)
+						return nullptr;
 
 					const bencode::list_t &path_pieces = bencode::Get<bencode::list_t>(*file_dct.at("path"));
 					for (const auto &path_piece : path_pieces)
-						multi_file.path.push_back(bencode::Get<bencode::string_t>(*path_piece));
+						multi_file.path /= bencode::Get<bencode::string_t>(*path_piece);
 					metainfo->files.push_back(multi_file);
 				}
 			}

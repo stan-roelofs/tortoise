@@ -54,7 +54,7 @@ namespace tortoise
 			while (tracker_manager.running_)
 			{
 				{
-					std::lock_guard guard(tracker_manager.mutex_);
+					std::scoped_lock guard(tracker_manager.mutex_);
 					for (auto &torrent : tracker_manager.torrents_)
 						torrent->Process();
 				}
@@ -78,7 +78,7 @@ namespace tortoise
 
 		Manager::TorrentTrackerData::~TorrentTrackerData()
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 			if (request_)
 			{
 				*cancel_flag_ = true;
@@ -88,7 +88,7 @@ namespace tortoise
 
 		void Manager::TorrentTrackerData::Process()
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			auto now = std::chrono::steady_clock::now();
 
@@ -122,14 +122,14 @@ namespace tortoise
 
 		void Manager::TorrentTrackerData::Cancel()
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			*cancel_flag_ = true;
 		}
 
 		void Manager::TorrentTrackerData::SelectNextTracker()
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			tracker_interval_seconds_ = 0;
 			last_tracker_contact_ = {};
@@ -138,7 +138,7 @@ namespace tortoise
 
 		void Manager::TorrentTrackerData::RequestNewPeers(unsigned desired)
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			request_parameters_->numwant = desired;
 
@@ -148,7 +148,7 @@ namespace tortoise
 
 		void Manager::TorrentTrackerData::RequestTrackerUpdate()
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			while (!request_ && !tracker_list_.GetCurrentTracker().empty())
 			{
@@ -170,7 +170,7 @@ namespace tortoise
 
 		bool Manager::TorrentTrackerData::HandleTrackerResult(const std::optional<AnnounceResponse> &result)
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			if (!result)
 			{
@@ -209,7 +209,7 @@ namespace tortoise
 
 		void Manager::RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback)
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
 										 { return data->torrent == &torrent; });
@@ -225,7 +225,7 @@ namespace tortoise
 
 		void Manager::UnregisterTorrent(const Torrent &torrent)
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
 										 { return data->torrent == &torrent; });
@@ -236,7 +236,7 @@ namespace tortoise
 
 		void Manager::RequestPeers(const Torrent &torrent, unsigned desired)
 		{
-			std::lock_guard lock(mutex_);
+			std::scoped_lock lock(mutex_);
 
 			const auto it = std::find_if(torrents_.begin(), torrents_.end(), [&torrent](const std::unique_ptr<TorrentTrackerData> &data)
 										 { return data->torrent == &torrent; });

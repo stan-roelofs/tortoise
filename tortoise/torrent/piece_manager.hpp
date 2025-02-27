@@ -57,10 +57,10 @@ namespace tortoise
 		class Listener
 		{
 		public:
-			virtual void OnPieceDownloaded(std::uint32_t piece_index) = 0;
+			virtual void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) = 0;
 		};
 
-		PieceManager(std::shared_ptr<const Metainfo> metainfo);
+		PieceManager(const Metainfo& metainfo);
 		~PieceManager();
 
 		bool HaveInterestingPiece(Handle peer);
@@ -82,6 +82,7 @@ namespace tortoise
 		struct BlockData
 		{
 			Block block;
+			bool done;
 			ByteVector data;
 		};
 		struct Piece
@@ -93,13 +94,37 @@ namespace tortoise
 			bool Finished() const { return blocks_done == blocks.size(); }
 			bool SetBlockData(std::uint32_t offset, ByteVector data)
 			{
-				auto& block = blocks.at(offset / BLOCK_SIZE).data;
-				if (!block.empty())
+				auto& block = blocks.at(offset / BLOCK_SIZE);
+				if (block.done)
 					return false;
 
 				++blocks_done;
-				block = std::move(data);
+				block.data = std::move(data);
+				block.done = true;
 				return true;
+			}
+
+			void Reset()
+			{
+				blocks_done = 0;
+				for (auto& block : blocks)
+				{
+					block.done = false;
+					block.data.clear();
+				}
+				requested = false;
+			}
+
+			std::shared_ptr<ByteVector> ReleaseBlockData()
+			{
+				std::shared_ptr<ByteVector> data = std::make_shared<ByteVector>();
+				data->reserve(length);
+				for (auto& block : blocks)
+				{
+					std::copy(block.data.begin(), block.data.end(), std::back_inserter(*data));
+					block = {};
+				}
+				return data;
 			}
 
 			std::uint32_t index;
@@ -114,7 +139,12 @@ namespace tortoise
 			std::vector<uint32_t> piece_queue;
 		};
 
+		const Metainfo& meta_info_;
+
 		std::vector<Piece> pieces_;
+		std::size_t pieces_done_;
+		std::size_t pieces_requested_;
+		bool endgame_mode_;
 		std::map<Handle, PeerData> peers_;
 
 		std::set<Listener*> listeners_;
@@ -122,7 +152,6 @@ namespace tortoise
 		std::queue<Handle> unused_handles_;
 		Handle next_handle_;
 
-		std::shared_ptr<const Metainfo> metainfo_;
 		Bitfield bitfield_;
 	};
 } // namespace tortoise

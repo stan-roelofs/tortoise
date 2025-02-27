@@ -31,28 +31,28 @@ namespace
 
 namespace tortoise
 {
-	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager &piece_manager) : metainfo_(metainfo),
-																															peer_info_(peer_info),
-																															connection_(peer_info, metainfo, peer_id,
-																																		PeerConnection::MessageCallbacks(
-																																			std::bind(&Peer::OnMessageChoke, this),
-																																			std::bind(&Peer::OnMessageUnchoke, this),
-																																			std::bind(&Peer::OnMessageInterested, this),
-																																			std::bind(&Peer::OnMessageNotInterested, this),
-																																			std::bind(&Peer::OnMessageHave, this, std::placeholders::_1),
-																																			std::bind(&Peer::OnMessageBitfield, this, std::placeholders::_1),
-																																			std::bind(&Peer::OnMessageRequest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessagePiece, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessageCancel, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessagePort, this, std::placeholders::_1))),
-																															connection_status_(PeerConnection::Status::Connecting),
-																															status_(PeerStatus::Connecting),
-																															am_choking_(true),
-																															am_interested_(false),
-																															peer_choking_(true),
-																															peer_interested_(false),
-																															piece_manager_(piece_manager),
-																															handle_(PieceManager::INVALID_HANDLE)
+	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager& piece_manager) : metainfo_(metainfo),
+		peer_info_(peer_info),
+		connection_(peer_info, metainfo, peer_id,
+			PeerConnection::MessageCallbacks(
+				std::bind(&Peer::OnMessageChoke, this),
+				std::bind(&Peer::OnMessageUnchoke, this),
+				std::bind(&Peer::OnMessageInterested, this),
+				std::bind(&Peer::OnMessageNotInterested, this),
+				std::bind(&Peer::OnMessageHave, this, std::placeholders::_1),
+				std::bind(&Peer::OnMessageBitfield, this, std::placeholders::_1),
+				std::bind(&Peer::OnMessageRequest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+				std::bind(&Peer::OnMessagePiece, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+				std::bind(&Peer::OnMessageCancel, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+				std::bind(&Peer::OnMessagePort, this, std::placeholders::_1))),
+		connection_status_(PeerConnection::Status::Connecting),
+		status_(PeerStatus::Connecting),
+		am_choking_(true),
+		am_interested_(false),
+		peer_choking_(true),
+		peer_interested_(false),
+		piece_manager_(piece_manager),
+		handle_(PieceManager::INVALID_HANDLE)
 	{
 		if (!metainfo)
 			throw InvalidArgumentException("Metainfo is null");
@@ -65,7 +65,7 @@ namespace tortoise
 		piece_manager_.UnregisterPeer(handle_);
 	}
 
-	const PeerInfo &Peer::GetPeerInfo() const
+	const PeerInfo& Peer::GetPeerInfo() const
 	{
 		return peer_info_;
 	}
@@ -144,7 +144,7 @@ namespace tortoise
 			const auto blocks = piece_manager_.GetRequests(handle_);
 			if (blocks.empty())
 				break;
-			for (const auto &block : blocks)
+			for (const auto& block : blocks)
 				request_queue_.push(block);
 		}
 
@@ -153,16 +153,30 @@ namespace tortoise
 			const auto block = request_queue_.front();
 			request_queue_.pop();
 
+			if (piece_manager_.GetBitfield().HasPiece(block.piece_index))
+				continue;
+
 			requested_blocks_.insert(block);
 			connection_.SendRequest(block.piece_index, block.offset, block.length);
 		}
 	}
 
-	void Peer::OnPieceDownloaded(std::uint32_t piece_index)
+	void Peer::OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector>)
 	{
 		if (connection_status_ != PeerConnection::Status::Connected)
 			return;
 		connection_.SendHave(piece_index);
+
+		for (auto it = requested_blocks_.begin(); it != requested_blocks_.end();)
+		{
+			if (it->piece_index == piece_index)
+			{
+				it = requested_blocks_.erase(it);
+				connection_.SendCancel(it->piece_index, it->offset, it->length);
+			}
+			else
+				++it;
+		}
 	}
 
 	void Peer::OnMessageChoke()
@@ -215,15 +229,15 @@ namespace tortoise
 
 	void Peer::OnMessagePiece(std::uint32_t index, std::uint32_t begin, ByteVector piece)
 	{
-		const auto it = requested_blocks_.find(Block{index, begin, static_cast<std::uint32_t>(piece.size())});
+		const auto it = requested_blocks_.find(Block{ index, begin, static_cast<std::uint32_t>(piece.size()) });
 		if (it == requested_blocks_.end() || it->length != static_cast<std::uint32_t>(piece.size()))
 		{
-			LOG_WARN(log_tag, std::format("Peer {} sent invalid block {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
+			LOG_WARN(log_tag, std::format("Peer {} sent invalid block or we no longer need it {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
 			return;
 		}
 
 		LOG_INFO(log_tag, std::format("Peer {} sent block {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
-		requested_blocks_.erase(Block{index, begin, 0});
+		requested_blocks_.erase(Block{ index, begin, 0 });
 		piece_manager_.ReceiveBlock(handle_, index, begin, std::move(piece));
 	}
 

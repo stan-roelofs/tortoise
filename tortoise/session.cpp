@@ -18,8 +18,12 @@ namespace tortoise
 		event_queue_.Subscribe<event::eventtype>([this](const auto &event) { callbacks_.cb(event); });
 
 			SUBSCRIBE_EVENT(torrent_added, TorrentAdded);
+			SUBSCRIBE_EVENT(torrent_started, TorrentStarted);
+			SUBSCRIBE_EVENT(torrent_stopped, TorrentStopped);
 			SUBSCRIBE_EVENT(peer_status_changed, PeerStatusChanged);
 			SUBSCRIBE_EVENT(piece_downloaded, PieceDownloaded);
+			SUBSCRIBE_EVENT(torrent_error, TorrentError);
+			SUBSCRIBE_EVENT(torrent_downloaded, TorrentDownloaded);
 
 #undef SUBSCRIBE_EVENT
 		}
@@ -34,10 +38,11 @@ namespace tortoise
 			// TODO check if torrent already exists
 
 			auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
-			event_queue_.Push(event::TorrentAdded(torrent));
+			event_queue_.Push(event::
+								  TorrentAdded(torrent));
 
 			{
-				std::lock_guard lock(mutex_);
+				std::scoped_lock lock(mutex_);
 				torrents_.push_back(torrent);
 			}
 
@@ -49,16 +54,16 @@ namespace tortoise
 			if (!handle.IsValid())
 				return;
 
-			std::lock_guard lock(mutex_);
-			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto& torrent)
-				{ return TorrentHandle(torrent) == handle; });
+			std::scoped_lock lock(mutex_);
+			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto &torrent)
+								   { return TorrentHandle(torrent) == handle; });
 			if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
 				torrents_.erase(it);
 		}
 
 		void HandleEvents()
 		{
-			std::lock_guard guard(mutex_);
+			std::scoped_lock guard(mutex_);
 			event_queue_.Process();
 		}
 
@@ -66,7 +71,7 @@ namespace tortoise
 		tracker::Manager tracker_manager_; // Keep this before torrents_ so it is destroyed after
 		std::vector<std::shared_ptr<Torrent>> torrents_;
 		EventQueue event_queue_;
-		std::mutex mutex_;
+		std::recursive_mutex mutex_;
 		event::Callbacks callbacks_;
 	};
 

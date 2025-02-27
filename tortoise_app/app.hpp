@@ -28,18 +28,23 @@ public:
 	int Run();
 
 private:
-	bool AddTorrent(const std::string& torrent_file);
+	bool AddTorrent(const std::string &torrent_file);
 
-	void OnTorrentAdded(const tortoise::event::TorrentAdded& event);
-	void OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event);
-	void OnPieceDownloaded(const tortoise::event::PieceDownloaded& event);
+	void OnTorrentAdded(const tortoise::event::TorrentAdded &event);
+	void OnTorrentStarted(const tortoise::event::TorrentStarted &event);
+	void OnTorrentStopped(const tortoise::event::TorrentStopped &event);
+	void OnTorrentDownloaded(const tortoise::event::TorrentDownloaded &event);
+	void OnTorrentError(const tortoise::event::TorrentError &event);
+	void OnPeerStatusChanged(const tortoise::event::PeerStatusChanged &event);
+	void OnPieceDownloaded(const tortoise::event::PieceDownloaded &event);
 
 	CommandLineArguments args_;
 	std::unique_ptr<tortoise::Session> session_;
 
 	struct TorrentInfo
 	{
-		TorrentInfo(tortoise::TorrentHandle h) : handle(std::move(h)), pieces_downloaded(0) {
+		TorrentInfo(tortoise::TorrentHandle h) : handle(std::move(h)), pieces_downloaded(0)
+		{
 			have_pieces.resize(handle.GetMetainfo().pieces.size());
 		}
 		const tortoise::TorrentHandle handle;

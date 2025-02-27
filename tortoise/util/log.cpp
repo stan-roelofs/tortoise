@@ -16,17 +16,19 @@ namespace tortoise
 			Log() = default;
 			~Log()
 			{
+				if (thread_)
+					thread_->request_stop();
 				cv_.notify_all();
 			}
 
-			Log(const Log &) = delete;
-			Log &operator=(const Log &) = delete;
-			Log(Log &&) = delete;
-			Log &operator=(Log &&) = delete;
+			Log(const Log&) = delete;
+			Log& operator=(const Log&) = delete;
+			Log(Log&&) = delete;
+			Log& operator=(Log&&) = delete;
 
 			void SetReceiver(LogReceiver receiver)
 			{
-				std::lock_guard lock(mutex_);
+				std::scoped_lock lock(mutex_);
 				if (receiver && !thread_)
 					thread_ = std::make_unique<std::jthread>(Log::ProcessMessages, this);
 				receiver_ = receiver;
@@ -34,7 +36,7 @@ namespace tortoise
 
 			void LogMessage(Level level, std::string_view tag, std::string message)
 			{
-				std::lock_guard<std::mutex> guard(mutex_);
+				std::scoped_lock guard(mutex_);
 
 				if (!receiver_)
 					return;
@@ -43,7 +45,7 @@ namespace tortoise
 			}
 
 		private:
-			static void ProcessMessages(std::stop_token stop_token, Log *log)
+			static void ProcessMessages(std::stop_token stop_token, Log* log)
 			{
 				while (!stop_token.stop_requested())
 				{

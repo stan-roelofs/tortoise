@@ -25,12 +25,12 @@ namespace tortoise
 		return ptr_.lock()->GetMetainfo();
 	}
 
-	void TorrentHandle::StartDownload()
+	bool TorrentHandle::StartDownload()
 	{
 		if (!IsValid())
 			throw InvalidHandleException("TorrentHandle is not valid");
 
-		ptr_.lock()->Start();
+		return ptr_.lock()->RequestStart();
 	}
 
 	void TorrentHandle::StopDownload()
@@ -38,7 +38,7 @@ namespace tortoise
 		if (!IsValid())
 			throw InvalidHandleException("TorrentHandle is not valid");
 
-		ptr_.lock()->Stop();
+		ptr_.lock()->RequestStop();
 	}
 
 	Statistics TorrentHandle::GetStatistics() const
@@ -65,73 +65,67 @@ namespace tortoise
 	}
 
 	Torrent::Torrent(const TorrentParameters& parameters, Torrent::PeerInfoProvider& peer_info_provider, EventQueue& event_queue)
-		: running_(false),
+		: started_(false),
 		peer_info_provider_(peer_info_provider),
 		event_queue_(event_queue),
 		metainfo_(std::make_shared<const Metainfo>(parameters.metainfo)),
-		piece_manager_(metainfo_),
-		upload_speed_(0),
-		download_speed_(0)
+		piece_writer_(*metainfo_, parameters.save_path, { std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this) }),
+		piece_manager_(*metainfo_)
 	{
-		if (parameters.save_path.empty())
-			throw Exception("save_path is empty");
-
 		peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::OnNewPeers, this, std::placeholders::_1));
 		piece_manager_.AddListener(this);
 	}
 
 	Torrent::~Torrent()
 	{
-		Stop();
+		RequestStop();
 
-		piece_manager_.RemoveListener(this);
-
-		std::lock_guard lock(mutex_);
-		peer_info_provider_.UnregisterTorrent(*this);
-	}
-
-	void Torrent::Run(Torrent& torrent)
-	{
-		while (torrent.running_)
-		{
-			torrent.ProcessPeers();
-
-			// Update rates...
-			torrent.download_speed_ = 0;
-			torrent.upload_speed_ = 0;
-			for (const auto& peer : torrent.peers_)
-			{
-				torrent.download_speed_ += peer.first->GetDownloadSpeed();
-				torrent.upload_speed_ += peer.first->GetUploadSpeed();
-			}
-
-			// if (torrent.running_)
-			// std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		}
-	}
-
-	void Torrent::Start()
-	{
-		std::lock_guard lock(mutex_);
-
-		if (running_)
-			return;
-
-		running_ = true;
-		thread_ = std::thread(Torrent::Run, std::ref(*this));
-
-		LOG_INFO("Torrent", "Torrent started");
-	}
-
-	void Torrent::Stop()
-	{
-		std::lock_guard lock(mutex_);
-
-		running_ = false;
 		if (thread_.joinable())
 			thread_.join();
 
+		piece_manager_.RemoveListener(this);
+
+		std::scoped_lock lock(peer_mutex_);
+		peer_info_provider_.UnregisterTorrent(*this);
+	}
+
+	void Torrent::Run(std::stop_token token)
+	{
+		LOG_INFO("Torrent", "Torrent started");
+		event_queue_.Push(event::TorrentStarted(shared_from_this()));
+
+		while (!token.stop_requested())
+		{
+			ProcessPeers();
+			UpdateStatistics();
+		}
+
 		LOG_INFO("Torrent", "Torrent stopped");
+		event_queue_.Push(event::TorrentStopped(shared_from_this()));
+		started_ = false;
+	}
+
+	bool Torrent::RequestStart()
+	{
+		std::scoped_lock lock(data_mutex_);
+
+		if (started_)
+			return false;
+
+		thread_ = std::jthread([this](std::stop_token token)
+			{ Run(token); });
+		started_ = true;
+		return true;
+	}
+
+	void Torrent::RequestStop()
+	{
+		std::scoped_lock lock(data_mutex_);
+
+		if (!started_)
+			return;
+
+		thread_.request_stop();
 	}
 
 	const Metainfo& Torrent::GetMetainfo() const
@@ -141,24 +135,18 @@ namespace tortoise
 
 	PeerId Torrent::GetPeerId() const
 	{
-		std::lock_guard lock(mutex_);
-
 		return peer_id_;
 	}
 
 	Statistics Torrent::GetStatistics() const
 	{
-		std::lock_guard lock(mutex_);
-
-		Statistics stats;
-		stats.download_rate = download_speed_;
-		stats.upload_rate = upload_speed_;
-		return stats;
+		std::scoped_lock lock(data_mutex_);
+		return statistics_;
 	}
 
 	void Torrent::OnNewPeers(const std::vector<PeerInfo>& new_peers)
 	{
-		std::lock_guard lock(mutex_);
+		std::scoped_lock lock(peer_mutex_);
 
 		for (const auto& peer_info : new_peers)
 		{
@@ -171,9 +159,21 @@ namespace tortoise
 		}
 	}
 
-	void Torrent::OnPieceDownloaded(std::uint32_t piece_index)
+	void Torrent::OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data)
 	{
 		event_queue_.Push(event::PieceDownloaded{ shared_from_this(), piece_index });
+		piece_writer_.WritePiece(piece_index, data);
+	}
+
+	void Torrent::OnWriteError()
+	{
+		event_queue_.Push(event::TorrentError(shared_from_this(), event::TorrentError::Code::FileError));
+		RequestStop();
+	}
+
+	void Torrent::OnTorrentDownloaded()
+	{
+		event_queue_.Push(event::TorrentDownloaded(shared_from_this()));
 	}
 
 	void Torrent::RequestPeers()
@@ -183,12 +183,28 @@ namespace tortoise
 		peer_info_provider_.RequestPeers(*this, DESIRED_PEERS * 2);
 	}
 
+	void Torrent::UpdateStatistics()
+	{
+		// Update rates...
+		std::uint64_t download_speed = 0;
+		std::uint64_t upload_speed = 0;
+		for (const auto& peer : peers_)
+		{
+			download_speed += peer.first->GetDownloadSpeed();
+			upload_speed += peer.first->GetUploadSpeed();
+		}
+
+		std::scoped_lock lock(data_mutex_);
+		std::swap(statistics_.download_rate, download_speed);
+		std::swap(statistics_.upload_rate, upload_speed);
+	}
+
 	void Torrent::ProcessPeers()
 	{
-		std::lock_guard lock(mutex_);
+		std::scoped_lock lock(peer_mutex_);
 
 		const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-		if ((potential_peers_.size() + peers_.size()) < DESIRED_PEERS && now - last_peer_request_ > PEER_REQUEST_INTERVAL)
+		if ((potential_peers_.size() + peers_.size()) < DESIRED_PEERS && (last_peer_request_.time_since_epoch() == std::chrono::steady_clock::duration(0) || (now - last_peer_request_) > PEER_REQUEST_INTERVAL))
 			RequestPeers();
 
 		// Add new peers if we don't have enough and there are still peers in the queue
