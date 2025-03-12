@@ -102,13 +102,13 @@ TEST(Metainfo, multi_file_with_optional_fields)
 	auto file_info = metainfo->files;
 	ASSERT_EQ(4, file_info.size());
 	EXPECT_EQ(3184, file_info[0].length);
-	EXPECT_EQ("file1.txt", file_info[0].path[0]);
+	EXPECT_EQ("file1.txt", file_info[0].path.string());
 	EXPECT_EQ(2878, file_info[1].length);
-	EXPECT_EQ("file2.txt", file_info[1].path[0]);
+	EXPECT_EQ("file2.txt", file_info[1].path.string());
 	EXPECT_EQ(3412, file_info[2].length);
-	EXPECT_EQ("file3.txt", file_info[2].path[0]);
+	EXPECT_EQ("file3.txt", file_info[2].path.string());
 	EXPECT_EQ(2804, file_info[3].length);
-	EXPECT_EQ("file4.txt", file_info[3].path[0]);
+	EXPECT_EQ("file4.txt", file_info[3].path.string());
 
 	const std::array<uint8_t, 20> expected_info_hash = {
 		0x86, 0x19, 0x1C, 0xEC,

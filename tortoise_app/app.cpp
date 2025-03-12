@@ -1,6 +1,7 @@
 #include "app.hpp"
 
 #include <assert.h>
+#include <csignal>
 #include <format>
 #include <iostream>
 #include <fstream>
@@ -11,7 +12,9 @@
 
 namespace
 {
-	void Log(const tortoise::logging::Message& message)
+	std::atomic_bool running_;
+
+	void Log(const tortoise::logging::Message &message)
 	{
 		static auto stream = std::ofstream("tortoise.log", std::ios::app);
 		assert(stream.is_open());
@@ -54,7 +57,7 @@ Application::Application(CommandLineArguments args) : args_(args)
 	session_ = std::make_unique<tortoise::Session>(event_callbacks);
 }
 
-bool Application::AddTorrent(const std::string& torrent_file)
+bool Application::AddTorrent(const std::string &torrent_file)
 {
 	auto metainfo = tortoise::LoadTorrent(torrent_file);
 	if (!metainfo)
@@ -79,33 +82,33 @@ bool Application::AddTorrent(const std::string& torrent_file)
 	return true;
 }
 
-void Application::OnTorrentAdded(const tortoise::event::TorrentAdded& event)
+void Application::OnTorrentAdded(const tortoise::event::TorrentAdded &event)
 {
 	std::cout << "Torrent added: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnTorrentStarted(const tortoise::event::TorrentStarted& event)
+void Application::OnTorrentStarted(const tortoise::event::TorrentStarted &event)
 {
 	std::cout << "Torrent started: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnTorrentStopped(const tortoise::event::TorrentStopped& event)
+void Application::OnTorrentStopped(const tortoise::event::TorrentStopped &event)
 {
 	std::cout << "Torrent stopped: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnTorrentDownloaded(const tortoise::event::TorrentDownloaded& event)
+void Application::OnTorrentDownloaded(const tortoise::event::TorrentDownloaded &event)
 {
 	std::cout << "Torrent downloaded: " << event.handle.GetMetainfo().name << std::endl;
 	session_->RemoveTorrent(event.handle);
 }
 
-void Application::OnTorrentError(const tortoise::event::TorrentError& event)
+void Application::OnTorrentError(const tortoise::event::TorrentError &event)
 {
 	std::cout << "Torrent error: " << event.handle.GetMetainfo().name << std::endl;
 }
 
-void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& event)
+void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged &event)
 {
 	auto it = torrents_.find(event.handle);
 	if (it == torrents_.end())
@@ -128,7 +131,7 @@ void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged& 
 	}
 }
 
-void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded& event)
+void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded &event)
 {
 	auto it = torrents_.find(event.handle);
 	if (it == torrents_.end())
@@ -145,16 +148,28 @@ void Application::OnPieceDownloaded(const tortoise::event::PieceDownloaded& even
 
 int Application::Run()
 {
+	assert(!running_);
+	if (running_)
+		return EXIT_FAILURE;
+
 	if (!AddTorrent(args_.torrent_file))
 		return EXIT_FAILURE;
 
-	// TODO: handle signals properly
+	const auto SignalHandler = [](int signal)
+	{
+		if (running_)
+			std::cout << std::format("Shutting down...", signal) << std::endl;
+		running_ = false;
+	};
+
+	std::signal(SIGINT, SignalHandler);
+	std::signal(SIGTERM, SignalHandler);
+	std::signal(SIGABRT, SignalHandler);
 
 	running_ = true;
 	while (running_)
 	{
 		session_->HandleEvents();
-
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 

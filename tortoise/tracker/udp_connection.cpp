@@ -6,7 +6,7 @@
 #include <cstring>
 #include <random>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 #include "../network/socket.hpp"
 #include "../util/log.hpp"
@@ -19,7 +19,7 @@ namespace tortoise
 
     namespace
     {
-		const std::string_view log_tag = "Connection";
+        const std::string_view log_tag = "Connection";
 
         constexpr std::uint64_t MAGIC_PROTOCOL_CONSTANT = 0x41727101980;
         constexpr int CONNECT_REQUEST_SIZE = 16;
@@ -109,7 +109,7 @@ namespace tortoise
                 }
                 else if (stride_size == 18)
                 {
-                    const network::IPAddress  ip_address(network::IPAddress::ipv6_address_t{
+                    const network::IPAddress ip_address(network::IPAddress::ipv6_address_t{
                         peer_start[0], peer_start[1], peer_start[2], peer_start[3],
                         peer_start[4], peer_start[5], peer_start[6], peer_start[7],
                         peer_start[8], peer_start[9], peer_start[10], peer_start[11],

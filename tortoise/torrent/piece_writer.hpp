@@ -1,6 +1,7 @@
 #ifndef TORTOISE_PIECE_WRITER_HPP
 #define TORTOISE_PIECE_WRITER_HPP
 
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <functional>

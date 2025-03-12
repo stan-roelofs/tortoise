@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 namespace tortoise
 {

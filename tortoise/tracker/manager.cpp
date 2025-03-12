@@ -3,7 +3,7 @@
 #include <cassert>
 #include <future>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 #include "../util/log.hpp"
 #include "connection.hpp"
@@ -19,6 +19,12 @@ namespace tortoise
 	{
 		namespace
 		{
+			class UnsupportedProtocolException : public Exception
+			{
+			public:
+				UnsupportedProtocolException(const std::string &msg) : Exception(msg) {}
+			};
+
 			std::future<std::optional<AnnounceResponse>> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel)
 			{
 				assert(parameters);
@@ -36,7 +42,7 @@ namespace tortoise
 			}
 		}
 
-		Manager::Manager() : thread_(Manager::Run, std::ref(*this)), running_(true)
+		Manager::Manager() : running_(true), thread_(Manager::Run, std::ref(*this))
 		{
 		}
 
@@ -157,7 +163,7 @@ namespace tortoise
 					const auto current_tracker = tracker_list_.GetCurrentTracker();
 					LOG_INFO(log_tag, std::format("Requesting tracker update from {}", current_tracker));
 					request_ = Announce(current_tracker, request_parameters_, cancel_flag_);
-					timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+					timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(30);
 				}
 				catch (UnsupportedProtocolException &e)
 				{

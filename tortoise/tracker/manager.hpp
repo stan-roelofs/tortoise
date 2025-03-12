@@ -25,30 +25,30 @@ namespace tortoise
 			~Manager();
 
 			// Inherited via PeerInfoProvider
-			void RegisterTorrent(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback) override;
-			void UnregisterTorrent(const Torrent& torrent) override;
-			void RequestPeers(const Torrent& torrent, unsigned desired) override;
+			void RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback) override;
+			void UnregisterTorrent(const Torrent &torrent) override;
+			void RequestPeers(const Torrent &torrent, unsigned desired) override;
 
 		private:
-			static void Run(Manager& tracker_manager);
+			static void Run(Manager &tracker_manager);
 
 			class TorrentTrackerData
 			{
 			public:
-				TorrentTrackerData(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback);
+				TorrentTrackerData(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback);
 				~TorrentTrackerData();
 
 				void Process();
 				void Cancel();
 				void RequestNewPeers(unsigned desired);
 
-				const Torrent* torrent;
-				std::function<void(const std::vector<PeerInfo>&)> callback;
+				const Torrent *torrent;
+				std::function<void(const std::vector<PeerInfo> &)> callback;
 
 			private:
 				void RequestTrackerUpdate();
 				void SelectNextTracker();
-				bool HandleTrackerResult(const std::optional<AnnounceResponse>& result);
+				bool HandleTrackerResult(const std::optional<AnnounceResponse> &result);
 
 				std::recursive_mutex mutex_;
 
@@ -65,9 +65,9 @@ namespace tortoise
 
 			std::list<std::unique_ptr<TorrentTrackerData>> torrents_;
 
+			std::atomic_bool running_;
 			std::thread thread_;
 			std::recursive_mutex mutex_;
-			std::atomic_bool running_;
 		};
 	}
 }

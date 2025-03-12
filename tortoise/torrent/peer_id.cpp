@@ -3,7 +3,7 @@
 #include <random>
 #include <limits>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 #include <tortoise/version.hpp>
 
 namespace tortoise
@@ -18,13 +18,13 @@ namespace tortoise
         peer_id.push_back('-');
         peer_id.push_back('T');
         peer_id.push_back('R');
-        static_assert(TORTOISE_VERSION_MAJOR < 10, "TORTOISE_VERSION_MAJOR must be less than 10");
-        static_assert(TORTOISE_VERSION_MINOR < 10, "TORTOISE_VERSION_MINOR must be less than 10");
-        static_assert(TORTOISE_VERSION_PATCH < 100, "TORTOISE_VERSION_PATCH must be less than 100");
-        peer_id.push_back(TORTOISE_VERSION_MAJOR + '0');
-        peer_id.push_back(TORTOISE_VERSION_MINOR + '0');
-        peer_id.push_back((TORTOISE_VERSION_PATCH / 10) + '0');
-        peer_id.push_back((TORTOISE_VERSION_PATCH % 10) + '0');
+        static_assert(VERSION_MAJOR < 10, "VERSION_MAJOR must be less than 10");
+        static_assert(VERSION_MINOR < 10, "VERSION_MINOR must be less than 10");
+        static_assert(VERSION_PATCH < 100, "VERSION_PATCH must be less than 100");
+        peer_id.push_back(VERSION_MAJOR + '0');
+        peer_id.push_back(VERSION_MINOR + '0');
+        peer_id.push_back((VERSION_PATCH / 10) + '0');
+        peer_id.push_back((VERSION_PATCH % 10) + '0');
         peer_id.push_back('-');
         for (size_t i = 8; i < 20; i++)
             peer_id.push_back(static_cast<char>(dist(gen)));
@@ -55,13 +55,13 @@ namespace tortoise
         return peer_id_;
     }
 
-	bool PeerId::operator==(const PeerId& other) const
-	{
-		return peer_id_ == other.peer_id_;
-	}
+    bool PeerId::operator==(const PeerId &other) const
+    {
+        return peer_id_ == other.peer_id_;
+    }
 
-	bool PeerId::operator!=(const PeerId& other) const
-	{
-		return !(*this == other);
-	}
+    bool PeerId::operator!=(const PeerId &other) const
+    {
+        return !(*this == other);
+    }
 }

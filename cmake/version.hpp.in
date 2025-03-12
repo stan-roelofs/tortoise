@@ -1,8 +1,11 @@
 #ifndef TORTOISE_VERSION_HPP
 #define TORTOISE_VERSION_HPP
 
-#define TORTOISE_VERSION_MAJOR @Tortoise_VERSION_MAJOR@
-#define TORTOISE_VERSION_MINOR @Tortoise_VERSION_MINOR@
-#define TORTOISE_VERSION_PATCH @Tortoise_VERSION_PATCH@
+namespace tortoise
+{
+    static constexpr int VERSION_MAJOR = @Tortoise_VERSION_MAJOR@;
+    static constexpr int VERSION_MINOR = @Tortoise_VERSION_MINOR@;
+    static constexpr int VERSION_PATCH = @Tortoise_VERSION_PATCH@;
+}
 
 #endif

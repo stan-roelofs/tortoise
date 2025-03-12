@@ -3,7 +3,7 @@
 #include <cassert>
 #include <format>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 #include "../util/log.hpp"
 

@@ -2,9 +2,10 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <random>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 #include "../util/hash.hpp"
 #include "../util/log.hpp"
@@ -19,16 +20,16 @@ namespace
 
 namespace tortoise
 {
-	PieceManager::PieceManager(const Metainfo& metainfo)
+	PieceManager::PieceManager(const Metainfo &metainfo)
 		: meta_info_(metainfo),
-		pieces_done_(0),
-		pieces_requested_(0),
-		endgame_mode_(false),
-		next_handle_(1),
-		bitfield_(metainfo.pieces.size())
+		  pieces_done_(0),
+		  pieces_requested_(0),
+		  endgame_mode_(false),
+		  next_handle_(1),
+		  bitfield_(metainfo.pieces.size())
 	{
 		std::size_t total_length = 0;
-		for (const auto& file : metainfo.files)
+		for (const auto &file : metainfo.files)
 			total_length += file.length;
 
 		pieces_.reserve(metainfo.pieces.size());
@@ -41,7 +42,7 @@ namespace tortoise
 
 		for (std::size_t i = 0; i < pieces_.size(); ++i)
 		{
-			auto& piece = pieces_.at(i);
+			auto &piece = pieces_.at(i);
 			auto piece_blocks = piece.length / PieceManager::BLOCK_SIZE;
 			const auto last_block_size = piece.length % PieceManager::BLOCK_SIZE;
 			if (last_block_size > 0)
@@ -49,8 +50,8 @@ namespace tortoise
 
 			piece.blocks.resize(piece_blocks);
 			for (std::size_t j = 0; j < piece_blocks - 1; ++j)
-				piece.blocks.at(j) = BlockData{ {static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(j * PieceManager::BLOCK_SIZE), PieceManager::BLOCK_SIZE}, false, {} };
-			piece.blocks.back() = BlockData{ {static_cast<std::uint32_t>(i), static_cast<std::uint32_t>((piece_blocks - 1) * PieceManager::BLOCK_SIZE), last_block_size ? last_block_size : PieceManager::BLOCK_SIZE}, false, {} };
+				piece.blocks.at(j) = BlockData{{static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(j * PieceManager::BLOCK_SIZE), PieceManager::BLOCK_SIZE}, false, {}};
+			piece.blocks.back() = BlockData{{static_cast<std::uint32_t>(i), static_cast<std::uint32_t>((piece_blocks - 1) * PieceManager::BLOCK_SIZE), last_block_size ? last_block_size : PieceManager::BLOCK_SIZE}, false, {}};
 		}
 	}
 
@@ -62,7 +63,7 @@ namespace tortoise
 		return true; // TODO
 	}
 
-	const Bitfield& PieceManager::GetBitfield() const
+	const Bitfield &PieceManager::GetBitfield() const
 	{
 		return bitfield_;
 	}
@@ -78,7 +79,7 @@ namespace tortoise
 		else
 			peer = next_handle_++;
 
-		const auto [it, inserted] = peers_.insert({ peer, PeerData{Bitfield(pieces_.size()), {}} });
+		const auto [it, inserted] = peers_.insert({peer, PeerData{Bitfield(pieces_.size()), {}}});
 		(void)inserted;
 		(void)it;
 		assert(inserted); // We should not have the peer already
@@ -100,14 +101,14 @@ namespace tortoise
 
 		it->second.bitfield.SetHavePiece(piece);
 
-		auto& queue = it->second.piece_queue;
+		auto &queue = it->second.piece_queue;
 		if (queue.empty())
 		{
 			queue.push_back(piece);
 			return;
 		}
 		const auto random_index = std::uniform_int_distribution<std::size_t>(0, queue.size() - 1)(g);
-		auto& random_piece = queue.at(random_index);
+		auto &random_piece = queue.at(random_index);
 		queue.push_back(random_piece);
 		random_piece = piece;
 	}
@@ -119,7 +120,7 @@ namespace tortoise
 			return;
 		it->second.bitfield = std::move(bitfield);
 
-		for (const auto& piece : pieces_)
+		for (const auto &piece : pieces_)
 		{
 			if (it->second.bitfield.HasPiece(piece.index))
 				it->second.piece_queue.push_back(piece.index);
@@ -137,12 +138,12 @@ namespace tortoise
 		// TODO This should be improved (rarest first, endgame mode, ...).
 		// The only policy we try to follow for now is to request blocks from the same piece such that we complete the piece as fast as possible.
 		std::vector<Block> blocks;
-		auto& queue = it->second.piece_queue;
+		auto &queue = it->second.piece_queue;
 		std::size_t requested_piece_counter = 0;
 		while (blocks.empty() && !queue.empty() && requested_piece_counter < queue.size())
 		{
 			const auto piece_index = queue.back();
-			auto& piece = pieces_.at(piece_index);
+			auto &piece = pieces_.at(piece_index);
 			if (piece.Finished())
 			{
 				queue.pop_back();
@@ -159,7 +160,7 @@ namespace tortoise
 
 			queue.pop_back();
 
-			for (const auto& block : piece.blocks)
+			for (const auto &block : piece.blocks)
 			{
 				if (!block.done)
 					blocks.push_back(block.block);
@@ -182,7 +183,7 @@ namespace tortoise
 
 	void PieceManager::ReceiveBlock(Handle, std::uint32_t piece_index, std::uint32_t offset, ByteVector block)
 	{
-		auto& piece = pieces_.at(piece_index);
+		auto &piece = pieces_.at(piece_index);
 		if (!piece.SetBlockData(offset, block))
 		{
 			LOG_WARN(log_tag, std::format("Already have block {} in piece {}", offset, piece_index));
@@ -194,7 +195,7 @@ namespace tortoise
 
 		const auto piece_data = piece.ReleaseBlockData();
 		const auto hash = hash::CreateSHA1(piece_data->data(), piece_data->size());
-		if (std::memcmp(hash.data(), meta_info_.pieces.at(piece_index).data(), hash.size() != 0))
+		if (memcmp(hash.data(), meta_info_.pieces.at(piece_index).data(), hash.size() != 0))
 		{
 			LOG_WARN(log_tag, std::format("Hash mismatch in piece {}", piece_index));
 			piece.Reset();
@@ -202,16 +203,16 @@ namespace tortoise
 		}
 
 		++pieces_done_;
-		for (const auto& listener : listeners_)
+		for (const auto &listener : listeners_)
 			listener->OnPieceDownloaded(piece_index, piece_data);
 	}
 
-	void PieceManager::AddListener(Listener* listener)
+	void PieceManager::AddListener(Listener *listener)
 	{
 		listeners_.insert(listener);
 	}
 
-	void PieceManager::RemoveListener(Listener* listener)
+	void PieceManager::RemoveListener(Listener *listener)
 	{
 		listeners_.erase(listener);
 	}

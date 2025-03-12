@@ -53,7 +53,6 @@ private:
 		std::uint32_t pieces_downloaded;
 	};
 	std::map<tortoise::TorrentHandle, TorrentInfo> torrents_;
-	std::atomic_bool running_;
 };
 
 #endif

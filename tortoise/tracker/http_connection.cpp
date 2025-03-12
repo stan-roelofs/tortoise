@@ -6,7 +6,7 @@
 #include <optional>
 #include <sstream>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 #include "announce.hpp"
 #include "../bencode/bencode.hpp"

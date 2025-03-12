@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
  
-project(Tortoise VERSION 0.1.0 LANGUAGES CXX)
+project(Tortoise VERSION 0.2.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
 option(TORTOISE_BUILD_APP "Build application" ON)
@@ -10,7 +10,6 @@ option(TORTOISE_BUILD_TESTS "Build tests" ON)
 set (HEADERS
   include/tortoise/event.hpp
   include/tortoise/exception.hpp
-  include/tortoise/exceptions.hpp
   include/tortoise/load_torrent.hpp
   include/tortoise/logging.hpp
   include/tortoise/metainfo.hpp

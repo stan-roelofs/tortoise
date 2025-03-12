@@ -5,7 +5,7 @@
 #include <random>
 #include <vector>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 #include <tortoise/metainfo.hpp>
 #include <tortoise/peer_id.hpp>
 
@@ -20,7 +20,7 @@ namespace
 
 	constexpr std::chrono::seconds max_idle_time(keep_alive_timeout - std::chrono::seconds(5));
 
-	constexpr static std::chrono::seconds speed_update_interval = std::chrono::seconds(5);
+	constexpr static std::chrono::seconds speed_update_interval = std::chrono::seconds(2);
 
 	const std::string_view log_tag = "PeerConnection";
 }

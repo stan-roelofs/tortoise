@@ -38,8 +38,7 @@ namespace tortoise
 			// TODO check if torrent already exists
 
 			auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
-			event_queue_.Push(event::
-								  TorrentAdded(torrent));
+			event_queue_.Push(event::TorrentAdded(torrent));
 
 			{
 				std::scoped_lock lock(mutex_);
@@ -57,7 +56,7 @@ namespace tortoise
 			std::scoped_lock lock(mutex_);
 			auto it = std::find_if(torrents_.begin(), torrents_.end(), [handle](const auto &torrent)
 								   { return TorrentHandle(torrent) == handle; });
-			if (it != torrents_.end()) // TODO can this block if we need to close connections etc? may need to implement this in a different way
+			if (it != torrents_.end())
 				torrents_.erase(it);
 		}
 
@@ -68,9 +67,11 @@ namespace tortoise
 		}
 
 	private:
-		tracker::Manager tracker_manager_; // Keep this before torrents_ so it is destroyed after
-		std::vector<std::shared_ptr<Torrent>> torrents_;
+		// Keep this before torrents_ so it is destroyed after
+		tracker::Manager tracker_manager_; 
 		EventQueue event_queue_;
+
+		std::vector<std::shared_ptr<Torrent>> torrents_;
 		std::recursive_mutex mutex_;
 		event::Callbacks callbacks_;
 	};

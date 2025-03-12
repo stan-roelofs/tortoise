@@ -16,6 +16,18 @@ namespace tortoise
     private:
         std::string msg_;
     };
+
+    class InvalidArgumentException : public Exception
+    {
+    public:
+        InvalidArgumentException(const std::string &msg) : Exception(msg) {}
+    };
+
+    class InvalidHandleException : public Exception
+    {
+    public:
+        InvalidHandleException(const std::string &msg) : Exception(msg) {}
+    };
 } // namespace tortoise
 
 #endif

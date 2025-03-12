@@ -4,21 +4,21 @@
 #include <cassert>
 #include <random>
 
-#include <tortoise/exceptions.hpp>
+#include <tortoise/exception.hpp>
 
 namespace tortoise
 {
 	namespace tracker
 	{
-		TieredList::TieredList(const std::vector<std::vector<std::string>>& trackers)
+		TieredList::TieredList(const std::vector<std::vector<std::string>> &trackers)
 		{
 			if (trackers.empty())
 				throw InvalidArgumentException("trackers is empty");
 
 			auto rd = std::random_device{};
-			auto rng = std::default_random_engine{ rd() };
+			auto rng = std::default_random_engine{rd()};
 
-			for (const auto& tier : trackers)
+			for (const auto &tier : trackers)
 			{
 				if (tier.empty())
 					continue;

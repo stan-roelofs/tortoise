@@ -12,12 +12,6 @@ namespace tortoise
 {
 	class Torrent;
 
-	class InvalidHandleException : public Exception
-	{
-	public:
-		InvalidHandleException(const std::string& msg) : Exception(msg) {}
-	};
-
 	struct Statistics
 	{
 		/// Upload rate in bytes per second
@@ -30,7 +24,7 @@ namespace tortoise
 	class TorrentHandle
 	{
 	public:
-		TorrentHandle(const std::shared_ptr<Torrent>& ptr) : ptr_(ptr) {}
+		TorrentHandle(const std::shared_ptr<Torrent> &ptr) : ptr_(ptr) {}
 
 		/*! \returns Returns the metainfo of the torrent.
 		 *  \throws InvalidHandleException if the torrent is not valid.
@@ -53,8 +47,8 @@ namespace tortoise
 
 		bool IsValid() const;
 		operator bool() const;
-		bool operator==(const TorrentHandle& other) const;
-		bool operator!=(const TorrentHandle& other) const;
+		bool operator==(const TorrentHandle &other) const;
+		bool operator!=(const TorrentHandle &other) const;
 
 	private:
 		std::weak_ptr<Torrent> ptr_;
@@ -62,7 +56,7 @@ namespace tortoise
 
 	struct TorrentParameters
 	{
-		TorrentParameters(const Metainfo& info) : metainfo(info) {}
+		TorrentParameters(const Metainfo &info) : metainfo(info) {}
 		Metainfo metainfo;
 		std::filesystem::path save_path;
 	};

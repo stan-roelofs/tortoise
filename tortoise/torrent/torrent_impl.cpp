@@ -54,23 +54,23 @@ namespace tortoise
 		return IsValid();
 	}
 
-	bool TorrentHandle::operator==(const TorrentHandle& other) const
+	bool TorrentHandle::operator==(const TorrentHandle &other) const
 	{
 		return ptr_.lock() == other.ptr_.lock();
 	}
 
-	bool TorrentHandle::operator!=(const TorrentHandle& other) const
+	bool TorrentHandle::operator!=(const TorrentHandle &other) const
 	{
 		return !(*this == other);
 	}
 
-	Torrent::Torrent(const TorrentParameters& parameters, Torrent::PeerInfoProvider& peer_info_provider, EventQueue& event_queue)
-		: started_(false),
-		peer_info_provider_(peer_info_provider),
-		event_queue_(event_queue),
-		metainfo_(std::make_shared<const Metainfo>(parameters.metainfo)),
-		piece_writer_(*metainfo_, parameters.save_path, { std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this) }),
-		piece_manager_(*metainfo_)
+	Torrent::Torrent(const TorrentParameters &parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue)
+		: metainfo_(std::make_shared<const Metainfo>(parameters.metainfo)),
+		  event_queue_(event_queue),
+		  piece_writer_(*metainfo_, parameters.save_path, {std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this)}),
+		  piece_manager_(*metainfo_),
+		  peer_info_provider_(peer_info_provider),
+		  started_(false)
 	{
 		peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::OnNewPeers, this, std::placeholders::_1));
 		piece_manager_.AddListener(this);
@@ -113,7 +113,7 @@ namespace tortoise
 			return false;
 
 		thread_ = std::jthread([this](std::stop_token token)
-			{ Run(token); });
+							   { Run(token); });
 		started_ = true;
 		return true;
 	}
@@ -128,7 +128,7 @@ namespace tortoise
 		thread_.request_stop();
 	}
 
-	const Metainfo& Torrent::GetMetainfo() const
+	const Metainfo &Torrent::GetMetainfo() const
 	{
 		return *metainfo_;
 	}
@@ -144,16 +144,16 @@ namespace tortoise
 		return statistics_;
 	}
 
-	void Torrent::OnNewPeers(const std::vector<PeerInfo>& new_peers)
+	void Torrent::OnNewPeers(const std::vector<PeerInfo> &new_peers)
 	{
 		std::scoped_lock lock(peer_mutex_);
 
-		for (const auto& peer_info : new_peers)
+		for (const auto &peer_info : new_peers)
 		{
 			if (std::find(potential_peers_.begin(), potential_peers_.end(), peer_info) != potential_peers_.end())
 				return;
-			if (std::find_if(peers_.begin(), peers_.end(), [&peer_info](const auto& peer)
-				{ return peer.first->GetPeerInfo() == peer_info; }) != peers_.end())
+			if (std::find_if(peers_.begin(), peers_.end(), [&peer_info](const auto &peer)
+							 { return peer.first->GetPeerInfo() == peer_info; }) != peers_.end())
 				return;
 			potential_peers_.push_back(peer_info);
 		}
@@ -161,7 +161,7 @@ namespace tortoise
 
 	void Torrent::OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data)
 	{
-		event_queue_.Push(event::PieceDownloaded{ shared_from_this(), piece_index });
+		event_queue_.Push(event::PieceDownloaded{shared_from_this(), piece_index});
 		piece_writer_.WritePiece(piece_index, data);
 	}
 
@@ -188,7 +188,7 @@ namespace tortoise
 		// Update rates...
 		std::uint64_t download_speed = 0;
 		std::uint64_t upload_speed = 0;
-		for (const auto& peer : peers_)
+		for (const auto &peer : peers_)
 		{
 			download_speed += peer.first->GetDownloadSpeed();
 			upload_speed += peer.first->GetUploadSpeed();
@@ -215,8 +215,8 @@ namespace tortoise
 			potential_peers_.pop_front();
 
 			LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
-			peers_.push_back({ std::make_unique<Peer>(peer_info, metainfo_, peer_id_, piece_manager_), PeerStatus::Connecting });
-			event_queue_.Push(event::PeerStatusChanged{ shared_from_this(), peer_info, PeerStatus::Connecting });
+			peers_.push_back({std::make_unique<Peer>(peer_info, metainfo_, peer_id_, piece_manager_), PeerStatus::Connecting});
+			event_queue_.Push(event::PeerStatusChanged{shared_from_this(), peer_info, PeerStatus::Connecting});
 		}
 
 		{
@@ -227,7 +227,7 @@ namespace tortoise
 				if (status != it->second)
 				{
 					it->second = status;
-					event_queue_.Push(event::PeerStatusChanged{ shared_from_this(), it->first->GetPeerInfo(), status });
+					event_queue_.Push(event::PeerStatusChanged{shared_from_this(), it->first->GetPeerInfo(), status});
 				}
 
 				// TODO: if peer slow or has no pieces we need AND there are potential peers, disconnect and connect to a new peer

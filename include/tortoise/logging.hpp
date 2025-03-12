@@ -26,6 +26,8 @@ namespace tortoise
         };
 
         using LogReceiver = std::function<void(const Message &)>;
+
+        //! \brief Register an object to receive internal log messages, if no receiver is set all logs are discarded.
         void RegisterReceiver(LogReceiver receiver);
     }
 } // namespace tortoise
