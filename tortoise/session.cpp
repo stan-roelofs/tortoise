@@ -17,18 +17,21 @@ namespace tortoise
 	if (callbacks_.cb)                 \
 		event_queue_.Subscribe<event::eventtype>([this](const auto &event) { callbacks_.cb(event); });
 
-			SUBSCRIBE_EVENT(torrent_added, TorrentAdded);
-			SUBSCRIBE_EVENT(torrent_started, TorrentStarted);
-			SUBSCRIBE_EVENT(torrent_stopped, TorrentStopped);
 			SUBSCRIBE_EVENT(peer_status_changed, PeerStatusChanged);
 			SUBSCRIBE_EVENT(piece_downloaded, PieceDownloaded);
 			SUBSCRIBE_EVENT(torrent_error, TorrentError);
-			SUBSCRIBE_EVENT(torrent_downloaded, TorrentDownloaded);
+			SUBSCRIBE_EVENT(torrent_status_changed, TorrentStatusChanged);
 
 #undef SUBSCRIBE_EVENT
 		}
 
-		~Implementation() = default;
+		~Implementation()
+		{
+			std::scoped_lock lock(mutex_);
+			for (auto& torrent : torrents_)
+				torrent->RequestStop(true);
+			torrents_.clear();
+		}
 
 		TorrentHandle AddTorrent(TorrentParameters parameters)
 		{
@@ -38,14 +41,13 @@ namespace tortoise
 			// TODO check if torrent already exists
 
 			auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
-			event_queue_.Push(event::TorrentAdded(torrent));
 
 			{
 				std::scoped_lock lock(mutex_);
 				torrents_.push_back(torrent);
 			}
 
-			return torrent;
+			return TorrentHandle{ torrent };
 		}
 
 		void RemoveTorrent(TorrentHandle handle)
@@ -68,7 +70,7 @@ namespace tortoise
 
 	private:
 		// Keep this before torrents_ so it is destroyed after
-		tracker::Manager tracker_manager_; 
+		tracker::Manager tracker_manager_;
 		EventQueue event_queue_;
 
 		std::vector<std::shared_ptr<Torrent>> torrents_;

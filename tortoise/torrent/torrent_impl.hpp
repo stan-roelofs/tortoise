@@ -26,24 +26,24 @@ namespace tortoise
 		{
 		public:
 			virtual ~PeerInfoProvider() = default;
-			virtual void RegisterTorrent(const Torrent& torrent, std::function<void(const std::vector<PeerInfo>&)> callback) = 0;
-			virtual void UnregisterTorrent(const Torrent& torrent) = 0;
-			virtual void RequestPeers(const Torrent& torrent, unsigned desired) = 0;
+			virtual void RegisterTorrent(const Torrent &torrent, std::function<void(const std::vector<PeerInfo> &)> callback) = 0;
+			virtual void UnregisterTorrent(const Torrent &torrent) = 0;
+			virtual void RequestPeers(const Torrent &torrent, unsigned desired) = 0;
 		};
 
-		Torrent(const TorrentParameters& params, PeerInfoProvider& peer_info_provider, EventQueue& event_queue);
+		Torrent(const TorrentParameters &params, PeerInfoProvider &peer_info_provider, EventQueue &event_queue);
 		~Torrent();
 
 		bool RequestStart();
-		void RequestStop();
+		void RequestStop(bool wait);
 
-		const Metainfo& GetMetainfo() const;
+		const Metainfo &GetMetainfo() const;
 		PeerId GetPeerId() const;
-
 		Statistics GetStatistics() const;
+		TorrentStatus GetStatus() const;
 
 	private:
-		void OnNewPeers(const std::vector<PeerInfo>& new_peers);
+		void OnNewPeers(const std::vector<PeerInfo> &new_peers);
 		void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) override;
 		void OnTorrentDownloaded();
 		void OnWriteError();
@@ -53,23 +53,24 @@ namespace tortoise
 
 		void Run(std::stop_token token);
 		void ProcessPeers();
+		void SetStatus(TorrentStatus status);
 
 		const std::shared_ptr<const Metainfo> metainfo_;
 		const PeerId peer_id_;
 
-		EventQueue& event_queue_;
+		EventQueue &event_queue_;
 		PieceWriter piece_writer_;
 		PieceManager piece_manager_;
 
 		mutable std::recursive_mutex peer_mutex_;
-		PeerInfoProvider& peer_info_provider_;
+		PeerInfoProvider &peer_info_provider_;
 		std::chrono::steady_clock::time_point last_peer_request_;
 		std::list<PeerInfo> potential_peers_;
 		std::list<std::pair<std::unique_ptr<Peer>, PeerStatus>> peers_;
 
 		mutable std::recursive_mutex data_mutex_;
 		Statistics statistics_;
-		bool started_;
+		TorrentStatus status_;
 		std::jthread thread_;
 	};
 }

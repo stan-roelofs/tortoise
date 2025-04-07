@@ -11,21 +11,6 @@ namespace tortoise
 {
 	namespace event
 	{
-		struct TorrentAdded
-		{
-			TorrentHandle handle;
-		};
-
-		struct TorrentStarted
-		{
-			TorrentHandle handle;
-		};
-
-		struct TorrentStopped
-		{
-			TorrentHandle handle;
-		};
-
 		struct TorrentError
 		{
 			enum class Code
@@ -37,9 +22,10 @@ namespace tortoise
 			Code code;
 		};
 
-		struct TorrentDownloaded
+		struct TorrentStatusChanged
 		{
 			TorrentHandle handle;
+			TorrentStatus status;
 		};
 
 		struct PeerStatusChanged
@@ -57,10 +43,7 @@ namespace tortoise
 
 		struct Callbacks
 		{
-			std::function<void(TorrentAdded)> torrent_added;
-			std::function<void(TorrentStarted)> torrent_started;
-			std::function<void(TorrentStopped)> torrent_stopped;
-			std::function<void(TorrentDownloaded)> torrent_downloaded;
+			std::function<void(TorrentStatusChanged)> torrent_status_changed;
 			std::function<void(TorrentError)> torrent_error;
 			std::function<void(PeerStatusChanged)> peer_status_changed;
 			std::function<void(PieceDownloaded)> piece_downloaded;

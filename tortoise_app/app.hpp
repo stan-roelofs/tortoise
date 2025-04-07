@@ -30,10 +30,7 @@ public:
 private:
 	bool AddTorrent(const std::string &torrent_file);
 
-	void OnTorrentAdded(const tortoise::event::TorrentAdded &event);
-	void OnTorrentStarted(const tortoise::event::TorrentStarted &event);
-	void OnTorrentStopped(const tortoise::event::TorrentStopped &event);
-	void OnTorrentDownloaded(const tortoise::event::TorrentDownloaded &event);
+	void OnTorrentStatusChanged(const tortoise::event::TorrentStatusChanged &event);
 	void OnTorrentError(const tortoise::event::TorrentError &event);
 	void OnPeerStatusChanged(const tortoise::event::PeerStatusChanged &event);
 	void OnPieceDownloaded(const tortoise::event::PieceDownloaded &event);
@@ -43,16 +40,16 @@ private:
 
 	struct TorrentInfo
 	{
-		TorrentInfo(tortoise::TorrentHandle h) : handle(std::move(h)), pieces_downloaded(0)
+		TorrentInfo(std::size_t pieces) : pieces_downloaded(0)
 		{
-			have_pieces.resize(handle.GetMetainfo().pieces.size());
+			have_pieces.resize(pieces);
 		}
-		const tortoise::TorrentHandle handle;
 		std::map<tortoise::PeerInfo, tortoise::PeerStatus> peers;
 		std::vector<bool> have_pieces;
 		std::uint32_t pieces_downloaded;
 	};
-	std::map<tortoise::TorrentHandle, TorrentInfo> torrents_;
+	tortoise::TorrentHandle handle_;
+	std::unique_ptr<TorrentInfo> data_;
 };
 
 #endif

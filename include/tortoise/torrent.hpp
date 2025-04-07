@@ -12,6 +12,13 @@ namespace tortoise
 {
 	class Torrent;
 
+	enum class TorrentStatus
+	{
+		Downloading,
+		Seeding,
+		Stopped
+	};
+
 	struct Statistics
 	{
 		/// Upload rate in bytes per second
@@ -24,7 +31,7 @@ namespace tortoise
 	class TorrentHandle
 	{
 	public:
-		TorrentHandle(const std::shared_ptr<Torrent> &ptr) : ptr_(ptr) {}
+		TorrentHandle(std::weak_ptr<Torrent> ptr) : ptr_(std::move(ptr)) {}
 
 		/*! \returns Returns the metainfo of the torrent.
 		 *  \throws InvalidHandleException if the torrent is not valid.
@@ -44,6 +51,11 @@ namespace tortoise
 
 		//! \brief Returns the current statistics of the torrent
 		Statistics GetStatistics() const;
+
+		/*! \brief Returns the status of the torrent.
+		 *  \throws InvalidHandleException if the torrent is not valid.
+		 */
+		TorrentStatus GetStatus() const;
 
 		bool IsValid() const;
 		operator bool() const;
