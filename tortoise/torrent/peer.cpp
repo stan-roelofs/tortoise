@@ -30,8 +30,8 @@ namespace
 namespace tortoise
 {
 	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager &piece_manager)
-		: metainfo_(std::move(metainfo)),
-		  torrent_parameters_(std::move(torrent_parameters)),
+		: torrent_parameters_(std::move(torrent_parameters)),
+		  metainfo_(std::move(metainfo)),
 		  peer_info_(peer_info),
 		  connection_(peer_info, torrent_parameters_, metainfo_, peer_id,
 					  PeerConnection::MessageCallbacks(

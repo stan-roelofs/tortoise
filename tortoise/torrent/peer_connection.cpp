@@ -152,6 +152,7 @@ namespace tortoise
 	}
 
 	// TODO: while handshaking make sure we don't connect to ourselves!
+	// TODO: seeding
 
 	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters,
 								   std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks)
