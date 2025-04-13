@@ -9,6 +9,7 @@
 
 #include <tortoise/metainfo.hpp>
 #include <tortoise/peer_info.hpp>
+#include <tortoise/torrent_parameters.hpp>
 
 #include "../network/socket.hpp"
 #include "../util/util.hpp"
@@ -44,10 +45,11 @@ namespace tortoise
 		/*!
 		 * \brief Creates a new peer connection.
 		 * \param peer_info The peer info that is required to connect.
+		 * \param torrent_parameters The parameters of the torrent.
 		 * \param info_hash The info hash of the torrent, used for the handshake.
 		 * \param peer_id The peer id of this client, used for the handshake.
 		 */
-		PeerConnection(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks);
+		PeerConnection(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks);
 		~PeerConnection();
 
 		Status GetStatus() const;
@@ -80,6 +82,7 @@ namespace tortoise
 
 		MessageCallbacks message_callbacks_;
 
+		std::shared_ptr<const TorrentParameters> torrent_parameters_;
 		PeerInfo peer_info_;
 		std::shared_ptr<const Metainfo> metainfo_;
 		PeerId own_peer_id_;

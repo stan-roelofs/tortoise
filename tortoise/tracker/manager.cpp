@@ -72,8 +72,8 @@ namespace tortoise
 			: torrent(&torrent),
 			  callback(std::move(callback)),
 			  tracker_interval_seconds_(0),
-			  tracker_list_(torrent.GetMetainfo().announce_list),
-			  request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo().info_hash, torrent.GetPeerId())),
+			  tracker_list_(torrent.GetMetainfo()->announce_list),
+			  request_parameters_(std::make_shared<AnnounceParameters>(torrent.GetMetainfo()->info_hash, torrent.GetPeerId())),
 			  cancel_flag_(std::make_shared<std::atomic_bool>(false))
 		{
 			request_parameters_->compact = true;

@@ -31,13 +31,13 @@ namespace tortoise
 			virtual void RequestPeers(const Torrent &torrent, unsigned desired) = 0;
 		};
 
-		Torrent(const TorrentParameters &params, PeerInfoProvider &peer_info_provider, EventQueue &event_queue);
+		Torrent(TorrentParameters params, PeerInfoProvider &peer_info_provider, EventQueue &event_queue);
 		~Torrent();
 
 		bool RequestStart();
 		void RequestStop(bool wait);
 
-		const Metainfo &GetMetainfo() const;
+		std::shared_ptr<const Metainfo> GetMetainfo() const;
 		PeerId GetPeerId() const;
 		Statistics GetStatistics() const;
 		TorrentStatus GetStatus() const;
@@ -55,6 +55,7 @@ namespace tortoise
 		void ProcessPeers();
 		void SetStatus(TorrentStatus status);
 
+		const std::shared_ptr<const TorrentParameters> parameters_;
 		const std::shared_ptr<const Metainfo> metainfo_;
 		const PeerId peer_id_;
 

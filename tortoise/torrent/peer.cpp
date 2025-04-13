@@ -10,8 +10,6 @@ namespace
 {
 	const std::string_view log_tag = "Peer";
 
-	constexpr unsigned DESIRED_REQUESTS = 10; // TODO: determine whether this is a good value
-
 	tortoise::PeerStatus ConnectionStatusToPeerStatus(tortoise::PeerConnection::Status status)
 	{
 		switch (status)
@@ -31,31 +29,33 @@ namespace
 
 namespace tortoise
 {
-	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager &piece_manager) : metainfo_(metainfo),
-																															peer_info_(peer_info),
-																															connection_(peer_info, metainfo, peer_id,
-																																		PeerConnection::MessageCallbacks(
-																																			std::bind(&Peer::OnMessageChoke, this),
-																																			std::bind(&Peer::OnMessageUnchoke, this),
-																																			std::bind(&Peer::OnMessageInterested, this),
-																																			std::bind(&Peer::OnMessageNotInterested, this),
-																																			std::bind(&Peer::OnMessageHave, this, std::placeholders::_1),
-																																			std::bind(&Peer::OnMessageBitfield, this, std::placeholders::_1),
-																																			std::bind(&Peer::OnMessageRequest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessagePiece, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessageCancel, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-																																			std::bind(&Peer::OnMessagePort, this, std::placeholders::_1))),
-																															connection_status_(PeerConnection::Status::Connecting),
-																															status_(PeerStatus::Connecting),
-																															am_choking_(true),
-																															am_interested_(false),
-																															peer_choking_(true),
-																															peer_interested_(false),
-																															piece_manager_(piece_manager),
-																															handle_(PieceManager::INVALID_HANDLE)
+	Peer::Peer(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, PieceManager &piece_manager)
+		: metainfo_(std::move(metainfo)),
+		  torrent_parameters_(std::move(torrent_parameters)),
+		  peer_info_(peer_info),
+		  connection_(peer_info, torrent_parameters_, metainfo_, peer_id,
+					  PeerConnection::MessageCallbacks(
+						  std::bind(&Peer::OnMessageChoke, this),
+						  std::bind(&Peer::OnMessageUnchoke, this),
+						  std::bind(&Peer::OnMessageInterested, this),
+						  std::bind(&Peer::OnMessageNotInterested, this),
+						  std::bind(&Peer::OnMessageHave, this, std::placeholders::_1),
+						  std::bind(&Peer::OnMessageBitfield, this, std::placeholders::_1),
+						  std::bind(&Peer::OnMessageRequest, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+						  std::bind(&Peer::OnMessagePiece, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+						  std::bind(&Peer::OnMessageCancel, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+						  std::bind(&Peer::OnMessagePort, this, std::placeholders::_1))),
+		  connection_status_(PeerConnection::Status::Connecting),
+		  status_(PeerStatus::Connecting),
+		  am_choking_(true),
+		  am_interested_(false),
+		  peer_choking_(true),
+		  peer_interested_(false),
+		  piece_manager_(piece_manager),
+		  handle_(PieceManager::INVALID_HANDLE)
 	{
-		if (!metainfo)
-			throw InvalidArgumentException("Metainfo is null");
+		if (!torrent_parameters_ || !metainfo_)
+			throw InvalidArgumentException("Invalid pointer");
 
 		handle_ = piece_manager_.RegisterPeer();
 	}
@@ -108,7 +108,7 @@ namespace tortoise
 
 		UpdateInterested();
 
-		if (peer_choking_ || requested_blocks_.size() >= DESIRED_REQUESTS)
+		if (peer_choking_ || requested_blocks_.size() >= torrent_parameters_->peer.request_queue_size)
 			return status_;
 
 		MakeRequests();
@@ -136,9 +136,11 @@ namespace tortoise
 
 	void Peer::MakeRequests()
 	{
-		assert(requested_blocks_.size() < DESIRED_REQUESTS);
+		const unsigned desired_requests = torrent_parameters_->peer.request_queue_size;
+		if (requested_blocks_.size() >= desired_requests)
+			return;
 
-		const auto requests_to_send = DESIRED_REQUESTS - requested_blocks_.size();
+		const auto requests_to_send = desired_requests - requested_blocks_.size();
 		while (request_queue_.size() < requests_to_send)
 		{
 			const auto blocks = piece_manager_.GetRequests(handle_);
@@ -148,7 +150,7 @@ namespace tortoise
 				request_queue_.push(block);
 		}
 
-		while (!request_queue_.empty() && requested_blocks_.size() < DESIRED_REQUESTS)
+		while (!request_queue_.empty() && requested_blocks_.size() < desired_requests)
 		{
 			const auto block = request_queue_.front();
 			request_queue_.pop();

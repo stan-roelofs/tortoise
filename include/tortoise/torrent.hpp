@@ -36,7 +36,7 @@ namespace tortoise
 		/*! \returns Returns the metainfo of the torrent.
 		 *  \throws InvalidHandleException if the torrent is not valid.
 		 */
-		Metainfo GetMetainfo() const;
+		std::shared_ptr<const Metainfo> GetMetainfo() const;
 
 		/*! \brief Starts downloading the torrent.
 		 *  \return True if the torrent was started successfully.
@@ -64,13 +64,6 @@ namespace tortoise
 
 	private:
 		std::weak_ptr<Torrent> ptr_;
-	};
-
-	struct TorrentParameters
-	{
-		TorrentParameters(const Metainfo &info) : metainfo(info) {}
-		Metainfo metainfo;
-		std::filesystem::path save_path;
 	};
 } // namespace tortoise
 

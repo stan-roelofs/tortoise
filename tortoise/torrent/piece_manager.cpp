@@ -20,25 +20,25 @@ namespace
 
 namespace tortoise
 {
-	PieceManager::PieceManager(const Metainfo &metainfo)
-		: meta_info_(metainfo),
+	PieceManager::PieceManager(std::shared_ptr<const Metainfo> metainfo)
+		: metainfo_(std::move(metainfo)),
 		  pieces_done_(0),
 		  pieces_requested_(0),
 		  endgame_mode_(false),
 		  next_handle_(1),
-		  bitfield_(metainfo.pieces.size())
+		  bitfield_(metainfo_->pieces.size())
 	{
 		std::size_t total_length = 0;
-		for (const auto &file : metainfo.files)
+		for (const auto &file : metainfo_->files)
 			total_length += file.length;
 
-		pieces_.reserve(metainfo.pieces.size());
+		pieces_.reserve(metainfo_->pieces.size());
 
 		// Every piece is of equal length except possibly the last
-		for (std::size_t i = 0; i < metainfo.pieces.size() - 1; ++i)
-			pieces_.emplace_back(static_cast<std::uint32_t>(i), metainfo.piece_length);
+		for (std::size_t i = 0; i < metainfo_->pieces.size() - 1; ++i)
+			pieces_.emplace_back(static_cast<std::uint32_t>(i), metainfo_->piece_length);
 
-		pieces_.emplace_back(static_cast<std::uint32_t>(metainfo.pieces.size() - 1), static_cast<std::uint32_t>(total_length % metainfo.piece_length));
+		pieces_.emplace_back(static_cast<std::uint32_t>(metainfo_->pieces.size() - 1), static_cast<std::uint32_t>(total_length % metainfo_->piece_length));
 
 		for (std::size_t i = 0; i < pieces_.size(); ++i)
 		{
@@ -169,7 +169,7 @@ namespace tortoise
 			if (!piece.requested)
 			{
 				++pieces_requested_;
-				if (!endgame_mode_ && pieces_requested_ == meta_info_.pieces.size())
+				if (!endgame_mode_ && pieces_requested_ == metainfo_->pieces.size())
 				{
 					endgame_mode_ = true;
 					LOG_INFO(log_tag, "Endgame mode enabled");
@@ -195,7 +195,7 @@ namespace tortoise
 
 		const auto piece_data = piece.ReleaseBlockData();
 		const auto hash = hash::CreateSHA1(piece_data->data(), piece_data->size());
-		if (memcmp(hash.data(), meta_info_.pieces.at(piece_index).data(), hash.size() != 0))
+		if (memcmp(hash.data(), metainfo_->pieces.at(piece_index).data(), hash.size() != 0))
 		{
 			LOG_WARN(log_tag, std::format("Hash mismatch in piece {}", piece_index));
 			piece.Reset();

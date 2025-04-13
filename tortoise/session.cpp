@@ -28,7 +28,7 @@ namespace tortoise
 		~Implementation()
 		{
 			std::scoped_lock lock(mutex_);
-			for (auto& torrent : torrents_)
+			for (auto &torrent : torrents_)
 				torrent->RequestStop(true);
 			torrents_.clear();
 		}
@@ -39,7 +39,6 @@ namespace tortoise
 				parameters.save_path = std::filesystem::current_path();
 
 			// TODO check if torrent already exists
-
 			auto torrent = std::make_shared<Torrent>(parameters, tracker_manager_, event_queue_);
 
 			{
@@ -47,7 +46,7 @@ namespace tortoise
 				torrents_.push_back(torrent);
 			}
 
-			return TorrentHandle{ torrent };
+			return TorrentHandle{torrent};
 		}
 
 		void RemoveTorrent(TorrentHandle handle)

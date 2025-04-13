@@ -6,7 +6,6 @@
 
 namespace
 {
-	constexpr std::size_t DESIRED_PEERS = 30;
 	constexpr std::chrono::seconds PEER_REQUEST_INTERVAL = std::chrono::seconds(600);
 }
 
@@ -17,7 +16,7 @@ namespace tortoise
 		return !ptr_.expired();
 	}
 
-	Metainfo TorrentHandle::GetMetainfo() const
+	std::shared_ptr<const Metainfo> TorrentHandle::GetMetainfo() const
 	{
 		if (!IsValid())
 			throw InvalidHandleException("TorrentHandle is not valid");
@@ -72,11 +71,12 @@ namespace tortoise
 		return !(*this == other);
 	}
 
-	Torrent::Torrent(const TorrentParameters &parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue)
-		: metainfo_(std::make_shared<const Metainfo>(parameters.metainfo)),
+	Torrent::Torrent(TorrentParameters parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue)
+		: parameters_(std::make_shared<TorrentParameters>(parameters)),
+		  metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
 		  event_queue_(event_queue),
-		  piece_writer_(*metainfo_, parameters.save_path, {std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this)}),
-		  piece_manager_(*metainfo_),
+		  piece_writer_(*metainfo_, parameters_->save_path, {std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this)}),
+		  piece_manager_(metainfo_),
 		  peer_info_provider_(peer_info_provider),
 		  status_(TorrentStatus::Stopped)
 	{
@@ -144,9 +144,9 @@ namespace tortoise
 			thread_.join();
 	}
 
-	const Metainfo &Torrent::GetMetainfo() const
+	std::shared_ptr<const Metainfo> Torrent::GetMetainfo() const
 	{
-		return *metainfo_;
+		return metainfo_;
 	}
 
 	PeerId Torrent::GetPeerId() const
@@ -203,7 +203,7 @@ namespace tortoise
 	{
 		LOG_INFO("Torrent", "Requesting peers");
 		last_peer_request_ = std::chrono::steady_clock::now();
-		peer_info_provider_.RequestPeers(*this, DESIRED_PEERS * 2);
+		peer_info_provider_.RequestPeers(*this, parameters_->max_peers * 2);
 	}
 
 	void Torrent::UpdateStatistics()
@@ -227,18 +227,18 @@ namespace tortoise
 		std::scoped_lock lock(peer_mutex_);
 
 		const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-		if ((potential_peers_.size() + peers_.size()) < DESIRED_PEERS && (last_peer_request_.time_since_epoch() == std::chrono::steady_clock::duration(0) || (now - last_peer_request_) > PEER_REQUEST_INTERVAL))
+		if ((potential_peers_.size() + peers_.size()) < parameters_->max_peers && (last_peer_request_.time_since_epoch() == std::chrono::steady_clock::duration(0) || (now - last_peer_request_) > PEER_REQUEST_INTERVAL))
 			RequestPeers();
 
 		// Add new peers if we don't have enough and there are still peers in the queue
 		// TODO send a tracker request if we need more peers
-		while (peers_.size() < DESIRED_PEERS && !potential_peers_.empty())
+		while (peers_.size() < parameters_->max_peers && !potential_peers_.empty())
 		{
 			PeerInfo peer_info = potential_peers_.front();
 			potential_peers_.pop_front();
 
 			LOG_INFO("Torrent", std::format("Pending peer {}", peer_info.ToString()));
-			peers_.push_back({std::make_unique<Peer>(peer_info, metainfo_, peer_id_, piece_manager_), PeerStatus::Connecting});
+			peers_.push_back({std::make_unique<Peer>(peer_info, parameters_, metainfo_, peer_id_, piece_manager_), PeerStatus::Connecting});
 			event_queue_.Push(event::PeerStatusChanged{weak_from_this(), peer_info, PeerStatus::Connecting});
 		}
 

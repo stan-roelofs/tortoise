@@ -72,7 +72,7 @@ bool Application::AddTorrent(const std::string &torrent_file)
 		return false;
 	}
 
-	data_ = std::make_unique<TorrentInfo>(handle.GetMetainfo().pieces.size());
+	data_ = std::make_unique<TorrentInfo>(handle.GetMetainfo()->pieces.size());
 
 	handle.StartDownload();
 	handle_ = handle;
@@ -84,21 +84,21 @@ void Application::OnTorrentStatusChanged(const tortoise::event::TorrentStatusCha
 	switch (event.status)
 	{
 	case tortoise::TorrentStatus::Downloading:
-		std::cout << "Torrent downloading: " << event.handle.GetMetainfo().name << std::endl;
+		std::cout << "Torrent downloading: " << event.handle.GetMetainfo()->name << std::endl;
 		break;
 	case tortoise::TorrentStatus::Seeding:
-		std::cout << "Torrent downloaded: " << event.handle.GetMetainfo().name << std::endl;
+		std::cout << "Torrent downloaded: " << event.handle.GetMetainfo()->name << std::endl;
 		session_->RemoveTorrent(event.handle);
 		break;
 	case tortoise::TorrentStatus::Stopped:
-		std::cout << "Torrent stopped: " << event.handle.GetMetainfo().name << std::endl;
+		std::cout << "Torrent stopped: " << event.handle.GetMetainfo()->name << std::endl;
 		break;
 	}
 }
 
 void Application::OnTorrentError(const tortoise::event::TorrentError &event)
 {
-	std::cout << "Torrent error: " << event.handle.GetMetainfo().name << std::endl;
+	std::cout << "Torrent error: " << event.handle.GetMetainfo()->name << std::endl;
 }
 
 void Application::OnPeerStatusChanged(const tortoise::event::PeerStatusChanged &event)

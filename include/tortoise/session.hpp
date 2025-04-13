@@ -8,6 +8,7 @@
 
 #include "event.hpp"
 #include "torrent.hpp"
+#include "torrent_parameters.hpp"
 
 namespace tortoise
 {

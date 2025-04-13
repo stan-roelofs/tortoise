@@ -60,7 +60,7 @@ namespace tortoise
 			virtual void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) = 0;
 		};
 
-		PieceManager(const Metainfo& metainfo);
+		PieceManager(std::shared_ptr<const Metainfo> metainfo);
 		~PieceManager();
 
 		bool HaveInterestingPiece(Handle peer);
@@ -139,7 +139,7 @@ namespace tortoise
 			std::vector<uint32_t> piece_queue;
 		};
 
-		const Metainfo& meta_info_;
+		const std::shared_ptr<const Metainfo> metainfo_;
 
 		std::vector<Piece> pieces_;
 		std::size_t pieces_done_;

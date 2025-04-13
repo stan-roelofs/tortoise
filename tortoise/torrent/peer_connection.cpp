@@ -13,13 +13,6 @@
 
 namespace
 {
-	// TODO make this configurable
-	constexpr std::chrono::seconds keep_alive_timeout(120);
-	constexpr std::chrono::seconds connect_timeout(30);
-	constexpr std::chrono::seconds handshake_timeout = connect_timeout;
-
-	constexpr std::chrono::seconds max_idle_time(keep_alive_timeout - std::chrono::seconds(5));
-
 	constexpr static std::chrono::seconds speed_update_interval = std::chrono::seconds(2);
 
 	const std::string_view log_tag = "PeerConnection";
@@ -160,17 +153,17 @@ namespace tortoise
 
 	// TODO: while handshaking make sure we don't connect to ourselves!
 
-	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks) : message_callbacks_(std::move(callbacks)),
-																																			   peer_info_(peer_info),
-																																			   metainfo_(std::move(metainfo)),
-																																			   own_peer_id_(std::move(peer_id)),
-																																			   can_receive_bitfield_(true),
-																																			   status_(Status::Connecting),
-																																			   socket_(network::TransportProtocol::TCP)
+	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters,
+								   std::shared_ptr<const Metainfo> metainfo, PeerId peer_id, MessageCallbacks callbacks)
+		: message_callbacks_(std::move(callbacks)),
+		  torrent_parameters_(std::move(torrent_parameters)),
+		  peer_info_(peer_info),
+		  metainfo_(std::move(metainfo)),
+		  own_peer_id_(std::move(peer_id)),
+		  can_receive_bitfield_(true),
+		  status_(Status::Connecting),
+		  socket_(network::TransportProtocol::TCP)
 	{
-		if (!metainfo_)
-			throw InvalidArgumentException("Metainfo is null.");
-
 		if (!message_callbacks_.bitfield || !message_callbacks_.cancel || !message_callbacks_.choke || !message_callbacks_.interested ||
 			!message_callbacks_.not_interested || !message_callbacks_.piece || !message_callbacks_.port || !message_callbacks_.request ||
 			!message_callbacks_.unchoke || !message_callbacks_.have)
@@ -184,7 +177,7 @@ namespace tortoise
 			return;
 		}
 
-		SetTimeout(connect_timeout);
+		SetTimeout(torrent_parameters_->peer.timeouts.connect);
 	}
 
 	PeerConnection::~PeerConnection() = default;
@@ -425,7 +418,7 @@ namespace tortoise
 			return false;
 		case network::Socket::Status::Connected:
 		{
-			SetTimeout(handshake_timeout);
+			SetTimeout(torrent_parameters_->peer.timeouts.handshake);
 			status_ = Status::Handshaking;
 			WriteHandshakeMessage(send_buffer_, metainfo_->info_hash, own_peer_id_);
 			LOG_INFO(log_tag, std::format("Connected to peer {}", peer_info_.ToString()));
@@ -449,7 +442,7 @@ namespace tortoise
 	bool PeerConnection::CheckConnectionAlive()
 	{
 		const auto current_time = std::chrono::steady_clock::now();
-		if (status_ == Status::Connected && current_time - time_last_sent_ > max_idle_time)
+		if (status_ == Status::Connected)
 		{
 			WriteKeepAliveMessage(send_buffer_);
 			time_last_sent_ = current_time;
@@ -505,7 +498,7 @@ namespace tortoise
 
 		if (received_bytes > 0)
 		{
-			SetTimeout(keep_alive_timeout);
+			SetTimeout(torrent_parameters_->peer.timeouts.keep_alive);
 			LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", received_bytes, peer_info_.ToString()));
 		}
 
