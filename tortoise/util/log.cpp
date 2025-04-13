@@ -21,10 +21,10 @@ namespace tortoise
 				cv_.notify_all();
 			}
 
-			Log(const Log&) = delete;
-			Log& operator=(const Log&) = delete;
-			Log(Log&&) = delete;
-			Log& operator=(Log&&) = delete;
+			Log(const Log &) = delete;
+			Log &operator=(const Log &) = delete;
+			Log(Log &&) = delete;
+			Log &operator=(Log &&) = delete;
 
 			void SetReceiver(LogReceiver receiver)
 			{
@@ -45,12 +45,15 @@ namespace tortoise
 			}
 
 		private:
-			static void ProcessMessages(std::stop_token stop_token, Log* log)
+			static void ProcessMessages(std::stop_token stop_token, Log *log)
 			{
-				while (!stop_token.stop_requested())
+				while (true)
 				{
 					std::unique_lock<std::mutex> lock(log->mutex_);
 					log->cv_.wait(lock);
+
+					if (stop_token.stop_requested())
+						break;
 
 					while (!log->messages_.empty())
 					{

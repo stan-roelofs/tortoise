@@ -13,36 +13,38 @@
 namespace
 {
 	std::atomic_bool running_;
+	std::ofstream log_stream;
 
 	void Log(const tortoise::logging::Message &message)
 	{
-		static auto stream = std::ofstream("tortoise.log");
-		assert(stream.is_open());
+		if (!log_stream.is_open())
+			return;
 
-		stream << std::format("{:L%T} ", message.time);
+		log_stream << std::format("{:L%T} ", message.time);
 
 		switch (message.level)
 		{
 		case tortoise::logging::Level::Debug:
-			stream << "[DEBUG] ";
+			log_stream << "[DEBUG] ";
 			break;
 		case tortoise::logging::Level::Info:
-			stream << "[INFO] ";
+			log_stream << "[INFO] ";
 			break;
 		case tortoise::logging::Level::Warning:
-			stream << "[WARNING] ";
+			log_stream << "[WARNING] ";
 			break;
 		case tortoise::logging::Level::Error:
-			stream << "[ERROR] ";
+			log_stream << "[ERROR] ";
 			break;
 		}
 
-		stream << std::format("{} : {}", message.tag, message.message) << std::endl;
+		log_stream << std::format("{} : {}", message.tag, message.message) << std::endl;
 	}
 }
 
 Application::Application(CommandLineArguments args) : args_(args), handle_({})
 {
+	log_stream = std::ofstream("tortoise.log");
 	tortoise::logging::RegisterReceiver(Log);
 
 	tortoise::event::Callbacks event_callbacks;
@@ -157,7 +159,7 @@ int Application::Run()
 			std::cout << std::format("Downloaded {}/{} pieces from {} peers ({:.2f} MB/s)", data_->pieces_downloaded, data_->have_pieces.size(), data_->peers.size(), download_rate_mb) << std::endl;
 		}
 
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	return EXIT_SUCCESS;
