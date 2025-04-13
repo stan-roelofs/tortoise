@@ -151,7 +151,6 @@ namespace tortoise
 		return true;
 	}
 
-	// TODO: while handshaking make sure we don't connect to ourselves!
 	// TODO: seeding
 
 	PeerConnection::PeerConnection(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_parameters,
@@ -275,6 +274,11 @@ namespace tortoise
 			if (!ParseHandshake(receive_buffer_, info_hash, peer_id))
 			{
 				Error(std::format("Invalid handshake from peer {}", peer_info_.ToString()));
+				return;
+			}
+			if (peer_id == own_peer_id_)
+			{
+				Error(std::format("Dropping connection to self...", peer_info_.ToString()));
 				return;
 			}
 			if (info_hash != metainfo_->info_hash)
