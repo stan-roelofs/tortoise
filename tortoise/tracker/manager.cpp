@@ -79,7 +79,7 @@ namespace tortoise
 			request_parameters_->compact = true;
 			request_parameters_->no_peer_id = true;
 			request_parameters_->event = AnnounceParameters::Event::Started;
-			request_parameters_->numwant = 10;
+			request_parameters_->numwant = 50;
 		}
 
 		Manager::TorrentTrackerData::~TorrentTrackerData()
@@ -118,11 +118,13 @@ namespace tortoise
 					tracker_list_.SelectFirstTracker();
 				}
 				else
+				{
 					SelectNextTracker();
+				}
 
 				request_ = std::nullopt;
 			}
-			else if (tracker_interval_seconds_ != 0 && last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now)
+			else if (tracker_interval_seconds_ == 0 || (tracker_interval_seconds_ != 0 && last_tracker_contact_ + std::chrono::seconds(tracker_interval_seconds_) < now))
 				RequestTrackerUpdate();
 		}
 
