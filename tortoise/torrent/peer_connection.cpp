@@ -447,7 +447,7 @@ namespace tortoise
 	bool PeerConnection::CheckConnectionAlive()
 	{
 		const auto current_time = std::chrono::steady_clock::now();
-		if (status_ == Status::Connected)
+		if (status_ == Status::Connected && (current_time - time_last_sent_ > torrent_parameters_->peer.send_keep_alive))
 		{
 			WriteKeepAliveMessage(send_buffer_);
 			time_last_sent_ = current_time;
