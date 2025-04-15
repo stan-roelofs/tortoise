@@ -90,7 +90,7 @@ void Application::OnTorrentStatusChanged(const tortoise::event::TorrentStatusCha
 		break;
 	case tortoise::TorrentStatus::Seeding:
 		std::cout << "Torrent downloaded: " << event.handle.GetMetainfo()->name << std::endl;
-		session_->RemoveTorrent(event.handle);
+		running_ = false;
 		break;
 	case tortoise::TorrentStatus::Stopped:
 		std::cout << "Torrent stopped: " << event.handle.GetMetainfo()->name << std::endl;
