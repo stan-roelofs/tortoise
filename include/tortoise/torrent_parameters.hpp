@@ -17,13 +17,14 @@ namespace tortoise
 
         struct
         {
-            unsigned request_queue_size = 20; // Number of requests to send to the peer at once
+            unsigned request_queue_size = 20;                                // Number of requests to send to the peer at once
+            std::chrono::seconds send_keep_alive = std::chrono::seconds(60); // Send a keep alive message after this many seconds of not sending data
 
             struct
             {
                 std::chrono::seconds keep_alive = std::chrono::seconds(120); // Keep alive timeout in seconds
-                std::chrono::seconds connect = std::chrono::seconds(10);     // Connect timeout in seconds
-                std::chrono::seconds handshake = std::chrono::seconds(10);   // Handshake timeout in seconds
+                std::chrono::seconds connect = std::chrono::seconds(20);     // Connect timeout in seconds
+                std::chrono::seconds handshake = std::chrono::seconds(20);   // Handshake timeout in seconds
             } timeouts;
         } peer;
     };

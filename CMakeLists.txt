@@ -17,6 +17,7 @@ set (HEADERS
   include/tortoise/peer_info.hpp
   include/tortoise/session.hpp
   include/tortoise/torrent.hpp
+  include/tortoise/torrent_parameters.hpp
   include/tortoise/version.hpp
 
   tortoise/event_queue.hpp
