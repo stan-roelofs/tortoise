@@ -224,11 +224,13 @@ namespace tortoise
 
 	void Torrent::ProcessPeers()
 	{
-		std::scoped_lock lock(peer_mutex_);
+		const auto peers_needed = parameters_->max_peers - (potential_peers_.size() + peers_.size());
 
 		const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-		if ((potential_peers_.size() + peers_.size()) < parameters_->max_peers && (last_peer_request_.time_since_epoch() == std::chrono::steady_clock::duration(0) || (now - last_peer_request_) > PEER_REQUEST_INTERVAL))
+		if (peers_needed && (last_peer_request_.time_since_epoch() == std::chrono::steady_clock::duration(0) || (now - last_peer_request_) > PEER_REQUEST_INTERVAL))
 			RequestPeers();
+
+		std::scoped_lock lock(peer_mutex_);
 
 		// Add new peers if we don't have enough and there are still peers in the queue
 		// TODO send a tracker request if we need more peers

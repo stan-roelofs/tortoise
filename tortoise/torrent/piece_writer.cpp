@@ -10,6 +10,7 @@
 namespace
 {
 	const std::string log_tag = "PieceWriter";
+	constexpr size_t CHUNK_SIZE = 1024 * 1024; // 1 MB
 }
 
 namespace tortoise
@@ -137,7 +138,7 @@ namespace tortoise
 			std::unique_lock lock(mutex_);
 			cv_.wait(lock);
 
-			while (!pieces_queue_.empty() && !error)
+			while (!pieces_queue_.empty() && !stop_token.stop_requested() && !error)
 			{
 				auto piece = pieces_queue_.front();
 				pieces_queue_.pop();
@@ -148,14 +149,21 @@ namespace tortoise
 				{
 					LOG_INFO(log_tag, std::format("Writing piece {} to file {} at offset {}", piece.index, filepiece.file->path.string(), filepiece.offset));
 					filepiece.file->stream->seekp(filepiece.offset);
-					if (data_offset + filepiece.length > piece.data->size())
+
+					const std::size_t piece_size = piece.data->size();
+					if (data_offset + filepiece.length > piece_size)
 					{
 						LOG_ERROR(log_tag, std::format("Invalid piece data"));
 						throw Exception("Internal error");
 					}
+
+					// TODO: write in small chunks such that this doesn't block for too long...
 					if (!filepiece.file->stream->write((char *)piece.data->data() + data_offset, filepiece.length))
 						ReportError(std::format("Writing data to file {} failed", filepiece.file->path.string()));
 					data_offset += filepiece.length;
+
+					if (stop_token.stop_requested() || error)
+						break;
 				}
 
 				++pieces_done_;

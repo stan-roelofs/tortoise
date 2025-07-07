@@ -56,8 +56,8 @@ namespace tortoise
 
             LOG_INFO(tag, std::format("Connecting to {}:{}", host, port));
 
-            struct addrinfo *result = nullptr, hints;
-
+            struct addrinfo* result = nullptr;
+            struct addrinfo hints;
             memset(&hints, 0, sizeof(hints));
             hints.ai_family = AF_UNSPEC;
 
@@ -72,6 +72,7 @@ namespace tortoise
             }
 
             hints.ai_protocol = 0;
+			hints.ai_flags = AI_PASSIVE;
 
             int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
             if (iResult != 0)
@@ -209,7 +210,7 @@ namespace tortoise
             if (error != 0)
                 LOG_ERROR(tag, std::format("Socket error: {}", error));
 
-            if (!Select(false, true, 1))
+            if (!Select(false, true, 0))
                 return Status::Pending;
 
             return (error == 0) ? Status::Connected : Status::Error;
