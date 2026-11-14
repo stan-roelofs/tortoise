@@ -132,6 +132,7 @@ int Application::Run() {
   std::signal(SIGINT, SignalHandler);
   std::signal(SIGTERM, SignalHandler);
   std::signal(SIGABRT, SignalHandler);
+  std::signal(SIGPIPE, SIG_IGN);
 
   running_ = true;
   while (running_) {
