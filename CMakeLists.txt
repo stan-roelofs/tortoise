@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
- 
+
 project(Tortoise VERSION 1.0.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
@@ -81,6 +81,9 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 target_link_libraries(tortoise PRIVATE Threads::Threads)
 
+find_package(OpenSSL)
+target_link_libraries(tortoise PRIVATE OpenSSL::SSL)
+
 if (WIN32)
   target_link_libraries(tortoise PRIVATE ws2_32)
 endif()
@@ -92,7 +95,10 @@ else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(tortoise 
+PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external
+)
 
 if(TORTOISE_BUILD_TESTS)
   enable_testing()
