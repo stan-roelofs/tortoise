@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
  
-project(Tortoise VERSION 0.2.0 LANGUAGES CXX)
+project(Tortoise VERSION 1.0.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
 option(TORTOISE_BUILD_APP "Build application" ON)
