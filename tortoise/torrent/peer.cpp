@@ -193,7 +193,7 @@ void Peer::OnMessagePiece(std::uint32_t index, std::uint32_t begin, ByteVector p
     return;
   }
 
-  LOG_INFO(log_tag, std::format("Peer {} sent block {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
+  LOG_DEBUG(log_tag, std::format("Peer {} sent block {}, begin {}, length {}", peer_info_.ToString(), index, begin, piece.size()));
   requested_blocks_.erase(Block{index, begin, 0});
   piece_manager_.ReceiveBlock(handle_, index, begin, std::move(piece));
 }

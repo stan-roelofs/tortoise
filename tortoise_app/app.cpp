@@ -12,35 +12,36 @@
 
 namespace {
 std::atomic_bool running_;
-std::ofstream log_stream;
+std::ofstream log_stream_;
+tortoise::logging::Level log_level_ = tortoise::logging::Level::Info;
 
 void Log(const tortoise::logging::Message &message) {
-  if (!log_stream.is_open())
+  if (!log_stream_.is_open() || message.level < log_level_)
     return;
 
-  log_stream << std::format("{:L%T} ", message.time);
+  log_stream_ << std::format("{:L%T} ", message.time);
 
   switch (message.level) {
   case tortoise::logging::Level::Debug:
-    log_stream << "[DEBUG] ";
+    log_stream_ << "[DEBUG] ";
     break;
   case tortoise::logging::Level::Info:
-    log_stream << "[INFO] ";
+    log_stream_ << "[INFO] ";
     break;
   case tortoise::logging::Level::Warning:
-    log_stream << "[WARNING] ";
+    log_stream_ << "[WARNING] ";
     break;
   case tortoise::logging::Level::Error:
-    log_stream << "[ERROR] ";
+    log_stream_ << "[ERROR] ";
     break;
   }
 
-  log_stream << std::format("{} : {}", message.tag, message.message) << std::endl;
+  log_stream_ << std::format("{} : {}", message.tag, message.message) << std::endl;
 }
 } // namespace
 
 Application::Application(CommandLineArguments args) : args_(args), handle_({}) {
-  log_stream = std::ofstream("tortoise.log");
+  log_stream_ = std::ofstream("tortoise.log");
   tortoise::logging::RegisterReceiver(Log);
 
   tortoise::event::Callbacks event_callbacks;

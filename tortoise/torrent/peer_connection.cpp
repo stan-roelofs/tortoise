@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <random>
 #include <vector>
 
 #include <tortoise/exception.hpp>
@@ -191,8 +190,8 @@ void PeerConnection::Disconnect() {
 
 void PeerConnection::SendRequest(std::uint32_t index, std::uint32_t begin, std::uint32_t length) {
   assert(length > 0);
-  LOG_INFO(log_tag,
-           std::format("Requesting block (index: {}, begin: {}, length: {}) from peer {}", index, begin, length, peer_info_.ToString()));
+  LOG_DEBUG(log_tag,
+            std::format("Requesting block (index: {}, begin: {}, length: {}) from peer {}", index, begin, length, peer_info_.ToString()));
   WriteRequestMessage(send_buffer_, protocol::MessageID::Request, index, begin, length);
 }
 
@@ -406,7 +405,7 @@ bool PeerConnection::Send() {
   int length = (int)std::min(send_buffer_.size(), (std::size_t)std::numeric_limits<int>::max());
   switch (socket_.Send(send_buffer_.data(), length)) {
   case network::Socket::Result::Ok:
-    LOG_INFO(log_tag, std::format("Sent {} bytes to peer {}", length, peer_info_.ToString()));
+    LOG_DEBUG(log_tag, std::format("Sent {} bytes to peer {}", length, peer_info_.ToString()));
     time_last_sent_ = std::chrono::steady_clock::now();
     send_buffer_.erase(send_buffer_.begin(), send_buffer_.begin() + length);
     return true;
@@ -437,7 +436,7 @@ bool PeerConnection::Receive() {
 
   if (received_bytes > 0) {
     SetTimeout(torrent_parameters_->peer.timeouts.keep_alive);
-    LOG_INFO(log_tag, std::format("Received {} bytes from peer {}", received_bytes, peer_info_.ToString()));
+    LOG_DEBUG(log_tag, std::format("Received {} bytes from peer {}", received_bytes, peer_info_.ToString()));
   }
 
   return result != network::Socket::Result::Error;

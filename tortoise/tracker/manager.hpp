@@ -3,12 +3,11 @@
 
 #include <chrono>
 #include <functional>
+#include <future>
 #include <list>
-#include <map>
 #include <thread>
 
 #include "announce.hpp"
-#include "connection.hpp"
 #include "tiered_list.hpp"
 
 #include "../torrent/torrent_impl.hpp"
