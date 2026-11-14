@@ -42,9 +42,10 @@ PieceManager::PieceManager(std::shared_ptr<const Metainfo> metainfo)
       ++piece_blocks;
 
     piece.blocks.resize(piece_blocks);
-    for (std::size_t j = 0; j < piece_blocks - 1; ++j)
+    for (std::size_t j = 0; j < piece_blocks - 1; ++j) {
       piece.blocks.at(j) = BlockData{
           {static_cast<std::uint32_t>(i), static_cast<std::uint32_t>(j * PieceManager::BLOCK_SIZE), PieceManager::BLOCK_SIZE}, false, {}};
+    }
     piece.blocks.back() =
         BlockData{{static_cast<std::uint32_t>(i), static_cast<std::uint32_t>((piece_blocks - 1) * PieceManager::BLOCK_SIZE),
                    last_block_size ? last_block_size : PieceManager::BLOCK_SIZE},
@@ -143,8 +144,9 @@ std::vector<Block> PieceManager::GetRequests(Handle peer) {
     queue.pop_back();
 
     for (const auto &block : piece.blocks) {
-      if (!block.done)
+      if (!block.done) {
         blocks.push_back(block.block);
+      }
     }
 
     if (!piece.requested) {
@@ -172,7 +174,7 @@ void PieceManager::ReceiveBlock(Handle, std::uint32_t piece_index, std::uint32_t
 
   const auto piece_data = piece.ReleaseBlockData();
   const auto hash = hash::CreateSHA1(piece_data->data(), piece_data->size());
-  if (memcmp(hash.data(), metainfo_->pieces.at(piece_index).data(), hash.size() != 0)) {
+  if (memcmp(hash.data(), metainfo_->pieces.at(piece_index).data(), hash.size()) != 0) {
     LOG_WARN(log_tag, std::format("Hash mismatch in piece {}", piece_index));
     piece.Reset();
     return;

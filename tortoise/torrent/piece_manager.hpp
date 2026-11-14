@@ -26,24 +26,6 @@ struct Block {
   }
 };
 
-// struct Block
-// {
-// 	std::uint32_t piece_index;
-// 	std::uint32_t offset;
-// 	std::uint32_t length;
-
-// 	bool operator==(const Block &other) const
-// 	{
-// 		return piece_index == other.piece_index && offset == other.offset && length == other.length;
-// 	}
-
-// 	bool operator!=(const Block &other) const
-// 	{
-// 		return !(*this == other);
-// 	}
-
-// };
-
 class PieceManager {
 public:
   static constexpr std::uint32_t BLOCK_SIZE = 1 << 14; // 2^14 is used by near all clients and some even enforce this size.
@@ -108,7 +90,7 @@ private:
       data->reserve(length);
       for (auto &block : blocks) {
         std::copy(block.data.begin(), block.data.end(), std::back_inserter(*data));
-        block = {};
+        block.data = ByteVector();
       }
       return data;
     }
