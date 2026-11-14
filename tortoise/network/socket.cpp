@@ -8,267 +8,238 @@
 
 #include "../util/log.hpp"
 
-namespace
-{
-    const std::string_view tag = "Socket";
+namespace {
+const std::string_view tag = "Socket";
 }
 
-namespace tortoise
-{
-    namespace network
-    {
-        Socket::Socket(network::TransportProtocol protocol) : protocol_(protocol), internet_protocol_(network::InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE)
-        {
+namespace tortoise {
+namespace network {
+Socket::Socket(network::TransportProtocol protocol)
+    : protocol_(protocol), internet_protocol_(network::InternetProtocol::Unknown), socket_(INVALID_SOCKET_VALUE) {
 #ifdef _WIN32
-            WSADATA wsaData;
-            int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-            if (iResult != 0)
-                throw SocketException("WSAStartup failed: " + std::to_string(iResult));
+  WSADATA wsaData;
+  int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+  if (iResult != 0)
+    throw SocketException("WSAStartup failed: " + std::to_string(iResult));
 #endif
-        }
+}
 
-        Socket::~Socket()
-        {
-            Close();
+Socket::~Socket() {
+  Close();
 
 #ifdef _WIN32
-            WSACleanup();
+  WSACleanup();
 #endif
-        }
+}
 
-        void Socket::Close()
-        {
+void Socket::Close() {
 #ifdef _WIN32
-            closesocket(socket_);
+  closesocket(socket_);
 #else
-            close(socket_);
+  close(socket_);
 #endif
-            socket_ = INVALID_SOCKET_VALUE;
-        }
+  socket_ = INVALID_SOCKET_VALUE;
+}
 
-        bool Socket::Connect(const std::string &host, const std::string &port)
-        {
-            if (host.empty() || port.empty())
-            {
-                LOG_WARN(tag, "host or port is empty");
-                return false;
-            }
+bool Socket::Connect(const std::string &host, const std::string &port) {
+  if (host.empty() || port.empty()) {
+    LOG_WARN(tag, "host or port is empty");
+    return false;
+  }
 
-            LOG_INFO(tag, std::format("Connecting to {}:{}", host, port));
+  LOG_INFO(tag, std::format("Connecting to {}:{}", host, port));
 
-            struct addrinfo* result = nullptr;
-            struct addrinfo hints;
-            memset(&hints, 0, sizeof(hints));
-            hints.ai_family = AF_UNSPEC;
+  struct addrinfo *result = nullptr;
+  struct addrinfo hints;
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
 
-            switch (protocol_)
-            {
-            case network::TransportProtocol::TCP:
-                hints.ai_socktype = SOCK_STREAM;
-                break;
-            case network::TransportProtocol::UDP:
-                hints.ai_socktype = SOCK_DGRAM;
-                break;
-            }
+  switch (protocol_) {
+  case network::TransportProtocol::TCP:
+    hints.ai_socktype = SOCK_STREAM;
+    break;
+  case network::TransportProtocol::UDP:
+    hints.ai_socktype = SOCK_DGRAM;
+    break;
+  }
 
-            hints.ai_protocol = 0;
-			hints.ai_flags = AI_PASSIVE;
+  hints.ai_protocol = 0;
+  hints.ai_flags = AI_PASSIVE;
 
-            int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
-            if (iResult != 0)
-            {
-                LOG_ERROR(tag, std::format("getaddrinfo failed: {}", iResult));
-                return false;
-            }
+  int iResult = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
+  if (iResult != 0) {
+    LOG_ERROR(tag, std::format("getaddrinfo failed: {}", iResult));
+    return false;
+  }
 
-            addrinfo *ptr;
-            for (ptr = result; ptr != nullptr; ptr = ptr->ai_next)
-            {
-                socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-                if (socket_ == INVALID_SOCKET_VALUE)
-                {
-                    LOG_ERROR(tag, "Failed to create socket");
-                    continue;
-                }
-
-                if (!SetBlocking(false))
-                {
-                    LOG_ERROR(tag, "Failed to set socket to non-blocking mode");
-                    return false;
-                }
-
-                if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
-                    break;
-
-#ifdef _WIN32
-                int error = WSAGetLastError();
-                if (error == WSAEWOULDBLOCK)
-                    break;
-#else
-                if (errno == EINPROGRESS)
-                    break;
-#endif
-
-                Close();
-            }
-
-            freeaddrinfo(result);
-
-            if (socket_ != INVALID_SOCKET_VALUE && ptr != nullptr && ptr->ai_addr != nullptr)
-            {
-                switch (ptr->ai_addr->sa_family)
-                {
-                case AF_INET:
-                    internet_protocol_ = network::InternetProtocol::IPv4;
-                    break;
-                case AF_INET6:
-                    internet_protocol_ = network::InternetProtocol::IPv6;
-                    break;
-                default:
-                    internet_protocol_ = network::InternetProtocol::Unknown;
-                }
-            }
-
-            return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != network::InternetProtocol::Unknown;
-        }
-
-        Socket::Result Socket::Send(const void *data, int &length)
-        {
-            const int bytes_sent = send(socket_, static_cast<const char *>(data), length, 0);
-            if (bytes_sent >= 0)
-            {
-                assert(bytes_sent == length);
-                length = bytes_sent;
-                return Result::Ok;
-            }
-
-            length = 0;
-
-#ifdef _WIN32
-            const int error = WSAGetLastError();
-            if (error == WSAEWOULDBLOCK)
-                return Result::WouldBlock;
-
-            LOG_ERROR(tag, std::format("Send failed with error code: {}", error));
-            return Result::Error;
-#else
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return Result::WouldBlock;
-
-            LOG_ERROR(tag, std::format("Send failed with error code: {}", errno));
-            return Result::Error;
-#endif
-        }
-
-        Socket::Result Socket::Receive(void *buffer, int &length)
-        {
-            const int bytes_received = recv(socket_, static_cast<char *>(buffer), length, 0);
-            if (bytes_received >= 0)
-            {
-                length = bytes_received;
-                return Result::Ok;
-            }
-
-            length = 0;
-
-#ifdef _WIN32
-            const int error = WSAGetLastError();
-            if (error == WSAEWOULDBLOCK)
-                return Result::WouldBlock;
-
-            LOG_ERROR(tag, std::format("Receive failed with error code: {}", error));
-            return Result::Error;
-#else
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return Result::WouldBlock;
-
-            LOG_ERROR(tag, std::format("Receive failed with error code: {}", errno));
-            return Result::Error;
-#endif
-        }
-
-        Socket::Status Socket::GetConnectionStatus() const
-        {
-            if (socket_ == INVALID_SOCKET_VALUE)
-                return Status::Error;
-
-            int error = 0;
-            socklen_t len = sizeof(error);
-            if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, (char *)&error, &len) < 0)
-            {
-                const int code =
-#ifdef _WIN32
-                    WSAGetLastError();
-#else
-                    errno;
-#endif
-                (void)code;
-                LOG_ERROR(tag, std::format("getsockopt failed: {}", code));
-                return Status::Error;
-            }
-
-            if (error != 0)
-                LOG_ERROR(tag, std::format("Socket error: {}", error));
-
-            if (!Select(false, true, 0))
-                return Status::Pending;
-
-            return (error == 0) ? Status::Connected : Status::Error;
-        }
-
-        network::TransportProtocol Socket::GetTransportProtocol() const
-        {
-            return protocol_;
-        }
-
-        network::InternetProtocol Socket::GetInternetProtocol() const
-        {
-            return internet_protocol_;
-        }
-
-        bool Socket::Select(bool read, bool write, unsigned int timeout_us) const
-        {
-            assert(read || write);
-
-            fd_set fds;
-            FD_ZERO(&fds);
-            FD_SET(socket_, &fds);
-
-            timeval tv;
-            tv.tv_sec = timeout_us / 1000000;
-            tv.tv_usec = (timeout_us % 1000000);
-
-#ifdef _WIN32
-            return select(0, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv) > 0;
-#else
-            int result = 0;
-            do
-            {
-                result = select(socket_ + 1, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv);
-            } while (result == -1 && errno == EINTR);
-
-            return result > 0;
-#endif
-        }
-
-        bool Socket::SetBlocking(bool blocking)
-        {
-
-#ifdef _WIN32
-            u_long mode = blocking ? 0 : 1;
-            return ioctlsocket(socket_, FIONBIO, &mode) == 0;
-#else
-            int flags = fcntl(socket_, F_GETFL, 0);
-            if (flags == -1)
-                return false;
-
-            if (blocking)
-                flags &= ~O_NONBLOCK;
-            else
-                flags |= O_NONBLOCK;
-
-            return fcntl(socket_, F_SETFL, flags) == 0;
-#endif
-        }
+  addrinfo *ptr;
+  for (ptr = result; ptr != nullptr; ptr = ptr->ai_next) {
+    socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+    if (socket_ == INVALID_SOCKET_VALUE) {
+      LOG_ERROR(tag, "Failed to create socket");
+      continue;
     }
+
+    if (!SetBlocking(false)) {
+      LOG_ERROR(tag, "Failed to set socket to non-blocking mode");
+      return false;
+    }
+
+    if (connect(socket_, ptr->ai_addr, (int)ptr->ai_addrlen) == 0)
+      break;
+
+#ifdef _WIN32
+    int error = WSAGetLastError();
+    if (error == WSAEWOULDBLOCK)
+      break;
+#else
+    if (errno == EINPROGRESS)
+      break;
+#endif
+
+    Close();
+  }
+
+  freeaddrinfo(result);
+
+  if (socket_ != INVALID_SOCKET_VALUE && ptr != nullptr && ptr->ai_addr != nullptr) {
+    switch (ptr->ai_addr->sa_family) {
+    case AF_INET:
+      internet_protocol_ = network::InternetProtocol::IPv4;
+      break;
+    case AF_INET6:
+      internet_protocol_ = network::InternetProtocol::IPv6;
+      break;
+    default:
+      internet_protocol_ = network::InternetProtocol::Unknown;
+    }
+  }
+
+  return socket_ != INVALID_SOCKET_VALUE && internet_protocol_ != network::InternetProtocol::Unknown;
+}
+
+Socket::Result Socket::Send(const void *data, int &length) {
+  const int bytes_sent = send(socket_, static_cast<const char *>(data), length, 0);
+  if (bytes_sent >= 0) {
+    assert(bytes_sent == length);
+    length = bytes_sent;
+    return Result::Ok;
+  }
+
+  length = 0;
+
+#ifdef _WIN32
+  const int error = WSAGetLastError();
+  if (error == WSAEWOULDBLOCK)
+    return Result::WouldBlock;
+
+  LOG_ERROR(tag, std::format("Send failed with error code: {}", error));
+  return Result::Error;
+#else
+  if (errno == EAGAIN || errno == EWOULDBLOCK)
+    return Result::WouldBlock;
+
+  LOG_ERROR(tag, std::format("Send failed with error code: {}", errno));
+  return Result::Error;
+#endif
+}
+
+Socket::Result Socket::Receive(void *buffer, int &length) {
+  const int bytes_received = recv(socket_, static_cast<char *>(buffer), length, 0);
+  if (bytes_received >= 0) {
+    length = bytes_received;
+    return Result::Ok;
+  }
+
+  length = 0;
+
+#ifdef _WIN32
+  const int error = WSAGetLastError();
+  if (error == WSAEWOULDBLOCK)
+    return Result::WouldBlock;
+
+  LOG_ERROR(tag, std::format("Receive failed with error code: {}", error));
+  return Result::Error;
+#else
+  if (errno == EAGAIN || errno == EWOULDBLOCK)
+    return Result::WouldBlock;
+
+  LOG_ERROR(tag, std::format("Receive failed with error code: {}", errno));
+  return Result::Error;
+#endif
+}
+
+Socket::Status Socket::GetConnectionStatus() const {
+  if (socket_ == INVALID_SOCKET_VALUE)
+    return Status::Error;
+
+  int error = 0;
+  socklen_t len = sizeof(error);
+  if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, (char *)&error, &len) < 0) {
+    const int code =
+#ifdef _WIN32
+        WSAGetLastError();
+#else
+        errno;
+#endif
+    (void)code;
+    LOG_ERROR(tag, std::format("getsockopt failed: {}", code));
+    return Status::Error;
+  }
+
+  if (error != 0)
+    LOG_ERROR(tag, std::format("Socket error: {}", error));
+
+  if (!Select(false, true, 0))
+    return Status::Pending;
+
+  return (error == 0) ? Status::Connected : Status::Error;
+}
+
+network::TransportProtocol Socket::GetTransportProtocol() const { return protocol_; }
+
+network::InternetProtocol Socket::GetInternetProtocol() const { return internet_protocol_; }
+
+bool Socket::Select(bool read, bool write, unsigned int timeout_us) const {
+  assert(read || write);
+
+  fd_set fds;
+  FD_ZERO(&fds);
+  FD_SET(socket_, &fds);
+
+  timeval tv;
+  tv.tv_sec = timeout_us / 1000000;
+  tv.tv_usec = (timeout_us % 1000000);
+
+#ifdef _WIN32
+  return select(0, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv) > 0;
+#else
+  int result = 0;
+  do {
+    result = select(socket_ + 1, read ? &fds : nullptr, write ? &fds : nullptr, &fds, &tv);
+  } while (result == -1 && errno == EINTR);
+
+  return result > 0;
+#endif
+}
+
+bool Socket::SetBlocking(bool blocking) {
+
+#ifdef _WIN32
+  u_long mode = blocking ? 0 : 1;
+  return ioctlsocket(socket_, FIONBIO, &mode) == 0;
+#else
+  int flags = fcntl(socket_, F_GETFL, 0);
+  if (flags == -1)
+    return false;
+
+  if (blocking)
+    flags &= ~O_NONBLOCK;
+  else
+    flags |= O_NONBLOCK;
+
+  return fcntl(socket_, F_SETFL, flags) == 0;
+#endif
+}
+} // namespace network
 } // namespace tortoise

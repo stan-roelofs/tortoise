@@ -3,23 +3,21 @@
 
 #include "../util/util.hpp"
 
-namespace tortoise
-{
-	class Bitfield
-	{
-	public:
-		Bitfield(std::size_t nr_pieces);
+namespace tortoise {
+class Bitfield {
+public:
+  Bitfield(std::size_t nr_pieces);
 
-		bool HasPiece(std::uint32_t index) const;
-		void SetHavePiece(std::uint32_t index);
+  bool HasPiece(std::uint32_t index) const;
+  void SetHavePiece(std::uint32_t index);
 
-		void FromBytes(ByteVector bytes);
-		const ByteVector &AsBytes() const;
+  void FromBytes(ByteVector bytes);
+  const ByteVector &AsBytes() const;
 
-	private:
-		std::size_t nr_pieces_;
-		ByteVector bitfield_;
-	};
-}
+private:
+  std::size_t nr_pieces_;
+  ByteVector bitfield_;
+};
+} // namespace tortoise
 
 #endif

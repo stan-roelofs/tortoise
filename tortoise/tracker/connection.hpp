@@ -8,19 +8,17 @@
 
 #include "announce.hpp"
 
-namespace tortoise
-{
-    namespace tracker
-    {
-        namespace http
-        {
-            std::optional<AnnounceResponse> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel);
-        }
-        namespace udp
-        {
-            std::optional<AnnounceResponse> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters, std::shared_ptr<std::atomic_bool> cancel);
-        }
-    }
+namespace tortoise {
+namespace tracker {
+namespace http {
+std::optional<AnnounceResponse> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters,
+                                         std::shared_ptr<std::atomic_bool> cancel);
 }
+namespace udp {
+std::optional<AnnounceResponse> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters,
+                                         std::shared_ptr<std::atomic_bool> cancel);
+}
+} // namespace tracker
+} // namespace tortoise
 
 #endif // TORTOISE_TRACKER_CONNECTION_HPP

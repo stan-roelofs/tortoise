@@ -5,31 +5,27 @@
 #include <functional>
 #include <string>
 
-namespace tortoise
-{
-    namespace logging
-    {
-        enum class Level
-        {
-            Debug,
-            Info,
-            Warning,
-            Error,
-        };
+namespace tortoise {
+namespace logging {
+enum class Level {
+  Debug,
+  Info,
+  Warning,
+  Error,
+};
 
-        struct Message
-        {
-            std::chrono::system_clock::time_point time;
-            Level level;
-            std::string tag;
-            std::string message;
-        };
+struct Message {
+  std::chrono::system_clock::time_point time;
+  Level level;
+  std::string tag;
+  std::string message;
+};
 
-        using LogReceiver = std::function<void(const Message &)>;
+using LogReceiver = std::function<void(const Message &)>;
 
-        //! \brief Register an object to receive internal log messages, if no receiver is set all logs are discarded.
-        void RegisterReceiver(LogReceiver receiver);
-    }
+//! \brief Register an object to receive internal log messages, if no receiver is set all logs are discarded.
+void RegisterReceiver(LogReceiver receiver);
+} // namespace logging
 } // namespace tortoise
 
 #endif
