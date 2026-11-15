@@ -1,19 +1,19 @@
-#include "connection.hpp"
-
+#include <exception>
 #include <iomanip>
 #include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
-
 #include <tortoise/exception.hpp>
 
 #include "../bencode/bencode.hpp"
-#include "../network/socket.hpp"
 #include "../network/url.hpp"
 #include "../util/log.hpp"
-#include "../util/util.hpp"
 #include "announce.hpp"
+#include "connection.hpp"
+
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include <httplib.h>
 
 namespace {
 std::string url_encode(const std::string &value) {
@@ -43,7 +43,8 @@ std::string CreateRequest(const tortoise::network::URL &url, const tortoise::tra
   std::string request;
 
   std::string path = url.GetPath();
-  // The absolute path cannot be empty; if none is present in the original URI, it MUST be given as "/"
+  // The absolute path cannot be empty; if none is present in the original
+  // URI, it MUST be given as "/"
   if (path.empty())
     path = "/";
 
@@ -91,11 +92,7 @@ std::string CreateRequest(const tortoise::network::URL &url, const tortoise::tra
     query += url_encode(param.first) + "=" + url_encode(param.second);
   }
 
-  request = "GET " + url.GetPath() + (query.empty() ? "" : "?" + query) + " HTTP/1.1\r\n";
-  request += "Host: " + url.GetHost() + "\r\n";
-  request += "Connection: close\r\n";
-  request += "\r\n";
-  return request;
+  return path + (query.empty() ? "" : "?" + query);
 }
 
 struct Response {
@@ -107,53 +104,15 @@ public:
   std::string headers;
 };
 
-std::optional<Response> ParseResponse(const std::string &response) {
-  Response result;
-  const auto status_line_end = response.find("\r\n");
-  if (status_line_end == std::string::npos)
-    return {};
-
-  const std::string status_line = response.substr(0, status_line_end);
-  std::size_t space = status_line.find(' ');
-  if (space == std::string::npos)
-    return {};
-
-  result.http_version = status_line.substr(0, space);
-
-  try {
-    result.status_code = static_cast<std::uint16_t>(std::stoi(status_line.substr(space + 1, 3)));
-  } catch (const std::invalid_argument &) {
-    return {};
-  }
-
-  space = status_line.find(' ', space + 1);
-  if (space == std::string::npos)
-    return {};
-
-  result.status_text = status_line.substr(space + 1);
-
-  std::size_t header_end = response.find("\r\n\r\n", status_line_end);
-  if (header_end == std::string::npos)
-    return {};
-
-  result.headers = response.substr(status_line_end + 2, header_end - status_line_end - 2);
-
-  header_end += 4;
-  result.body = response.substr(header_end);
-  return result;
-}
-
 std::optional<tortoise::tracker::AnnounceResponse> ParseAnnounceResponse(const std::string &response_string) {
-  const auto http_response = ParseResponse(response_string);
-  if (!http_response)
-    return {};
+  const auto http_response = response_string;
 
   using namespace tortoise;
   using namespace bencode;
 
   tracker::AnnounceResponse response;
   std::unique_ptr<Data> data;
-  std::istringstream iss(http_response->body);
+  std::istringstream iss(response_string);
   try {
     data = Decode(iss);
   } catch (BencodeException &e) {
@@ -232,9 +191,11 @@ std::optional<tortoise::tracker::AnnounceResponse> ParseAnnounceResponse(const s
       const list_t &peers = Get<list_t>(*dict.at("peers"));
       for (const auto &peer_dict : peers) {
         const dictionary_t &peer = Get<dictionary_t>(*peer_dict);
-        auto peer_id = Get<string_t>(*peer.at("peer id"));
-        auto ip = Get<string_t>(*dict.at("ip"));
-        const integer_t port = Get<integer_t>(*dict.at("port"));
+        std::string peer_id;
+        if (peer.contains("peer id"))
+          peer_id = Get<string_t>(*peer.at("peer id"));
+        auto ip = Get<string_t>(*peer.at("ip"));
+        const integer_t port = Get<integer_t>(*peer.at("port"));
         if (port < 0 || port > 65535) {
           LOG_ERROR("HTTPTrackerConnection", "Invalid port number");
           return {};
@@ -300,77 +261,41 @@ std::optional<tortoise::tracker::AnnounceResponse> ParseAnnounceResponse(const s
 } // namespace
 
 namespace tortoise {
-std::optional<tracker::AnnounceResponse> tracker::http::Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters,
-                                                                 std::shared_ptr<std::atomic_bool> cancel) {
-  LOG_INFO("HTTPTrackerConnection", std::format("Announce ({})", url.ToString()));
+namespace tracker {
+HTTPConnection::HTTPConnection(const network::URL &url) : url_(url), client_(std::make_unique<httplib::Client>(url.GetHost())) {
+  client_->set_follow_location(true);
+  client_->set_connection_timeout(5, 0); // 5 seconds
+  client_->set_max_timeout(5000);
+  client_->set_keep_alive(true);
+}
 
-  network::Socket socket(network::TransportProtocol::TCP);
-  if (!socket.Connect(url.GetHost(), url.GetPort().empty() ? "80" : url.GetPort())) {
-    LOG_ERROR("HTTPTrackerConnection", std::format("Failed to connect to tracker ({})", url.ToString()));
+HTTPConnection::~HTTPConnection() { client_->stop(); }
+
+void HTTPConnection::Cancel() {
+  // TODO
+}
+
+std::optional<AnnounceResponse> HTTPConnection::Announce(std::shared_ptr<const AnnounceParameters> parameters) {
+  LOG_INFO("tracker::HTTPConnection", std::format("Announce ({})", url_.ToString()));
+
+  const auto res = client_->Get(CreateRequest(url_, *parameters));
+  if (!res) {
+    LOG_ERROR("network error: {}", httplib::to_string(res.error()));
     return {};
   }
 
-  std::string request = CreateRequest(url, *parameters);
-  ByteVector buffer(request.size());
-  std::copy(request.begin(), request.end(), buffer.begin());
-
-  // Connect
-  {
-    auto status = socket.GetConnectionStatus();
-    while (status != network::Socket::Status::Connected) {
-      status = socket.GetConnectionStatus();
-      if (status == network::Socket::Status::Error || *cancel) {
-        LOG_ERROR("HTTPTrackerConnection", std::format("Failed to connect to tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
-        return {};
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+  if (res->status >= 400) {
+    LOG_ERROR("HTTPTrackerConnection", std::format("http error: {}", res->status));
+    return {};
   }
-
-  // Send request
-  {
-    int length = (int)std::min(buffer.size(), (std::size_t)std::numeric_limits<int>::max());
-    size_t bytes_sent = 0;
-    while (bytes_sent < buffer.size()) {
-      const auto result = socket.Send(buffer.data() + bytes_sent, length);
-      if (result == network::Socket::Result::Error || *cancel) {
-        LOG_ERROR("HTTPTrackerConnection",
-                  std::format("Failed to send request to tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
-        return {};
-      }
-
-      if (result == network::Socket::Result::Ok) {
-        bytes_sent += length;
-        length = (int)std::min(buffer.size() - bytes_sent, (std::size_t)std::numeric_limits<int>::max());
-        if (length == 0)
-          break;
-      }
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+  LOG_INFO("HTTPTrackerConnection", res->body);
+  try {
+    return ParseAnnounceResponse(res->body);
+  } catch (std::exception &e) {
+    LOG_ERROR("HTTPTrackerConnection", e.what());
   }
-
-  // Receive response
-
-  buffer.clear();
-  while (true) {
-    std::uint8_t temp[1024];
-    int length = sizeof(temp);
-    const auto result = socket.Receive(temp, length);
-    if (result == network::Socket::Result::Error || *cancel) {
-      LOG_ERROR("HTTPTrackerConnection",
-                std::format("Failed to receive response from tracker {} {}", url.ToString(), *cancel ? "(cancelled)" : ""));
-      return {};
-    }
-
-    if (result == network::Socket::Result::Ok) {
-      std::copy(temp, temp + length, std::back_inserter(buffer));
-
-      if (length == 0)
-        return ParseAnnounceResponse(std::string(buffer.begin(), buffer.end()));
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
+  return {};
 }
+} // namespace tracker
 
 } // namespace tortoise

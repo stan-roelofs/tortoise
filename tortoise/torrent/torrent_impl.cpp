@@ -5,7 +5,7 @@
 #include "../util/log.hpp"
 
 namespace {
-constexpr std::chrono::seconds PEER_REQUEST_INTERVAL = std::chrono::seconds(600);
+constexpr std::chrono::seconds PEER_REQUEST_INTERVAL = std::chrono::seconds(20);
 }
 
 namespace tortoise {

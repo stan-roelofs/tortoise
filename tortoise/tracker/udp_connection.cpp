@@ -18,7 +18,7 @@ namespace tortoise {
 // TODO this code is a complete mess
 
 namespace {
-const std::string_view log_tag = "Connection";
+const std::string_view log_tag = "tracker::UDPConnection";
 
 constexpr std::uint64_t MAGIC_PROTOCOL_CONSTANT = 0x41727101980;
 constexpr int CONNECT_REQUEST_SIZE = 16;
@@ -122,83 +122,28 @@ std::chrono::steady_clock::time_point GetTimeoutTime(unsigned int nr_timeouts) {
 }
 } // namespace
 
-class UDPTrackerConnection {
-public:
-  UDPTrackerConnection();
-  ~UDPTrackerConnection();
+namespace tracker {
+UDPConnection::UDPConnection(const network::URL &url)
+    : url_(url), state_(State::SendConnectRequest), socket_(network::TransportProtocol::UDP), transaction_id_(0),
+      current_buffer_position_(0u), nr_timeouts_(0u) {}
 
-  std::optional<tracker::AnnounceResponse> Announce(const network::URL &url, const tracker::AnnounceParameters &parameters,
-                                                    std::shared_ptr<std::atomic_bool> cancel);
+UDPConnection::~UDPConnection() { Cancel(); }
 
-private:
-  enum class SendResult { Finished, Unfinished, Error };
+void UDPConnection::Cancel() { cancel_flag_ = true; }
 
-  enum class ReceiveResult { Finished, Unfinished, Timeout, Error };
-
-  void CreateConnectRequest();
-  void CreateAnnounceRequest();
-  SendResult Send();
-  ReceiveResult Receive();
-  void ResizeBuffer(std::size_t size);
-
-  enum class State { SendConnectRequest, ReceiveConnectResponse, SendAnnounceRequest, ReceiveAnnounceResponse };
-
-  /*! \brief A connection ID is a 64-bit number that is used to identify a connection to a tracker. It is sent by the tracker in response to
-   * a connect request. A client can use a connection ID until one minute after it has received it.
-   */
-  class ConnectionId {
-  public:
-    ConnectionId() : id(0) {}
-    ConnectionId(std::uint64_t id) : id(id), receive_time(std::chrono::steady_clock::now()) {}
-
-    std::uint64_t GetId() const { return id; }
-    bool IsValid() const {
-      const auto now = std::chrono::steady_clock::now();
-      const auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - receive_time);
-      return duration.count() < 60;
-    }
-
-  private:
-    std::uint64_t id;
-    std::chrono::steady_clock::time_point receive_time;
-  };
-
-  std::shared_ptr<std::atomic_bool> cancel_;
-  std::unique_ptr<tracker::AnnounceParameters> parameters_;
-  State state_;
-  network::Socket socket_;
-  ConnectionId connection_id_;
-  std::uint32_t transaction_id_;
-  ByteVector buffer_;
-  std::size_t current_buffer_position_;
-  std::chrono::steady_clock::time_point timeout_time_;
-  unsigned nr_timeouts_;
-};
-
-UDPTrackerConnection::UDPTrackerConnection()
-    : state_(State::SendConnectRequest), socket_(network::TransportProtocol::UDP), transaction_id_(0), current_buffer_position_(0u),
-      nr_timeouts_(0u) {}
-
-UDPTrackerConnection::~UDPTrackerConnection() {
-  // TODO send a "stopped" event
-}
-
-std::optional<tracker::AnnounceResponse> UDPTrackerConnection::Announce(const network::URL &url,
-                                                                        const tracker::AnnounceParameters &parameters,
-                                                                        std::shared_ptr<std::atomic_bool> cancel) {
-  cancel_ = cancel;
-  parameters_ = std::make_unique<tracker::AnnounceParameters>(parameters);
-  if (!socket_.Connect(url.GetHost(), url.GetPort())) {
-    LOG_INFO(log_tag, std::format("failed to connect to {}:{}", url.GetHost(), url.GetPort()));
+std::optional<tracker::AnnounceResponse> UDPConnection::Announce(std::shared_ptr<const tracker::AnnounceParameters> parameters) {
+  parameters_ = parameters;
+  if (!socket_.Connect(url_.GetHost(), url_.GetPort())) {
+    LOG_INFO(log_tag, std::format("failed to connect to {}:{}", url_.GetHost(), url_.GetPort()));
     return {};
   }
 
-  LOG_INFO(log_tag, std::format("Connected to {}:{}", url.GetHost(), url.GetPort()));
+  LOG_INFO(log_tag, std::format("Connected to {}:{}", url_.GetHost(), url_.GetPort()));
 
   CreateConnectRequest();
   state_ = State::SendConnectRequest;
 
-  while (!*cancel) {
+  while (!cancel_flag_) {
     // TODO handle timeouts
     switch (state_) {
     case State::SendConnectRequest: {
@@ -311,7 +256,7 @@ std::optional<tracker::AnnounceResponse> UDPTrackerConnection::Announce(const ne
 
   return {};
 }
-void UDPTrackerConnection::CreateConnectRequest() {
+void UDPConnection::CreateConnectRequest() {
   transaction_id_ = GenerateTransactionId();
   ResizeBuffer(CONNECT_REQUEST_SIZE);
 
@@ -321,14 +266,14 @@ void UDPTrackerConnection::CreateConnectRequest() {
   ((std::uint32_t *)packet)[3] = network::HostToNetwork(transaction_id_);                             // Offset 12 : 32-bit transaction ID
 }
 
-void UDPTrackerConnection::CreateAnnounceRequest() {
+void UDPConnection::CreateAnnounceRequest() {
   transaction_id_ = GenerateTransactionId();
   ResizeBuffer(ANNOUNCE_REQUEST_SIZE);
 
   CreateUDPAnnounceRequest(buffer_, *parameters_, transaction_id_, connection_id_.GetId());
 }
 
-UDPTrackerConnection::SendResult UDPTrackerConnection::Send() {
+UDPConnection::SendResult UDPConnection::Send() {
   assert(current_buffer_position_ < buffer_.size());
 
   int length = static_cast<int>(buffer_.size() - current_buffer_position_);
@@ -344,7 +289,7 @@ UDPTrackerConnection::SendResult UDPTrackerConnection::Send() {
   return SendResult::Finished;
 }
 
-UDPTrackerConnection::ReceiveResult UDPTrackerConnection::Receive() {
+UDPConnection::ReceiveResult UDPConnection::Receive() {
   if (std::chrono::steady_clock::now() >= timeout_time_) {
     if (nr_timeouts_ == MAX_TIMEOUTS)
       return ReceiveResult::Error;
@@ -367,14 +312,9 @@ UDPTrackerConnection::ReceiveResult UDPTrackerConnection::Receive() {
   return ReceiveResult::Finished;
 }
 
-void UDPTrackerConnection::ResizeBuffer(std::size_t size) {
+void UDPConnection::ResizeBuffer(std::size_t size) {
   buffer_.resize(size);
   current_buffer_position_ = 0;
 }
-
-std::optional<tracker::AnnounceResponse> tracker::udp::Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters,
-                                                                std::shared_ptr<std::atomic_bool> cancel) {
-  UDPTrackerConnection connection;
-  return connection.Announce(url, *parameters, cancel);
-}
+} // namespace tracker
 } // namespace tortoise

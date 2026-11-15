@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "announce.hpp"
+#include "connection.hpp"
 #include "tiered_list.hpp"
 
 #include "../torrent/torrent_impl.hpp"
@@ -54,6 +55,7 @@ private:
     tracker::TieredList tracker_list_;
 
     std::shared_ptr<AnnounceParameters> request_parameters_;
+    std::unique_ptr<Connection> connection_;
     std::optional<std::future<std::optional<AnnounceResponse>>> request_;
     std::shared_ptr<std::atomic_bool> cancel_flag_;
   };

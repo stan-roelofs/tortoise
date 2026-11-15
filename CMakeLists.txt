@@ -64,6 +64,7 @@ set(SOURCES
   tortoise/torrent/piece_writer.cpp
   tortoise/torrent/torrent_impl.cpp
 
+  tortoise/tracker/connection.cpp
   tortoise/tracker/http_connection.cpp
   tortoise/tracker/announce.cpp
   tortoise/tracker/tiered_list.cpp

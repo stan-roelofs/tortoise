@@ -6,7 +6,6 @@
 #include <tortoise/exception.hpp>
 
 #include "../util/log.hpp"
-#include "connection.hpp"
 
 namespace {
 const std::string_view log_tag = "TrackerManager";
@@ -14,26 +13,6 @@ const std::string_view log_tag = "TrackerManager";
 
 namespace tortoise {
 namespace tracker {
-namespace {
-class UnsupportedProtocolException : public Exception {
-public:
-  UnsupportedProtocolException(const std::string &msg) : Exception(msg) {}
-};
-
-std::future<std::optional<AnnounceResponse>> Announce(network::URL url, std::shared_ptr<const AnnounceParameters> parameters,
-                                                      std::shared_ptr<std::atomic_bool> cancel) {
-  assert(parameters);
-  if (!parameters)
-    return {};
-
-  if (url.GetProtocol() == "http")
-    return std::async(std::launch::async, [=]() { return tracker::http::Announce(url, parameters, cancel); });
-  else if (url.GetProtocol() == "udp")
-    return std::async(std::launch::async, [=]() { return tracker::udp::Announce(url, parameters, cancel); });
-
-  throw UnsupportedProtocolException(url.GetProtocol());
-}
-} // namespace
 
 Manager::Manager() : running_(true), thread_(Manager::Run, std::ref(*this)) {}
 
@@ -79,7 +58,7 @@ void Manager::TorrentTrackerData::Process() {
 
   auto now = std::chrono::steady_clock::now();
 
-  if (request_.has_value()) {
+  if (request_) {
     if (!request_->valid()) {
       if (now > timeout_) {
         *cancel_flag_ = true;
@@ -131,16 +110,18 @@ void Manager::TorrentTrackerData::RequestTrackerUpdate() {
   std::scoped_lock lock(mutex_);
 
   while (!request_ && !tracker_list_.GetCurrentTracker().empty()) {
-    try {
-      const auto current_tracker = tracker_list_.GetCurrentTracker();
-      LOG_INFO(log_tag, std::format("Requesting tracker update from {}", current_tracker));
-      request_ = Announce(current_tracker, request_parameters_, cancel_flag_);
-      timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-    } catch (UnsupportedProtocolException &e) {
-      LOG_ERROR(log_tag, std::format("Unsupported protocol: {}", e.what()));
+    const auto current_tracker = tracker_list_.GetCurrentTracker();
+    LOG_INFO(log_tag, std::format("Requesting tracker update from {}", current_tracker));
+    connection_ = Connection::Create(current_tracker);
+    if (!connection_) {
+      LOG_ERROR(log_tag, std::format("Creating tracker connection failed for {}", current_tracker));
       tracker_list_.RemoveCurrentTracker();
       SelectNextTracker();
+      continue;
     }
+    request_ = std::make_optional(
+        std::async(std::launch::async, [this]() -> std::optional<AnnounceResponse> { return connection_->Announce(request_parameters_); }));
+    timeout_ = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   }
 }
 
