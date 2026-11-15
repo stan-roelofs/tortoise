@@ -119,7 +119,11 @@ bool Socket::Connect(const std::string &host, const std::string &port) {
 }
 
 Socket::Result Socket::Send(const void *data, int &length) {
+#ifdef _WIN32
+  const int bytes_sent = send(socket_, static_cast<const char *>(data), length, 0);
+#else
   const int bytes_sent = send(socket_, static_cast<const char *>(data), length, MSG_NOSIGNAL);
+#endif
   if (bytes_sent >= 0) {
     assert(bytes_sent == length);
     length = bytes_sent;
