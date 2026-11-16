@@ -15,145 +15,112 @@
 
 #include "bitfield.hpp"
 
-namespace tortoise
-{
-	struct Block
-	{
-		std::uint32_t piece_index;
-		std::uint32_t offset;
-		std::uint32_t length;
+namespace tortoise {
+struct Block {
+  std::uint32_t piece_index;
+  std::uint32_t offset;
+  std::uint32_t length;
 
-		bool operator<(const Block& other) const
-		{
-			return piece_index < other.piece_index || (piece_index == other.piece_index && offset < other.offset);
-		}
-	};
+  bool operator<(const Block &other) const {
+    return piece_index < other.piece_index || (piece_index == other.piece_index && offset < other.offset);
+  }
+};
 
-	// struct Block
-	// {
-	// 	std::uint32_t piece_index;
-	// 	std::uint32_t offset;
-	// 	std::uint32_t length;
+class PieceManager {
+public:
+  static constexpr std::uint32_t BLOCK_SIZE = 1 << 14; // 2^14 is used by near all clients and some even enforce this size.
+  using Handle = std::uint32_t;
+  static constexpr Handle INVALID_HANDLE = 0;
 
-	// 	bool operator==(const Block &other) const
-	// 	{
-	// 		return piece_index == other.piece_index && offset == other.offset && length == other.length;
-	// 	}
+  class Listener {
+  public:
+    virtual void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) = 0;
+  };
 
-	// 	bool operator!=(const Block &other) const
-	// 	{
-	// 		return !(*this == other);
-	// 	}
+  PieceManager(std::shared_ptr<const Metainfo> metainfo);
+  ~PieceManager();
 
-	// };
+  bool HaveInterestingPiece(Handle peer);
 
-	class PieceManager
-	{
-	public:
-		static constexpr std::uint32_t BLOCK_SIZE = 1 << 14; // 2^14 is used by near all clients and some even enforce this size.
-		using Handle = std::uint32_t;
-		static constexpr Handle INVALID_HANDLE = 0;
+  const Bitfield &GetBitfield() const;
 
-		class Listener
-		{
-		public:
-			virtual void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) = 0;
-		};
+  Handle RegisterPeer();
+  void UnregisterPeer(Handle peer);
 
-		PieceManager(std::shared_ptr<const Metainfo> metainfo);
-		~PieceManager();
+  void SetPeerHave(Handle peer, std::uint32_t piece);
+  void SetPeerBitfield(Handle peer, Bitfield bitfield);
+  std::vector<Block> GetRequests(Handle peer);
+  void ReceiveBlock(Handle peer, std::uint32_t piece_index, std::uint32_t offset, ByteVector block);
 
-		bool HaveInterestingPiece(Handle peer);
+  void AddListener(Listener *listener);
+  void RemoveListener(Listener *listener);
 
-		const Bitfield& GetBitfield() const;
+private:
+  struct BlockData {
+    Block block;
+    bool done;
+    ByteVector data;
+  };
+  struct Piece {
+    Piece(std::uint32_t index, std::uint32_t length) : index(index), length(length), blocks_done(false), requested(false) {}
 
-		Handle RegisterPeer();
-		void UnregisterPeer(Handle peer);
+    bool Finished() const { return blocks_done == blocks.size(); }
+    bool SetBlockData(std::uint32_t offset, ByteVector data) {
+      auto &block = blocks.at(offset / BLOCK_SIZE);
+      if (block.done)
+        return false;
 
-		void SetPeerHave(Handle peer, std::uint32_t piece);
-		void SetPeerBitfield(Handle peer, Bitfield bitfield);
-		std::vector<Block> GetRequests(Handle peer);
-		void ReceiveBlock(Handle peer, std::uint32_t piece_index, std::uint32_t offset, ByteVector block);
+      ++blocks_done;
+      block.data = std::move(data);
+      block.done = true;
+      return true;
+    }
 
-		void AddListener(Listener* listener);
-		void RemoveListener(Listener* listener);
+    void Reset() {
+      blocks_done = 0;
+      for (auto &block : blocks) {
+        block.done = false;
+        block.data.clear();
+      }
+      requested = false;
+    }
 
-	private:
-		struct BlockData
-		{
-			Block block;
-			bool done;
-			ByteVector data;
-		};
-		struct Piece
-		{
-			Piece(std::uint32_t index, std::uint32_t length) : index(index), length(length), blocks_done(false), requested(false)
-			{
-			}
+    std::shared_ptr<ByteVector> ReleaseBlockData() {
+      std::shared_ptr<ByteVector> data = std::make_shared<ByteVector>();
+      data->reserve(length);
+      for (auto &block : blocks) {
+        std::copy(block.data.begin(), block.data.end(), std::back_inserter(*data));
+        block.data = ByteVector();
+      }
+      return data;
+    }
 
-			bool Finished() const { return blocks_done == blocks.size(); }
-			bool SetBlockData(std::uint32_t offset, ByteVector data)
-			{
-				auto& block = blocks.at(offset / BLOCK_SIZE);
-				if (block.done)
-					return false;
+    std::uint32_t index;
+    std::uint32_t length;
+    std::vector<BlockData> blocks;
+    std::size_t blocks_done;
+    bool requested;
+  };
+  struct PeerData {
+    Bitfield bitfield;
+    std::vector<uint32_t> piece_queue;
+  };
 
-				++blocks_done;
-				block.data = std::move(data);
-				block.done = true;
-				return true;
-			}
+  const std::shared_ptr<const Metainfo> metainfo_;
 
-			void Reset()
-			{
-				blocks_done = 0;
-				for (auto& block : blocks)
-				{
-					block.done = false;
-					block.data.clear();
-				}
-				requested = false;
-			}
+  std::vector<Piece> pieces_;
+  std::size_t pieces_done_;
+  std::size_t pieces_requested_;
+  bool endgame_mode_;
+  std::map<Handle, PeerData> peers_;
 
-			std::shared_ptr<ByteVector> ReleaseBlockData()
-			{
-				std::shared_ptr<ByteVector> data = std::make_shared<ByteVector>();
-				data->reserve(length);
-				for (auto& block : blocks)
-				{
-					std::copy(block.data.begin(), block.data.end(), std::back_inserter(*data));
-					block = {};
-				}
-				return data;
-			}
+  std::set<Listener *> listeners_;
 
-			std::uint32_t index;
-			std::uint32_t length;
-			std::vector<BlockData> blocks;
-			std::size_t blocks_done;
-			bool requested;
-		};
-		struct PeerData
-		{
-			Bitfield bitfield;
-			std::vector<uint32_t> piece_queue;
-		};
+  std::queue<Handle> unused_handles_;
+  Handle next_handle_;
 
-		const std::shared_ptr<const Metainfo> metainfo_;
-
-		std::vector<Piece> pieces_;
-		std::size_t pieces_done_;
-		std::size_t pieces_requested_;
-		bool endgame_mode_;
-		std::map<Handle, PeerData> peers_;
-
-		std::set<Listener*> listeners_;
-
-		std::queue<Handle> unused_handles_;
-		Handle next_handle_;
-
-		Bitfield bitfield_;
-	};
+  Bitfield bitfield_;
+};
 } // namespace tortoise
 
 #endif

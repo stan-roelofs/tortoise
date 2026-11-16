@@ -13,104 +13,88 @@
 
 #include <tortoise/exception.hpp>
 
-namespace tortoise
-{
-	/*! \brief A thread-safe queue that can accept events of any type and notify subscribers of the event.*/
-	class EventQueue
-	{
-	public:
-		using Token = std::uint64_t;
+namespace tortoise {
+/*! \brief A thread-safe queue that can accept events of any type and notify subscribers of the event.*/
+class EventQueue {
+public:
+  using Token = std::uint64_t;
 
-		EventQueue() : next_token_(0) {}
+  EventQueue() : next_token_(0) {}
 
-		/*! \brief Subscribe to an event type.
-		 *
-		 * \param callback The callback to be called when the event is triggered.
-		 * \return A token that identifies the subscription.
-		 */
-		template <class T>
-		Token Subscribe(const std::function<void(const T&)>& callback)
-		{
-			std::type_index type = std::type_index(typeid(T));
+  /*! \brief Subscribe to an event type.
+   *
+   * \param callback The callback to be called when the event is triggered.
+   * \return A token that identifies the subscription.
+   */
+  template <class T> Token Subscribe(const std::function<void(const T &)> &callback) {
+    std::type_index type = std::type_index(typeid(T));
 
-			std::scoped_lock lock(subscribers_.mutex);
+    std::scoped_lock lock(subscribers_.mutex);
 
-			Token token;
-			if (!subscribers_.removed.empty())
-			{
-				token = subscribers_.removed.front();
-				subscribers_.removed.pop();
-			}
-			else
-				token = next_token_++;
+    Token token;
+    if (!subscribers_.removed.empty()) {
+      token = subscribers_.removed.front();
+      subscribers_.removed.pop();
+    } else
+      token = next_token_++;
 
-			const auto [it, success] = subscribers_.current[type].insert({ token, [callback](const void* event)
-																		  { callback(*static_cast<const T*>(event)); } });
-			if (!success)
-				throw Exception("Failed to subscribe to event");
-			return token;
-		}
+    const auto [it, success] =
+        subscribers_.current[type].insert({token, [callback](const void *event) { callback(*static_cast<const T *>(event)); }});
+    if (!success)
+      throw Exception("Failed to subscribe to event");
+    return token;
+  }
 
-		template <class T>
-		void Push(const T& event)
-		{
-			std::scoped_lock lock(queued_events_.mutex);
-			queued_events_.values.push_back([this, event]
-				{ ProcessEvent(event); });
-		}
+  template <class T> void Push(const T &event) {
+    std::scoped_lock lock(queued_events_.mutex);
+    queued_events_.values.push_back([this, event] { ProcessEvent(event); });
+  }
 
-		//! \brief Processes all events in the queue, this should be called regularly.
-		void Process()
-		{
-			for (;;)
-			{
-				std::function<void()> event;
-				{
-					std::scoped_lock lock(queued_events_.mutex);
-					if (queued_events_.values.empty())
-						break;
+  //! \brief Processes all events in the queue, this should be called regularly.
+  void Process() {
+    for (;;) {
+      std::function<void()> event;
+      {
+        std::scoped_lock lock(queued_events_.mutex);
+        if (queued_events_.values.empty())
+          break;
 
-					event = queued_events_.values.front();
-					queued_events_.values.pop_front();
-				}
+        event = queued_events_.values.front();
+        queued_events_.values.pop_front();
+      }
 
-				event();
-			}
-		}
+      event();
+    }
+  }
 
-	private:
-		void Unsubscribe(std::type_index type, Token token)
-		{
-			std::scoped_lock lock(subscribers_.mutex);
-			subscribers_.current[type].erase(token);
-			subscribers_.removed.push(token);
-		}
+private:
+  void Unsubscribe(std::type_index type, Token token) {
+    std::scoped_lock lock(subscribers_.mutex);
+    subscribers_.current[type].erase(token);
+    subscribers_.removed.push(token);
+  }
 
-		template <class T>
-		void ProcessEvent(const T& event)
-		{
-			auto type = std::type_index(typeid(T));
+  template <class T> void ProcessEvent(const T &event) {
+    auto type = std::type_index(typeid(T));
 
-			std::scoped_lock lock(subscribers_.mutex);
-			for (auto& subscriber : subscribers_.current[type])
-				subscriber.second(&event);
-		}
+    std::scoped_lock lock(subscribers_.mutex);
+    for (auto &subscriber : subscribers_.current[type])
+      subscriber.second(&event);
+  }
 
-		struct
-		{
-			std::map<std::type_index, std::map<Token, std::function<void(const void*)>>> current;
-			std::queue<Token> removed;
-			std::recursive_mutex mutex;
-		} subscribers_;
+  struct {
+    std::map<std::type_index, std::map<Token, std::function<void(const void *)>>> current;
+    std::queue<Token> removed;
+    std::recursive_mutex mutex;
+  } subscribers_;
 
-		struct
-		{
-			std::list<std::function<void()>> values;
-			std::recursive_mutex mutex;
-		} queued_events_;
+  struct {
+    std::list<std::function<void()>> values;
+    std::recursive_mutex mutex;
+  } queued_events_;
 
-		Token next_token_;
-	};
+  Token next_token_;
+};
 } // namespace tortoise
 
 #endif

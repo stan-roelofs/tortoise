@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.11)
 set(CMAKE_CXX_STANDARD 20)
- 
-project(Tortoise VERSION 0.2.0 LANGUAGES CXX)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+project(Tortoise VERSION 1.0.0 LANGUAGES CXX)
 configure_file(cmake/version.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/include/tortoise/version.hpp)
 
 option(TORTOISE_BUILD_APP "Build application" ON)
@@ -63,6 +64,7 @@ set(SOURCES
   tortoise/torrent/piece_writer.cpp
   tortoise/torrent/torrent_impl.cpp
 
+  tortoise/tracker/connection.cpp
   tortoise/tracker/http_connection.cpp
   tortoise/tracker/announce.cpp
   tortoise/tracker/tiered_list.cpp
@@ -80,6 +82,9 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 target_link_libraries(tortoise PRIVATE Threads::Threads)
 
+find_package(OpenSSL)
+target_link_libraries(tortoise PRIVATE OpenSSL::SSL)
+
 if (WIN32)
   target_link_libraries(tortoise PRIVATE ws2_32)
 endif()
@@ -91,7 +96,10 @@ else()
   target_compile_options(tortoise PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-target_include_directories(tortoise PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(tortoise 
+PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external
+)
 
 if(TORTOISE_BUILD_TESTS)
   enable_testing()

@@ -1,11 +1,10 @@
 #ifndef TORTOISE_VERSION_HPP
 #define TORTOISE_VERSION_HPP
 
-namespace tortoise
-{
-    static constexpr int VERSION_MAJOR = @Tortoise_VERSION_MAJOR@;
-    static constexpr int VERSION_MINOR = @Tortoise_VERSION_MINOR@;
-    static constexpr int VERSION_PATCH = @Tortoise_VERSION_PATCH@;
-}
+namespace tortoise {
+static constexpr int VERSION_MAJOR = @Tortoise_VERSION_MAJOR@;
+static constexpr int VERSION_MINOR = @Tortoise_VERSION_MINOR@;
+static constexpr int VERSION_PATCH = @Tortoise_VERSION_PATCH@;
+} // namespace tortoise
 
 #endif
