@@ -19,3 +19,9 @@ jobs:
 
       - name: Test
         run: ctest -C Release -V
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: ${{github.workspace}}/build/tortoise_app/tortoise_app
