@@ -11,7 +11,7 @@
 namespace tortoise {
 class Torrent;
 
-enum class TorrentStatus { Downloading, Seeding, Stopped };
+enum class TorrentState { Preparing, Downloading, Seeding, Stopped };
 
 struct Statistics {
   /// Upload rate in bytes per second
@@ -44,10 +44,10 @@ public:
   //! \brief Returns the current statistics of the torrent
   Statistics GetStatistics() const;
 
-  /*! \brief Returns the status of the torrent.
+  /*! \brief Returns the state of the torrent.
    *  \throws InvalidHandleException if the torrent is not valid.
    */
-  TorrentStatus GetStatus() const;
+  TorrentState GetState() const;
 
   bool IsValid() const;
   operator bool() const;

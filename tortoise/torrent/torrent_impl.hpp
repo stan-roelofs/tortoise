@@ -1,10 +1,8 @@
 #ifndef TORTOISE_TORRENT_IMPL_HPP
 #define TORTOISE_TORRENT_IMPL_HPP
 
-#include <atomic>
 #include <chrono>
 #include <list>
-#include <map>
 #include <thread>
 
 #include <tortoise/event.hpp>
@@ -13,9 +11,7 @@
 
 #include "../event_queue.hpp"
 #include "peer.hpp"
-#include "peer_connection.hpp"
 #include "piece_manager.hpp"
-#include "piece_writer.hpp"
 
 namespace tortoise {
 class Torrent : public std::enable_shared_from_this<Torrent>, public PieceManager::Listener {
@@ -37,11 +33,11 @@ public:
   std::shared_ptr<const Metainfo> GetMetainfo() const;
   PeerId GetPeerId() const;
   Statistics GetStatistics() const;
-  TorrentStatus GetStatus() const;
+  TorrentState GetState() const;
 
 private:
   void OnNewPeers(const std::vector<PeerInfo> &new_peers);
-  void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) override;
+  void OnPieceDownloaded(std::uint32_t piece_index) override;
   void OnTorrentDownloaded();
   void OnWriteError();
 
@@ -50,14 +46,13 @@ private:
 
   void Run(std::stop_token token);
   void ProcessPeers();
-  void SetStatus(TorrentStatus status);
+  void SetState(TorrentState status);
 
   const std::shared_ptr<const TorrentParameters> parameters_;
   const std::shared_ptr<const Metainfo> metainfo_;
   const PeerId peer_id_;
 
   EventQueue &event_queue_;
-  PieceWriter piece_writer_;
   PieceManager piece_manager_;
 
   mutable std::recursive_mutex peer_mutex_;
@@ -68,7 +63,7 @@ private:
 
   mutable std::recursive_mutex data_mutex_;
   Statistics statistics_;
-  TorrentStatus status_;
+  TorrentState state_;
   std::jthread thread_;
 };
 } // namespace tortoise

@@ -203,7 +203,8 @@ std::optional<tortoise::tracker::AnnounceResponse> ParseAnnounceResponse(const s
 
         PeerInfo info(ip, static_cast<std::uint16_t>(port));
         try {
-          info.peer_id = PeerId::FromString(peer_id);
+          if (!peer_id.empty())
+            info.peer_id = PeerId::FromString(peer_id);
         } catch (const InvalidArgumentException &) {
           LOG_WARN("HTTPTrackerConnection", std::format("Ignored invalid peer id: {}", peer_id));
         }

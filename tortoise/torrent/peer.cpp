@@ -44,9 +44,13 @@ Peer::Peer(PeerInfo peer_info, std::shared_ptr<const TorrentParameters> torrent_
     throw InvalidArgumentException("Invalid pointer");
 
   handle_ = piece_manager_.RegisterPeer();
+  piece_manager_.AddListener(this);
 }
 
-Peer::~Peer() { piece_manager_.UnregisterPeer(handle_); }
+Peer::~Peer() {
+  piece_manager_.UnregisterPeer(handle_);
+  piece_manager_.RemoveListener(this);
+}
 
 const PeerInfo &Peer::GetPeerInfo() const { return peer_info_; }
 
@@ -130,7 +134,7 @@ void Peer::MakeRequests() {
   }
 }
 
-void Peer::OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector>) {
+void Peer::OnPieceDownloaded(std::uint32_t piece_index) {
   if (connection_status_ != PeerConnection::Status::Connected)
     return;
   connection_.SendHave(piece_index);

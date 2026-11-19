@@ -20,7 +20,7 @@ struct TorrentError {
 
 struct TorrentStatusChanged {
   TorrentHandle handle;
-  TorrentStatus status;
+  TorrentState status;
 };
 
 struct PeerStatusChanged {

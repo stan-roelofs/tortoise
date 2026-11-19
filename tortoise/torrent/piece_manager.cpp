@@ -18,9 +18,9 @@ const std::string log_tag = "PieceManager";
 } // namespace
 
 namespace tortoise {
-PieceManager::PieceManager(std::shared_ptr<const Metainfo> metainfo)
+PieceManager::PieceManager(std::shared_ptr<const Metainfo> metainfo, const std::filesystem::path &save_path)
     : metainfo_(std::move(metainfo)), pieces_done_(0), pieces_requested_(0), endgame_mode_(false), next_handle_(1),
-      bitfield_(metainfo_->pieces.size()) {
+      bitfield_(metainfo_->pieces.size()), piece_writer_(metainfo_, save_path) {
   std::size_t total_length = 0;
   for (const auto &file : metainfo_->files)
     total_length += file.length;
@@ -180,13 +180,17 @@ void PieceManager::ReceiveBlock(Handle, std::uint32_t piece_index, std::uint32_t
     return;
   }
 
+  LOG_INFO(log_tag, std::format("Piece {} downloaded", piece_index));
   ++pieces_done_;
+  piece_writer_.WritePiece(piece_index, piece_data);
   for (const auto &listener : listeners_)
-    listener->OnPieceDownloaded(piece_index, piece_data);
+    listener->OnPieceDownloaded(piece_index);
 }
 
 void PieceManager::AddListener(Listener *listener) { listeners_.insert(listener); }
 
 void PieceManager::RemoveListener(Listener *listener) { listeners_.erase(listener); }
+
+bool PieceManager::FilesPrepared() const { return piece_writer_.GetState() == PieceWriter::State::Writing; }
 
 } // namespace tortoise

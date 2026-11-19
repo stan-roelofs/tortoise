@@ -6,7 +6,6 @@
 #include <tortoise/peer_info.hpp>
 #include <tortoise/torrent_parameters.hpp>
 
-#include "bitfield.hpp"
 #include "peer_connection.hpp"
 #include "piece_manager.hpp"
 
@@ -42,7 +41,7 @@ private:
   void MakeRequests();
 
   // Inherited via Listener
-  void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) override;
+  void OnPieceDownloaded(std::uint32_t piece_index) override;
 
   std::shared_ptr<const TorrentParameters> torrent_parameters_;
   std::shared_ptr<const Metainfo> metainfo_;

@@ -84,6 +84,21 @@ std::string GetProgressBar(unsigned width, unsigned pieces_downloaded, unsigned 
   assert(result.size() == expected_width);
   return result;
 }
+
+std::string StateToString(tortoise::TorrentState state) {
+  switch (state) {
+  case tortoise::TorrentState::Preparing:
+    return "Preparing";
+  case tortoise::TorrentState::Downloading:
+    return "Downloading";
+  case tortoise::TorrentState::Seeding:
+    return "Seeding";
+  case tortoise::TorrentState::Stopped:
+    return "Stopped";
+  default:
+    return "Unknown";
+  }
+}
 } // namespace
 
 Application::Application(CommandLineArguments args) : args_(args), handle_({}) {
@@ -123,15 +138,17 @@ bool Application::AddTorrent(const std::string &torrent_file) {
 
 void Application::OnTorrentStatusChanged(const tortoise::event::TorrentStatusChanged &event) {
   switch (event.status) {
-  case tortoise::TorrentStatus::Downloading:
+  case tortoise::TorrentState::Downloading:
     // std::cout << "Torrent downloading: " << event.handle.GetMetainfo()->name << std::endl;
     break;
-  case tortoise::TorrentStatus::Seeding:
+  case tortoise::TorrentState::Seeding:
     std::cout << "Torrent downloaded: " << event.handle.GetMetainfo()->name << std::endl;
     running_ = false;
     break;
-  case tortoise::TorrentStatus::Stopped:
+  case tortoise::TorrentState::Stopped:
     // std::cout << "Torrent stopped: " << event.handle.GetMetainfo()->name << std::endl;
+    break;
+  case tortoise::TorrentState::Preparing:
     break;
   }
 }
@@ -187,15 +204,13 @@ int Application::Run() {
   while (running_) {
     session_->HandleEvents();
 
-    if (handle_.GetStatus() == tortoise::TorrentStatus::Downloading) {
-      const std::string peers = std::format("Peers: {}", data_->peers.size());
-      const std::string download_rate = GetDownloadRate(handle_);
-      auto progress_bar_width = GetConsoleWidth() - name.size() - download_rate.size() - peers.size() - 6;
-      std::cout << std::format("{} {} | {} | {}\r", name,
-                               GetProgressBar(progress_bar_width, data_->pieces_downloaded, data_->have_pieces.size()), download_rate,
-                               peers)
-                << std::flush;
-    }
+    const std::string state = StateToString(handle_.GetState());
+    const std::string peers = std::format("Peers: {}", data_->peers.size());
+    const std::string download_rate = GetDownloadRate(handle_);
+    auto progress_bar_width = GetConsoleWidth() - name.size() - state.size() - download_rate.size() - peers.size() - 10;
+    std::cout << std::format("{} | {} {} | {} | {}\r", name, state,
+                             GetProgressBar(progress_bar_width, data_->pieces_downloaded, data_->have_pieces.size()), download_rate, peers)
+              << std::flush;
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }

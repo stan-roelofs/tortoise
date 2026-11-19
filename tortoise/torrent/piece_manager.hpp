@@ -2,11 +2,8 @@
 #define TORTOISE_PIECE_MANAGER_HPP
 
 #include <cstdint>
-#include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <queue>
 #include <set>
 #include <vector>
@@ -14,6 +11,7 @@
 #include <tortoise/metainfo.hpp>
 
 #include "bitfield.hpp"
+#include "piece_writer.hpp"
 
 namespace tortoise {
 struct Block {
@@ -34,10 +32,10 @@ public:
 
   class Listener {
   public:
-    virtual void OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) = 0;
+    virtual void OnPieceDownloaded(std::uint32_t piece_index) = 0;
   };
 
-  PieceManager(std::shared_ptr<const Metainfo> metainfo);
+  PieceManager(std::shared_ptr<const Metainfo> metainfo, const std::filesystem::path &save_path);
   ~PieceManager();
 
   bool HaveInterestingPiece(Handle peer);
@@ -54,6 +52,8 @@ public:
 
   void AddListener(Listener *listener);
   void RemoveListener(Listener *listener);
+
+  bool FilesPrepared() const;
 
 private:
   struct BlockData {
@@ -120,6 +120,8 @@ private:
   Handle next_handle_;
 
   Bitfield bitfield_;
+
+  PieceWriter piece_writer_;
 };
 } // namespace tortoise
 

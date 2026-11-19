@@ -39,11 +39,11 @@ Statistics TorrentHandle::GetStatistics() const {
   return ptr_.lock()->GetStatistics();
 }
 
-TorrentStatus TorrentHandle::GetStatus() const {
+TorrentState TorrentHandle::GetState() const {
   if (!IsValid())
     throw InvalidHandleException("TorrentHandle is not valid");
 
-  return ptr_.lock()->GetStatus();
+  return ptr_.lock()->GetState();
 }
 
 TorrentHandle::operator bool() const { return IsValid(); }
@@ -54,9 +54,8 @@ bool TorrentHandle::operator!=(const TorrentHandle &other) const { return !(*thi
 
 Torrent::Torrent(TorrentParameters parameters, Torrent::PeerInfoProvider &peer_info_provider, EventQueue &event_queue)
     : parameters_(std::make_shared<TorrentParameters>(parameters)), metainfo_(std::make_shared<Metainfo>(parameters.metainfo)),
-      event_queue_(event_queue), piece_writer_(*metainfo_, parameters_->save_path,
-                                               {std::bind(&Torrent::OnWriteError, this), std::bind(&Torrent::OnTorrentDownloaded, this)}),
-      piece_manager_(metainfo_), peer_info_provider_(peer_info_provider), status_(TorrentStatus::Stopped) {
+      event_queue_(event_queue), piece_manager_(metainfo_, parameters.save_path), peer_info_provider_(peer_info_provider),
+      state_(TorrentState::Stopped) {
   peer_info_provider_.RegisterTorrent(*this, std::bind(&Torrent::OnNewPeers, this, std::placeholders::_1));
   piece_manager_.AddListener(this);
 }
@@ -74,28 +73,43 @@ void Torrent::Run(std::stop_token token) {
   LOG_INFO("Torrent", "Torrent started");
 
   while (!token.stop_requested()) {
-    ProcessPeers();
-    UpdateStatistics();
+    switch (GetState()) {
+    case TorrentState::Preparing:
+      if (piece_manager_.FilesPrepared()) {
+        LOG_INFO("Torrent", "Torrent files prepared");
+        SetState(TorrentState::Downloading);
+      }
+      break;
+
+    case TorrentState::Downloading:
+    case TorrentState::Seeding:
+      ProcessPeers();
+      UpdateStatistics();
+      break;
+
+    case TorrentState::Stopped:
+      break;
+    }
   }
 
   LOG_INFO("Torrent", "Torrent stopped");
-  SetStatus(TorrentStatus::Stopped);
+  SetState(TorrentState::Stopped);
 }
 
-void Torrent::SetStatus(TorrentStatus status) {
+void Torrent::SetState(TorrentState status) {
   std::scoped_lock lock(data_mutex_);
-  if (status_ == status)
+  if (state_ == status)
     return;
-  status_ = status;
+  state_ = status;
   event_queue_.Push(event::TorrentStatusChanged{weak_from_this(), status});
 }
 
 bool Torrent::RequestStart() {
   std::scoped_lock lock(data_mutex_);
 
-  if (status_ != TorrentStatus::Stopped)
+  if (state_ != TorrentState::Stopped)
     return false;
-  SetStatus(TorrentStatus::Downloading);
+  SetState(TorrentState::Preparing);
 
   thread_ = std::jthread([this](std::stop_token token) { Run(token); });
   return true;
@@ -105,7 +119,7 @@ void Torrent::RequestStop(bool wait) {
   {
     std::scoped_lock lock(data_mutex_);
 
-    if (status_ == TorrentStatus::Stopped)
+    if (state_ == TorrentState::Stopped)
       return;
 
     thread_.request_stop();
@@ -123,9 +137,9 @@ Statistics Torrent::GetStatistics() const {
   return statistics_;
 }
 
-TorrentStatus Torrent::GetStatus() const {
+TorrentState Torrent::GetState() const {
   std::scoped_lock lock(data_mutex_);
-  return status_;
+  return state_;
 }
 
 void Torrent::OnNewPeers(const std::vector<PeerInfo> &new_peers) {
@@ -141,10 +155,7 @@ void Torrent::OnNewPeers(const std::vector<PeerInfo> &new_peers) {
   }
 }
 
-void Torrent::OnPieceDownloaded(std::uint32_t piece_index, std::shared_ptr<const ByteVector> data) {
-  event_queue_.Push(event::PieceDownloaded{weak_from_this(), piece_index});
-  piece_writer_.WritePiece(piece_index, data);
-}
+void Torrent::OnPieceDownloaded(std::uint32_t piece_index) { event_queue_.Push(event::PieceDownloaded{weak_from_this(), piece_index}); }
 
 void Torrent::OnWriteError() {
   event_queue_.Push(event::TorrentError{weak_from_this(), event::TorrentError::Code::FileError});
@@ -152,8 +163,8 @@ void Torrent::OnWriteError() {
 }
 
 void Torrent::OnTorrentDownloaded() {
-  status_ = TorrentStatus::Seeding;
-  event_queue_.Push(event::TorrentStatusChanged{weak_from_this(), TorrentStatus::Seeding});
+  state_ = TorrentState::Seeding;
+  event_queue_.Push(event::TorrentStatusChanged{weak_from_this(), TorrentState::Seeding});
 }
 
 void Torrent::RequestPeers() {
